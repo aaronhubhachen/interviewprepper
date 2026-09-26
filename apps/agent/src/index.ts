@@ -10,7 +10,8 @@ import { Spectrum, type Message, type Space } from "spectrum-ts";
 import { imessage } from "spectrum-ts/providers/imessage";
 import { terminal } from "spectrum-ts/providers/terminal";
 import { evaluateAnswer, getConfig, llmStatus, openStore, type SynapseConfig, type SynapseStore } from "@synapse/core";
-import { agentPolicyFromConfig, preview, StudyController, type SenderInfo } from "./controller";
+import { agentPolicyFromConfig, StudyController } from "./controller";
+import { dispatchSpectrumMessage } from "./dispatch";
 import { ownerHello } from "./messages";
 
 const TAG = "[synapse-agent]";
@@ -202,9 +203,14 @@ async function main(): Promise<void> {
   process.once("SIGTERM", () => void shutdown("SIGTERM"));
   process.on("unhandledRejection", (error) => logError("unhandled rejection", error));
 
+  const dispatchOptions = {
+    platform: useTerminal ? "terminal" : "imessage",
+    log,
+    onError: (what: string, error: unknown) => logError(`${what} handler failed`, error),
+  };
   for await (const [space, message] of connection.messages) {
     try {
-      route(controller, space, message, useTerminal);
+      dispatchSpectrumMessage(controller, space, message, dispatchOptions);
     } catch (error) {
       logError("message failed", error);
     }
@@ -217,29 +223,6 @@ async function main(): Promise<void> {
   await Promise.race([controller.idle(), new Promise((resolve) => setTimeout(resolve, 3_000))]);
   store.close();
   process.exit(1);
-}
-
-/** Dispatches without awaiting: the controller serializes per chat, so one slow LLM grade never blocks other users. */
-function route(controller: StudyController<Space>, space: Space, message: Message, useTerminal: boolean): void {
-  if (message.direction === "outbound" || message.sender?.kind === "agent") return;
-  const who = message.sender?.id ?? "unknown";
-  const sender: SenderInfo = { handle: message.sender?.id ?? null, platform: useTerminal ? "terminal" : "imessage" };
-  const content = message.content;
-
-  if (content.type === "text") {
-    log(`← ${who}: ${preview(content.text)}`);
-    void controller.handleText(space, content.text, sender).catch((error) => logError("text handler failed", error));
-    return;
-  }
-  if (content.type === "reaction") {
-    const targetId = content.target?.id;
-    log(`← ${who} tapped ${content.emoji} on ${targetId ?? "?"}`);
-    void controller
-      .handleReaction(space, content.emoji, targetId, sender)
-      .catch((error) => logError("reaction handler failed", error));
-    return;
-  }
-  log(`← ${who}: ${content.type} (ignored)`);
 }
 
 main().catch((error: unknown) => {

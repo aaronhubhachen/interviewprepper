@@ -31,12 +31,14 @@ import {
   type SynapseStore,
 } from "@synapse/core";
 import { StudyController, type ChatSpace, type Evaluator } from "./controller";
+import { dispatchSpectrumMessage, type InboundMessage } from "./dispatch";
 
 const TZ = "America/Chicago";
 const DAY_MS = 60_000;
 const SECOND = 1_000;
 const HOUR = 3_600_000;
 const USER = "me";
+const HANDLE = "+15555550123";
 
 const args = new Set(process.argv.slice(2));
 const offline = args.has("--heuristic");
@@ -190,16 +192,25 @@ async function main(): Promise<void> {
     log: verbose ? (line) => console.log(`${" ".repeat(14)} ${"· log".padEnd(LABEL_WIDTH)} │ ${line}`) : () => undefined,
   });
 
+  // Inbound messages go through the same dispatch as the live agent (index.ts), as Spectrum-shaped events.
+  let inboundSeq = 0;
+  const deliver = (content: InboundMessage["content"]) =>
+    dispatchSpectrumMessage(
+      controller,
+      space,
+      { id: `sim-in-${++inboundSeq}`, direction: "inbound", sender: { id: HANDLE }, content },
+      { platform: "simulator" },
+    ).done;
   const you = async (text: string, afterMs = 12 * SECOND) => {
     clock.advance(afterMs);
     bubble(clock, "🙋 You", text);
-    await controller.handleText(space, text, { handle: "+15555550123" });
+    await deliver({ type: "text", text });
   };
   const tap = async (emoji: string, targetId: string | undefined, afterMs = 6 * SECOND) => {
     clock.advance(afterMs);
     const target = targetId ? space.sent.get(targetId) : undefined;
     bubble(clock, "🙋 You", `(tapped ${emoji} on "${firstLine(target ?? "?")}")`);
-    await controller.handleReaction(space, emoji, targetId, { handle: "+15555550123" });
+    await deliver({ type: "reaction", emoji, target: targetId ? { id: targetId } : null });
   };
   const tick = async (label: string) => {
     const report = await controller.tick(clock.now());

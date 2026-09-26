@@ -88,6 +88,8 @@ export interface HarnessOptions {
 
 export interface Harness {
   store: SynapseStore;
+  /** The temp SQLite file behind `store` (open a second connection to inspect rows). */
+  dbPath: string;
   controller: StudyController<FakeSpace>;
   space: FakeSpace;
   clock: Clock;
@@ -99,7 +101,8 @@ const heuristic: Evaluator = async (input) => heuristicEvaluation(input);
 /** Temp-file store + controller with a fake clock and the deterministic heuristic grader. */
 export function createHarness(options: HarnessOptions): Harness {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "synapse-agent-"));
-  const store = openStore(path.join(dir, "synapse.db"), {
+  const dbPath = path.join(dir, "synapse.db");
+  const store = openStore(dbPath, {
     timezone: CHI,
     dayMs: options.dayMs ?? DAY,
     morningHour: options.morningHour ?? 9,
@@ -123,6 +126,7 @@ export function createHarness(options: HarnessOptions): Harness {
   });
   return {
     store,
+    dbPath,
     controller,
     space: new FakeSpace(),
     clock,
