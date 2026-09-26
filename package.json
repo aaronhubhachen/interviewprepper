@@ -1,0 +1,30 @@
+{
+  "name": "synapse",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Synapse: a spaced-repetition SWE interview engine (Anki for LeetCode) over iMessage + web.",
+  "type": "module",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "concurrently --names web,agent --prefix-colors cyan,magenta --kill-others-on-fail \"npm:dev:web\" \"npm:dev:agent\"",
+    "dev:web": "npm run dev -w @synapse/web",
+    "dev:agent": "npm run dev -w @synapse/agent",
+    "agent:terminal": "npm run terminal -w @synapse/agent",
+    "agent:simulate": "npm run simulate -w @synapse/agent",
+    "test": "npm run test --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "build": "npm run build -w @synapse/web"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1",
+    "tsx": "^4.20.6",
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.4"
+  }
+}

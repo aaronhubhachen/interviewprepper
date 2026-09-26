@@ -1,0 +1,53 @@
+/** Text helpers shared by the agent (iMessage shows plain text only) and the evaluators. */
+
+const LATEX_WORDS: Record<string, string> = {
+  log: "log",
+  cdot: "·",
+  times: "×",
+  le: "≤",
+  ge: "≥",
+  in: "∈",
+  to: "→",
+};
+
+/**
+ * Strips markdown and LaTeX so text reads naturally in iMessage:
+ * "**O(1)** via `map`" → "O(1) via map", "$O(n \log n)$" → "O(n log n)".
+ */
+export function toPlainText(text: string): string {
+  return text
+    .replace(/```[a-z]*\n?([\s\S]*?)```/gi, "$1")
+    .replace(/`([^`]*)`/g, "$1")
+    .replace(/\$\$([\s\S]*?)\$\$/g, "$1")
+    .replace(/\$([^$\n]+)\$/g, "$1")
+    .replace(/\\\(|\\\)|\\\[|\\\]/g, "")
+    .replace(/\\(log|cdot|times|le|ge|in|to)\b/g, (_, command: string) => LATEX_WORDS[command] ?? command)
+    .replace(/\*\*([^*]+)\*\*/g, "$1")
+    .replace(/__([^_]+)__/g, "$1")
+    .replace(/(^|\s)\*([^*\n]+)\*(?=\s|$|[.,!?])/g, "$1$2")
+    .replace(/^#{1,6}\s+/gm, "")
+    .replace(/^\s*[-*]\s+/gm, "• ")
+    .replace(/[ \t]+/g, " ")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+/** Keeps at most `maxSentences` sentences and `maxChars` characters (ellipsis when cut). */
+export function clampSentences(text: string, maxSentences: number, maxChars = 320): string {
+  const normalized = text.replace(/\s+/g, " ").trim();
+  const kept = normalized
+    .split(/(?<=[.!?])\s+/)
+    .slice(0, maxSentences)
+    .join(" ");
+  if (kept.length <= maxChars) return kept;
+  const cut = kept.slice(0, maxChars - 1);
+  const lastSpace = cut.lastIndexOf(" ");
+  return `${(lastSpace > maxChars * 0.6 ? cut.slice(0, lastSpace) : cut).trimEnd()}…`;
+}
+
+/** Wraps untrusted user text in labeled delimiters for LLM prompts, truncating and neutralizing fake closing tags. */
+export function fenceUntrusted(label: string, text: string, maxChars = 4000): string {
+  const clipped = text.length > maxChars ? `${text.slice(0, maxChars)} [truncated]` : text;
+  const safe = clipped.replace(new RegExp(`</?${label}>`, "gi"), "");
+  return `<${label}>\n${safe}\n</${label}>`;
+}

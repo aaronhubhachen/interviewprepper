@@ -1,0 +1,34 @@
+{
+  "name": "@synapse/core",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Synapse domain core: SM-2 scheduling, content registry, SQLite store, LLM evaluation, judge.",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./browser": "./src/browser.ts",
+    "./content": "./src/content/index.ts",
+    "./grading": "./src/grading.ts",
+    "./judge": "./src/judge/index.ts",
+    "./sm2": "./src/sm2.ts",
+    "./tapback": "./src/tapback.ts",
+    "./text": "./src/text.ts",
+    "./time": "./src/time.ts",
+    "./transcript": "./src/transcript.ts"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit -p ."
+  },
+  "dependencies": {
+    "better-sqlite3": "^12.11.1",
+    "dotenv": "^16.6.1",
+    "openai": "^4.104.0",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/node": "^22.20.4",
+    "pyodide": "0.29.5"
+  }
+}
