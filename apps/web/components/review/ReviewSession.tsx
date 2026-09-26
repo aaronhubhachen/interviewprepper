@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useReducer, useRef, useState } from "react";
-import { tagLabel, type Tag } from "@synapse/core/content";
+import { tagLabel, type Tag } from "@synapse/core/tags";
 import type { Rating } from "@synapse/core/sm2";
 import type { TextGrade } from "@synapse/core/tapback";
 import { SynapseGlyph } from "@/components/shell/SynapseGlyph";
@@ -15,10 +15,9 @@ import { Pill } from "@/components/ui/Pill";
 import { Spinner } from "@/components/ui/Spinner";
 import { TapbackButtons } from "@/components/ui/TapbackButtons";
 import { useToast } from "@/components/ui/Toast";
-import { errorMessage, evaluateCardAnswer, fetchNextCard, gradeCard } from "@/lib/api";
+import { errorMessage, evaluateCardAnswer, fetchBonusCard, fetchNextCard, gradeCard, isAbort } from "@/lib/api";
 import { cn } from "@/lib/cn";
 import { plural } from "@/lib/format";
-import { fetchBonusCard, isAbort } from "@/components/dashboard/api";
 import { usePrefersReducedMotion } from "@/components/dashboard/hooks";
 import { Composer, MAX_ANSWER_CHARS } from "./Composer";
 import { SessionSidebar } from "./SessionSidebar";
@@ -40,9 +39,11 @@ export interface ReviewSessionProps {
   invalidTag?: string;
   /** Seed state for tests and previews; skips the initial fetch. */
   initialState?: SessionState;
+  /** Patterns for the sidebar picker (computed on the server, which holds the content registry). */
+  tagOptions?: readonly Tag[];
 }
 
-export function ReviewSession({ tag, invalidTag, initialState }: ReviewSessionProps) {
+export function ReviewSession({ tag, invalidTag, initialState, tagOptions }: ReviewSessionProps) {
   const [state, dispatch] = useReducer(sessionReducer, initialState, (seed) => seed ?? initialSession());
   const seeded = useRef(Boolean(initialState));
   const [draft, setDraft] = useState("");
@@ -350,7 +351,14 @@ export function ReviewSession({ tag, invalidTag, initialState }: ReviewSessionPr
           </div>
         </Card>
 
-        <SessionSidebar tag={tag} tally={state.tally} queue={state.queue} current={turn} mode={state.mode} />
+        <SessionSidebar
+          tag={tag}
+          tally={state.tally}
+          queue={state.queue}
+          current={turn}
+          mode={state.mode}
+          tagOptions={tagOptions}
+        />
       </div>
 
       <p className="sr-only" aria-live="polite">

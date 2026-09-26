@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { ComponentProps, ReactNode } from "react";
-import { tagLabel } from "@synapse/core/content";
+import { tagLabel } from "@synapse/core/tags";
 import { cn } from "@/lib/cn";
 
 export type PillTone = "neutral" | "violet" | "cyan" | "success" | "warning" | "danger" | "love";

@@ -9,10 +9,13 @@ the code judge. TypeScript source is consumed directly (no build step); imports 
 | Import | Contents | Where |
 | --- | --- | --- |
 | `@synapse/core` | Everything below, plus `env`, `llm`, `evaluate`, `spar`, `store` | Server only (loads better-sqlite3, dotenv, openai) |
-| `@synapse/core/browser` | `content`, `grading`, `judge`, `sm2`, `tapback`, `text`, `time`, `transcript` | Anywhere, including client components |
-| `@synapse/core/{content,grading,judge,sm2,tapback,text,time,transcript}` | One module each | Anywhere |
+| `@synapse/core/browser` | `content`, `grading`, `judge`, `sm2`, `tapback`, `text`, `time`, `transcript` | Node-free, but includes the content registry (answer keys, reference solutions): server components, scripts, and `import type` only |
+| `@synapse/core/content` | Content registry (`getCard`, `getProblem`, …) plus tag helpers | Same as `/browser`: keep it out of client bundles |
+| `@synapse/core/{tags,grading,judge,sm2,tapback,text,time,transcript}` | One module each; `tags` = `TAGS`, `TAG_IDS`, `isTag`, `tagLabel` and the content types | Anywhere, including client components |
 
-`test/browser-safety.test.ts` fails if a browser entry point ever reaches Node-only code.
+`test/browser-safety.test.ts` fails if a browser entry point ever reaches Node-only code, or if an
+answer-key-free subpath reaches the content registry. The web app's `test/client-bundle.test.ts`
+checks that client components only import the answer-key-free subpaths.
 Next.js needs `transpilePackages: ["@synapse/core"]` and `serverExternalPackages: ["better-sqlite3"]`.
 
 ## Configuration (`env.ts`)

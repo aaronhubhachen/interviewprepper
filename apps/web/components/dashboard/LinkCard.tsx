@@ -7,10 +7,9 @@ import { ChatBubble } from "@/components/ui/ChatBubble";
 import { Pill } from "@/components/ui/Pill";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { useToast } from "@/components/ui/Toast";
-import { errorMessage, fetchLink, setAgentPaused } from "@/lib/api";
+import { errorMessage, fetchLink, isAbort, setAgentPaused } from "@/lib/api";
 import { cn } from "@/lib/cn";
 import type { LinkResponse, StatsResponse } from "@/lib/types";
-import { isAbort } from "./api";
 import { useVisiblePolling } from "./hooks";
 
 /** While unlinked, check often so the card flips the moment the text lands. */

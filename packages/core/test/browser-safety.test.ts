@@ -40,3 +40,23 @@ describe("browser-safe entry points", () => {
     expect(serverModules).toEqual([]);
   });
 });
+
+/** Subpaths that carry answer keys / reference solutions (the content registry). Client bundles must avoid them. */
+const REGISTRY_ENTRIES = new Set(["./browser", "./content"]);
+const REGISTRY_MODULES = /^content\/(index|microcards-a|microcards-b|problems|behavioral)\.ts$/;
+
+describe("answer-key-free entry points", () => {
+  const keyFree = BROWSER_ENTRIES.filter(([subpath]) => !REGISTRY_ENTRIES.has(subpath));
+
+  it("include the tag list for client components", () => {
+    expect(keyFree.map(([subpath]) => subpath)).toContain("./tags");
+  });
+
+  it.each(keyFree)("%s never reaches the content registry", (_subpath, target) => {
+    const { files } = reachableImports(path.resolve(SRC, "..", target));
+    const registry = [...files]
+      .map((file) => path.relative(SRC, file).split(path.sep).join("/"))
+      .filter((file) => REGISTRY_MODULES.test(file));
+    expect(registry).toEqual([]);
+  });
+});

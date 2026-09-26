@@ -232,7 +232,7 @@ export function SparRoom({
     const before = previousStar.current;
     previousStar.current = starKey;
     if (!(recording || mode === "typed")) return;
-    const lit = STAR_PARTS.filter((part, index) => starKey[index] === "1" && before[index] !== "1");
+    const lit = STAR_PARTS.filter((_part, index) => starKey[index] === "1" && before[index] !== "1");
     if (lit.length) setAnnouncement(`${lit.map((part) => STAR_COPY[part].label).join(" and ")} detected.`);
   }, [starKey, recording, mode]);
 

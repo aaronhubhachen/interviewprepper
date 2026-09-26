@@ -88,8 +88,12 @@ describe("STAR helpers", () => {
 describe("liveStar", () => {
   it("does not light Result from a goal sentence that only uses an outcome verb", () => {
     const goal = analyzeTranscript("At my last job our checkout was slow. My goal was to cut the p99 latency before launch.", 20_000);
-    expect(goal.star.result.present).toBe(true); // core's weak cue matched the Task sentence
+    expect(goal.star.result.present).toBe(false); // core skips outcome verbs inside the Task sentence
     expect(liveStar(goal.star).result).toEqual({ present: false, evidence: null });
+    // liveStar still guards the same false positive on a Situation sentence.
+    const situation = analyzeTranscript("Last year we cut the deploy pipeline over to a new cluster. I profiled it.", 20_000);
+    expect(situation.star.situation.present).toBe(true);
+    expect(liveStar(situation.star).result.present).toBe(false);
     expect(liveAnalysis(goal).star.task.present).toBe(true);
   });
 

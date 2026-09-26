@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useId, useMemo, useState } from "react";
-import { TAG_IDS, tagLabel, type ProblemDifficulty, type Tag } from "@synapse/core/content";
+import { TAG_IDS, tagLabel, type ProblemDifficulty, type Tag } from "@synapse/core/tags";
 import { Button, ButtonLink } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";

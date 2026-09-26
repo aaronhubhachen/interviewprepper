@@ -11,6 +11,7 @@
     "./grading": "./src/grading.ts",
     "./judge": "./src/judge/index.ts",
     "./sm2": "./src/sm2.ts",
+    "./tags": "./src/content/types.ts",
     "./tapback": "./src/tapback.ts",
     "./text": "./src/text.ts",
     "./time": "./src/time.ts",

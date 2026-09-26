@@ -1,7 +1,7 @@
 /**
  * Review activity per day, split by the surface the review happened on
  * (iMessage, web, IDE, voice). Pure and browser-safe: the
- * /api/dashboard-review/activity route buckets the store's review events with
+ * /api/activity route buckets the store's review events with
  * it, and the client uses the types and series colours.
  */
 import { localDayKey, shiftDayKey, dayKeyStart } from "@synapse/core/time";
@@ -60,7 +60,7 @@ export interface ActivityTotals {
   bySource: SourceCounts;
 }
 
-/** GET /api/dashboard-review/activity */
+/** GET /api/activity */
 export interface ReviewActivityResponse {
   buckets: ActivityBucket[];
   totals: ActivityTotals;

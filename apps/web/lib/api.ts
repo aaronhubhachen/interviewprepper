@@ -3,6 +3,7 @@
  * All functions reject with ApiError on non-2xx responses or network failures,
  * and accept an optional AbortSignal.
  */
+import type { ReviewActivityResponse } from "@/components/dashboard/activity-data";
 import type {
   ApiErrorBody,
   BehavioralResponse,
@@ -25,6 +26,7 @@ import type {
   SparEvaluateResponse,
   SparSessionsResponse,
   StatsResponse,
+  Tag,
 } from "./types";
 
 export class ApiError extends Error {
@@ -102,6 +104,11 @@ export function fetchDue(options?: RequestOptions): Promise<DueResponse> {
   return get("/api/review/due", options);
 }
 
+/** GET /api/activity: reviews per day (30 buckets), split by surface (iMessage / web / IDE / voice). */
+export function fetchReviewActivity(options?: RequestOptions): Promise<ReviewActivityResponse> {
+  return get("/api/activity", options);
+}
+
 /** GET /api/link */
 export function fetchLink(options?: RequestOptions): Promise<LinkResponse> {
   return get("/api/link", options);
@@ -122,6 +129,23 @@ export function fetchNextCard(query: ReviewNextQuery = {}, options?: RequestOpti
   if (query.exclude?.length) params.set("exclude", query.exclude.join(","));
   const qs = params.toString();
   return get(`/api/review/next${qs ? `?${qs}` : ""}`, options);
+}
+
+export interface BonusQuery {
+  tag?: Tag;
+  exclude?: string[];
+}
+
+/**
+ * GET /api/review/bonus?tag=&exclude=: the next never-seen card, ignoring the daily
+ * new-card cap ("Study new cards" once the queue is empty). reason = "extra".
+ */
+export function fetchBonusCard(query: BonusQuery = {}, options?: RequestOptions): Promise<ReviewNextResponse> {
+  const params = new URLSearchParams();
+  if (query.tag) params.set("tag", query.tag);
+  if (query.exclude?.length) params.set("exclude", query.exclude.join(","));
+  const qs = params.toString();
+  return get(`/api/review/bonus${qs ? `?${qs}` : ""}`, options);
 }
 
 /** POST /api/review/evaluate: grade a free-text answer (may take a few seconds with an LLM). */
@@ -180,6 +204,11 @@ export function evaluateSpar(body: SparEvaluateRequest, options?: RequestOptions
 /** GET /api/spar/sessions?limit= */
 export function fetchSparSessions(limit?: number, options?: RequestOptions): Promise<SparSessionsResponse> {
   return get(`/api/spar/sessions${limit ? `?limit=${limit}` : ""}`, options);
+}
+
+/** True for requests cancelled through their AbortSignal. */
+export function isAbort(error: unknown): boolean {
+  return error instanceof ApiError && error.code === "aborted";
 }
 
 /** User-facing message for any thrown value. */

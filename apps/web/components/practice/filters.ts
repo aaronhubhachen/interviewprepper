@@ -1,5 +1,5 @@
 /** Problem-list filtering, URL sync, and the "Up next" pick (pure). */
-import { isTag, tagLabel, type ProblemDifficulty, type Tag } from "@synapse/core/content";
+import { isTag, tagLabel, type ProblemDifficulty, type Tag } from "@synapse/core/tags";
 import type { ProblemSummary } from "@/lib/types";
 
 export interface ProblemFilters {

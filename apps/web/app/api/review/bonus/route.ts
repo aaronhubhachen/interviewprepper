@@ -10,7 +10,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /**
- * GET /api/dashboard-review/bonus?tag=&exclude=id1,id2 → ReviewNextResponse
+ * GET /api/review/bonus?tag=&exclude=id1,id2 → ReviewNextResponse
  * "Study new cards": the next never-seen card, ignoring the daily new-card cap
  * (weak tags first, micro-cards before problems, easier first). reason = "extra".
  * Grading it through /api/review/grade works as usual.
