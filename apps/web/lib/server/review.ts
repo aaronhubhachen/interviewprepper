@@ -22,6 +22,7 @@ import type {
   ReviewNextResponse,
 } from "@/lib/types";
 import { badRequest, notFound } from "./http";
+import { withLlmBudget } from "./llm-budget";
 import { ratingForGrade, tagRefs, toClientCard, toClientState } from "./serialize";
 
 export interface NextQuery {
@@ -53,14 +54,27 @@ export function queueCounts(store: SynapseStore, userId: string, now: number): Q
 /**
  * With ?tag= and nothing due/new in that tag (e.g. the daily new-card cap is
  * spent), the user still asked to drill it: offer an unseen card from the tag,
- * else the one due soonest (reviewed ahead of schedule).
+ * else the one due soonest (reviewed ahead of schedule). Cards graded within
+ * the relearn step are skipped, so the card just rated (a 👎 is due soonest)
+ * does not come straight back; it returns through the due path once due.
  */
-function extraPracticeCard(store: SynapseStore, userId: string, candidates: ReviewCard[]): ReviewCard | undefined {
+function extraPracticeCard(
+  store: SynapseStore,
+  userId: string,
+  now: number,
+  candidates: ReviewCard[],
+): ReviewCard | undefined {
   if (candidates.length === 0) return undefined;
   const progress = new Map(store.listProgress(userId).map((entry) => [entry.cardId, entry]));
   const unseen = candidates.filter((card) => !progress.has(card.id)).sort((a, b) => a.difficulty - b.difficulty);
   if (unseen[0]) return unseen[0];
-  return [...candidates].sort((a, b) => progress.get(a.id)!.dueAt - progress.get(b.id)!.dueAt)[0];
+  const restedBefore = now - store.scheduler.relearnMs;
+  return candidates
+    .filter((card) => {
+      const reviewedAt = progress.get(card.id)!.lastReviewedAt;
+      return reviewedAt === null || reviewedAt <= restedBefore;
+    })
+    .sort((a, b) => progress.get(a.id)!.dueAt - progress.get(b.id)!.dueAt)[0];
 }
 
 export function nextReview(store: SynapseStore, userId: string, now: number, query: NextQuery = {}): ReviewNextResponse {
@@ -86,7 +100,7 @@ export function nextReview(store: SynapseStore, userId: string, now: number, que
   }
 
   if (query.tag) {
-    const extra = extraPracticeCard(store, userId, allCards().filter(inScope));
+    const extra = extraPracticeCard(store, userId, now, allCards().filter(inScope));
     if (extra) {
       const weak = new Set(store.weakTags(userId, now).filter((w) => w.score >= WEAK_THRESHOLD).map((w) => w.tag));
       const progress = store.getProgress(userId, extra.id);
@@ -122,12 +136,12 @@ export async function evaluateReview(
   input: { cardId: string; answer: string },
 ): Promise<ReviewEvaluateResponse> {
   const card = requireCard(input.cardId);
-  const evaluation = await evaluateAnswer({
-    question: card.prompt,
-    answerKey: card.answerKey,
-    keyPoints: card.keyPoints,
-    answer: input.answer,
-  });
+  const evaluation = await withLlmBudget(now, (useLlm) =>
+    evaluateAnswer(
+      { question: card.prompt, answerKey: card.answerKey, keyPoints: card.keyPoints, answer: input.answer },
+      { useLlm },
+    ),
+  );
   return {
     cardId: card.id,
     evaluation,

@@ -9,7 +9,8 @@ import {
   type SynapseStore,
 } from "@synapse/core";
 import type { BehavioralResponse, SparEvaluateResponse, SparSessionSummary, SparSessionsResponse } from "@/lib/types";
-import { notFound } from "./http";
+import { badRequest, notFound } from "./http";
+import { takeSparSaveSlot, withLlmBudget } from "./llm-budget";
 
 export function listQuestions(): BehavioralResponse {
   return { questions: listBehavioral().map((question) => ({ ...question })) };
@@ -31,6 +32,32 @@ export interface SparInput {
   followUpOf?: string;
 }
 
+/** Recent sessions searched for the follow-up a round 2 answers (the /spar history shows 30). */
+const FOLLOW_UP_SCAN = 200;
+
+/**
+ * The round-2 follow-up goes into the trusted part of the grading prompt, so
+ * it must be one Synapse asked: a scripted follow-up of the question, or the
+ * follow-up stored with one of this user's recent sessions of it. Returns the
+ * server's copy of the text.
+ */
+function knownFollowUp(
+  store: SynapseStore,
+  userId: string,
+  question: BehavioralQuestion,
+  followUpOf: string,
+): string | undefined {
+  const wanted = followUpOf.trim();
+  const scripted = question.followUps.find((followUp) => followUp.trim() === wanted);
+  if (scripted) return scripted;
+  for (const session of store.listSparSessions(userId, FOLLOW_UP_SCAN)) {
+    if (session.questionId !== question.id) continue;
+    const asked = (session.feedback as Partial<StoredFeedback>).followUp;
+    if (typeof asked === "string" && asked.trim() === wanted) return asked;
+  }
+  return undefined;
+}
+
 /** Round 2 grades the answer to the follow-up, keeping the original rubric. */
 function questionForRound(question: BehavioralQuestion, round: 1 | 2, followUpOf?: string): BehavioralQuestion {
   if (round !== 2 || !followUpOf) return question;
@@ -50,12 +77,24 @@ export async function evaluateSpar(
   const base = getBehavioral(input.questionId);
   if (!base) throw notFound(`Unknown behavioral question "${input.questionId}".`);
   const round = input.round ?? 1;
-  const question = questionForRound(base, round, input.followUpOf);
+  let followUpOf: string | undefined;
+  if (round === 2 && input.followUpOf) {
+    followUpOf = knownFollowUp(store, userId, base, input.followUpOf);
+    if (followUpOf === undefined) {
+      throw badRequest("followUpOf must be a follow-up question Synapse asked for this question.", {
+        followUpOf: "is not a follow-up Synapse asked",
+      });
+    }
+  }
+  const question = questionForRound(base, round, followUpOf);
 
-  const feedback = await evaluateBehavioral({ question, transcript: input.transcript, durationMs: input.durationMs });
+  takeSparSaveSlot(now);
+  const feedback = await withLlmBudget(now, (useLlm) =>
+    evaluateBehavioral({ question, transcript: input.transcript, durationMs: input.durationMs }, { useLlm }),
+  );
 
   store.ensureUser(userId, now);
-  const stored: StoredFeedback = { ...feedback, context: { round, followUpOf: input.followUpOf ?? null } };
+  const stored: StoredFeedback = { ...feedback, context: { round, followUpOf: followUpOf ?? null } };
   const session = store.recordSparSession({
     userId,
     questionId: base.id,

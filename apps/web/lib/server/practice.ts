@@ -23,6 +23,7 @@ import type {
   TextStage,
 } from "@/lib/types";
 import { forbidden, notFound } from "./http";
+import { withLlmBudget } from "./llm-budget";
 import { intervalLabel, ratingForGrade, tagRefs, toAttemptSummary, toClientProblem } from "./serialize";
 
 const STAGE_ORDER: readonly IdeStage[] = ["invariant", "edgeCase", "code"];
@@ -101,19 +102,18 @@ export function problemSolution(store: SynapseStore, userId: string, idOrSlug: s
   };
 }
 
-export async function evaluatePractice(input: {
-  problemId: string;
-  stage: TextStage;
-  answer: string;
-}): Promise<PracticeEvaluateResponse> {
+export async function evaluatePractice(
+  input: { problemId: string; stage: TextStage; answer: string },
+  now: number,
+): Promise<PracticeEvaluateResponse> {
   const problem = requireProblem(input.problemId);
   const stage = problem.stages[input.stage];
-  const evaluation = await evaluateAnswer({
-    question: stage.prompt,
-    answerKey: stage.answerKey,
-    keyPoints: stage.keyPoints,
-    answer: input.answer,
-  });
+  const evaluation = await withLlmBudget(now, (useLlm) =>
+    evaluateAnswer(
+      { question: stage.prompt, answerKey: stage.answerKey, keyPoints: stage.keyPoints, answer: input.answer },
+      { useLlm },
+    ),
+  );
   return {
     problemId: problem.id,
     stage: input.stage,
