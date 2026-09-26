@@ -106,4 +106,21 @@ describe("LLM plumbing", () => {
     expect(isLlmConfigured()).toBe(false);
     await expect(completeJson("system", "user", z.object({ ok: z.boolean() }))).resolves.toBeNull();
   });
+
+  it("never reaches a model under vitest, even with a key set and the kill switch off", async () => {
+    const saved = { key: process.env.META_MODEL_API_KEY, disable: process.env.SYNAPSE_DISABLE_LLM };
+    process.env.META_MODEL_API_KEY = "test-key-that-must-never-be-used";
+    process.env.SYNAPSE_DISABLE_LLM = "0";
+    try {
+      expect(isLlmConfigured()).toBe(false);
+      const started = Date.now();
+      await expect(completeJson("system", "user", z.object({ ok: z.boolean() }))).resolves.toBeNull();
+      expect(Date.now() - started).toBeLessThan(250);
+    } finally {
+      if (saved.key === undefined) delete process.env.META_MODEL_API_KEY;
+      else process.env.META_MODEL_API_KEY = saved.key;
+      if (saved.disable === undefined) delete process.env.SYNAPSE_DISABLE_LLM;
+      else process.env.SYNAPSE_DISABLE_LLM = saved.disable;
+    }
+  });
 });

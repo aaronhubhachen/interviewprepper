@@ -30,6 +30,17 @@ describe("analyzeTranscript", () => {
     expect(analysis.fillerCount).toBe(0);
   });
 
+  it("does not mistake a goal with an outcome verb for the Result", () => {
+    const goalOnly = analyzeTranscript("My goal was to cut p99 latency before launch. I profiled the service and rewrote the query.", 20_000);
+    expect(goalOnly.star.task.present).toBe(true);
+    expect(goalOnly.star.result.present).toBe(false);
+    const withOutcome = analyzeTranscript(
+      "My goal was to cut p99 latency before launch. I profiled the service and rewrote the query. Latency dropped to 120 ms.",
+      20_000,
+    );
+    expect(withOutcome.star.result.evidence).toContain("Latency dropped");
+  });
+
   it("counts fillers but not literal uses of like / kind of", () => {
     const analysis = analyzeTranscript(RAMBLING, 30_000);
     const counts = Object.fromEntries(analysis.fillers.map((filler) => [filler.word, filler.count]));

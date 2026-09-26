@@ -758,7 +758,8 @@ export class SynapseStore {
   // ── Weakness ─────────────────────────────────────────────────────────────
 
   private weakRows(userId: string): WeakRow[] {
-    return this.stmt("SELECT tag, score, last_flagged_at, source FROM weak_tags WHERE user_id = ?").all(userId) as WeakRow[];
+    // rowid order = first-flagged order, so ties keep a problem's primary weak tag first.
+    return this.stmt("SELECT tag, score, last_flagged_at, source FROM weak_tags WHERE user_id = ? ORDER BY rowid").all(userId) as WeakRow[];
   }
 
   private weakScoreMap(userId: string, now: number): Map<Tag, number> {
@@ -793,7 +794,7 @@ export class SynapseStore {
     for (const tag of new Set(tags)) relieve.run(EFFORTLESS_RELIEF, userId, tag);
   }
 
-  /** Current weak spots (decayed score >= WEAK_THRESHOLD), weakest first. */
+  /** Current weak spots (decayed score >= WEAK_THRESHOLD), weakest first; ties: most recent, then first flagged. */
   weakTags(userId: string, now: number): WeakTag[] {
     return this.weakRows(userId)
       .map((row) => ({
@@ -804,7 +805,7 @@ export class SynapseStore {
         source: row.source,
       }))
       .filter((weak) => weak.score >= WEAK_THRESHOLD)
-      .sort((a, b) => b.score - a.score || a.tag.localeCompare(b.tag));
+      .sort((a, b) => b.score - a.score || b.lastFlaggedAt - a.lastFlaggedAt);
   }
 
   // ── IDE (sync to iMessage) ───────────────────────────────────────────────

@@ -173,6 +173,13 @@ describe("weakness", () => {
     store.flagWeakness("me", ["dp_state_compression"], "tapback", 10, T0);
     expect(store.weakTags("me", T0)[0]!.score).toBe(5);
   });
+
+  it("orders ties by recency, then by the order the tags were flagged (primary weak tag first)", () => {
+    store.flagWeakness("me", ["dp_state_compression", "bit_manipulation"], "ide", 1, T0);
+    expect(store.weakTags("me", T0).map((weak) => weak.tag)).toEqual(["dp_state_compression", "bit_manipulation"]);
+    store.flagWeakness("me", ["hashing"], "tapback", 1, T0 + MINUTE);
+    expect(store.weakTags("me", T0 + MINUTE).map((weak) => weak.tag)[0]).toBe("hashing");
+  });
 });
 
 describe("nextCard", () => {

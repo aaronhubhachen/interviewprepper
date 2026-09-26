@@ -158,7 +158,12 @@ function detectStar(sentences: string[]): Record<StarPart, StarComponent> {
     situation: component(first(STAR_CUES.situation)),
     task: component(first(STAR_CUES.task)),
     action: component(first(STAR_CUES.action)),
-    result: component(strongResult >= 0 ? strongResult : normalized.findLastIndex((sentence) => WEAK_RESULT_CUE.test(sentence))),
+    // A goal sentence ("my goal was to cut latency") is the Task, not a Result, even with an outcome verb.
+    result: component(
+      strongResult >= 0
+        ? strongResult
+        : normalized.findLastIndex((sentence) => WEAK_RESULT_CUE.test(sentence) && !STAR_CUES.task.test(sentence)),
+    ),
   };
 }
 

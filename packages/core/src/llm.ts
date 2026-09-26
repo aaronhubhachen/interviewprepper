@@ -81,7 +81,17 @@ export function resolveLlmProfiles(env: Env): LlmProfile[] {
   });
 }
 
+/**
+ * True inside any Vitest worker. Tests must never reach a real model, even when
+ * vitest runs without a workspace config (whose env sets SYNAPSE_DISABLE_LLM=1)
+ * and the repo .env holds a real key.
+ */
+function runningUnderTest(): boolean {
+  return Boolean(process.env.VITEST);
+}
+
 function activeProfiles(): LlmProfile[] {
+  if (runningUnderTest()) return [];
   loadEnv();
   return resolveLlmProfiles(process.env);
 }
