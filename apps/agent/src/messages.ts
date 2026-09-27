@@ -301,6 +301,7 @@ export function help(): string {
     "• stats: your progress",
     "• pause / resume: texts off / on",
     "• grill: defend your resume against a skeptical interviewer ('end grill' to stop)",
+    "• report: your weekly report card (it also arrives Sunday evenings)",
     "Rate my feedback with a tapback: ❤️ effortless · 👍 hesitant · 👎 guessed. ‼️ marks a weak spot.",
   ].join("\n");
 }

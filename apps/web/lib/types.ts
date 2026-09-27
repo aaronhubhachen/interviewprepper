@@ -5,6 +5,7 @@
  */
 import type { RawTestResult, RunFailure } from "@synapse/core/judge";
 import type { DesignComponentKind, DesignDiagram, DesignPhase, DesignPrompt, DesignQuestion, DesignReport, DesignTurn } from "@synapse/core";
+import type { ReportCard } from "@synapse/core";
 import type { MockBehavioralRound, MockCodingRound, MockGrillRound, MockLoopInput, MockPacket } from "@synapse/core";
 import type { BehavioralFeedback, BotEvent, PracticeSession, BotMessage, BotReport, CodeLanguage, NativeLanguage, GrillQuestion, GrillReport, GrillTurn, IdeStage, PickReason, Stats } from "@synapse/core";
 import type {
@@ -562,3 +563,5 @@ export interface DesignNextResponse extends DesignQuestion {
   number: number;
   total: number;
 }
+
+export type { ReportCard };

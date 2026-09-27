@@ -35,6 +35,7 @@ import {
   type TapbackKind,
   type User,
 } from "@synapse/core";
+import { buildReportCard, formatReportCardText, localParts, type ReportCard } from "@synapse/core";
 import { parseCommand, textAsTapback, type Command } from "./commands";
 import { isExpired, MIN_RESUME_CHARS, newGrill, SMS_GRILL_QUESTIONS, type SmsGrill } from "./grill";
 import * as M from "./messages";
@@ -115,6 +116,9 @@ const TEXT_ONLY_NOTICE_GAP_MS = 10 * 60_000;
 const STALE_WALL_CAP_MS = 14 * 86_400_000;
 /** The morning briefing's "☕ Morning" label ends at noon (or an hour after a late SYNAPSE_MORNING_HOUR). */
 const MORNING_LABEL_UNTIL_HOUR = 12;
+/** The weekly report card goes out Sunday from 6 pm local. */
+const REPORT_WEEKDAY = 0;
+const REPORT_HOUR = 18;
 
 /** Fills policy defaults from the store's scheduling policy (SRS day length). */
 export function resolveAgentPolicy(store: SynapseStore, overrides: Partial<AgentPolicy> = {}): AgentPolicy {
@@ -199,6 +203,8 @@ export interface TickResult {
   gradedCardId?: string;
   /** Unanswered card set aside so a due IDE drill could go out. */
   preemptedCardId?: string;
+  /** The weekly report card went out this tick (instead of a probe). */
+  report?: boolean;
 }
 
 export interface TickReport {
@@ -371,6 +377,7 @@ export class StudyController<S extends ChatSpace = ChatSpace> {
       if (this.locks.has(user.spaceId)) return Promise.resolve({ userId: user.id, action: "skipped", reason: "busy" });
       return this.exclusive(user.spaceId, async () => {
         try {
+          if (await this.maybeWeeklyReport(user.id, now)) return { userId: user.id, action: "sent", report: true } satisfies TickResult;
           return await this.pushForUser(user.id, now);
         } catch (error) {
           this.log(`tick failed for ${user.id}: ${describeError(error)}`);
@@ -550,6 +557,10 @@ export class StudyController<S extends ChatSpace = ChatSpace> {
       case "resume":
         if (user.paused) this.store.setPaused(user.id, false, now);
         await this.say(space, M.resumed());
+        return;
+      case "report":
+        await this.say(space, formatReportCardText(this.reportCard(user.id, now), `${this.policy.webUrl}/report`));
+        this.state.set(userScope(user.id), "lastReportAt", now, now);
         return;
       case "grill":
         return this.onGrillStart(space, user, now);
@@ -896,6 +907,46 @@ export class StudyController<S extends ChatSpace = ChatSpace> {
   private async retire(space: S, user: User): Promise<void> {
     this.store.clearPending(user.id);
     await this.say(space, M.cardRetired());
+  }
+
+  // ── Weekly report card ───────────────────────────────────────────────────
+
+  private reportCard(userId: string, now: number): ReportCard {
+    return buildReportCard(this.store.stats(userId, now), now, this.store.policy.dayMs);
+  }
+
+  /**
+   * Sunday evening (inside active hours) at real scale, or every 7 SRS days at demo scale:
+   * text the report card once, skipping users who did nothing for two weeks.
+   */
+  private async maybeWeeklyReport(userId: string, now: number): Promise<boolean> {
+    const user = this.store.getUser(userId);
+    if (!user?.spaceId || isGroupSpaceId(user.spaceId) || !this.isStarted(user) || user.paused) return false;
+    if (this.activeGrill(userId, now)) return false;
+    const scope = userScope(userId);
+    const last = this.state.get<number>(scope, "lastReportAt");
+    const { timezone, dayMs } = this.store.policy;
+    if (this.store.demoScale) {
+      if (last === undefined) {
+        this.state.set(scope, "lastReportAt", now, now);
+        return false;
+      }
+      if (now - last < 7 * dayMs) return false;
+    } else {
+      const parts = localParts(now, timezone);
+      if (parts.weekday !== REPORT_WEEKDAY || parts.hour < REPORT_HOUR || !isWithinActiveHours(now, timezone, this.policy.activeHours)) return false;
+      if (last !== undefined && now - last < 6 * dayMs) return false;
+    }
+    const stats = this.store.stats(userId, now);
+    const card = buildReportCard(stats, now, dayMs);
+    const lastTwoWeeks = stats.reviewsByDay.slice(-14).reduce((sum, day) => sum + day.reviews, 0);
+    this.state.set(scope, "lastReportAt", now, now);
+    if (lastTwoWeeks === 0 && card.rounds.length === 0) return false;
+    const space = await this.resolveSpace(user);
+    if (!space) return false;
+    await this.say(space, formatReportCardText(card, `${this.policy.webUrl}/report`));
+    this.log(`weekly report card (${card.grade}) sent to ${userId}`);
+    return true;
   }
 
   // ── Delivery (probes & briefings) ────────────────────────────────────────

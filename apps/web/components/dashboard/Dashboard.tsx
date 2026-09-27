@@ -106,6 +106,9 @@ export function DashboardView({ stats, activity, error, retrying = false, now, o
         description="Spaced repetition across iMessage, the web, and the IDE, all on one SM-2 schedule."
         actions={
           <>
+            <ButtonLink href="/report" variant="ghost" leftIcon={<span aria-hidden="true">📊</span>}>
+              Weekly report
+            </ButtonLink>
             <ButtonLink href="/practice" variant="secondary">
               Practice a problem
             </ButtonLink>

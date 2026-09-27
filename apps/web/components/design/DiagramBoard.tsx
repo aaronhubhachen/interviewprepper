@@ -239,11 +239,11 @@ export function DiagramBoard({
                   className={cn("fill-ink-850", source ? "stroke-axon" : active ? "stroke-synapse" : "stroke-line-strong")}
                   strokeWidth={active || source ? 2.5 : 1.5}
                 />
-                <text x="14" y={NODE_H / 2 + 7} className="text-[20px]">
+                <text x="12" y={NODE_H / 2 + 8} className="text-[22px]">
                   {COMPONENT_ICONS[node.kind]}
                 </text>
-                <text x="44" y={NODE_H / 2 + 5} className="fill-fg text-[14px] font-semibold">
-                  {node.label.length > 14 ? `${node.label.slice(0, 13)}…` : node.label || "Untitled"}
+                <text x="44" y={NODE_H / 2 + 5} className="fill-fg text-[17px] font-semibold">
+                  {node.label.length > 12 ? `${node.label.slice(0, 11)}…` : node.label || "Untitled"}
                 </text>
               </g>
             );
