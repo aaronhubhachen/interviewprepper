@@ -2,6 +2,7 @@ import { Stack, useLocalSearchParams } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import { useRef, useState } from 'react';
 import { View } from 'react-native';
+import { BotChat } from '@/components/BotChat';
 import { EvaluationCard } from '@/components/feedback';
 import { Bullets, Button, Card, ErrorCard, Field, Loading, Pill, Row, Screen, T } from '@/components/ui';
 import { errorMessage, evaluateStageAnswer, fetchProblem, recordAttempt, webUrl } from '@/lib/api';
@@ -83,6 +84,8 @@ function ProblemBody({ problem, passed }: { problem: ClientProblem; passed: stri
         <T variant="muted">Write and run the solution against hidden tests in the web IDE. It’s built for a keyboard, so it works best on your laptop.</T>
         <Button label="Open the IDE" variant="secondary" icon="↗" onPress={() => void WebBrowser.openBrowserAsync(webUrl(`/practice/${problem.id}`))} />
       </Card>
+
+      <BotChat problemId={problem.id} />
     </>
   );
 }

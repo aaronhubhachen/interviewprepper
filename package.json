@@ -23,11 +23,15 @@
   },
   "devDependencies": {
     "concurrently": "^9.2.1",
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
     "tsx": "^4.20.6",
     "typescript": "^5.9.3",
     "vitest": "^3.2.4"
   },
   "overrides": {
-    "@opentelemetry/core": "^2.8.0"
+    "@opentelemetry/core": "^2.8.0",
+    "react": "$react",
+    "react-dom": "$react-dom"
   }
 }

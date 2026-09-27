@@ -5,6 +5,8 @@
 import type {
   ApiErrorBody,
   BehavioralResponse,
+  BotChatRequest,
+  BotChatResponse,
   DueResponse,
   GrillNextResponse,
   GrillReport,
@@ -126,6 +128,9 @@ export const recordAttempt = (body: PracticeAttemptRequest) => post<PracticeAtte
 export const fetchBehavioral = () => get<BehavioralResponse>('/api/behavioral');
 export const evaluateSpar = (body: SparEvaluateRequest) => post<SparEvaluateResponse>('/api/spar/evaluate', body);
 export const fetchSparSessions = (limit = 20) => get<SparSessionsResponse>(`/api/spar/sessions?limit=${limit}`);
+
+// Prepr Bot (chat only on the phone: no editor, no planted bugs)
+export const sendBotMessage = (body: BotChatRequest) => post<BotChatResponse>('/api/bot/chat', body);
 
 // Resume grill
 function readAsBase64(blob: Blob): Promise<string> {

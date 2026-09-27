@@ -2,20 +2,14 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { setBaseUrl } from './api';
+import { normalizeServerUrl, serverUrlFromHostUri } from './url';
 
 const STORAGE_KEY = 'prepr.serverUrl';
-const WEB_PORT = 3000;
 
-/** The web app runs on the same machine as the Expo dev server: reuse its LAN host with the Next.js port. */
+export { normalizeServerUrl };
+
 export function autoServerUrl(): string {
-  const host = Constants.expoConfig?.hostUri?.split(':')[0];
-  return `http://${host || 'localhost'}:${WEB_PORT}`;
-}
-
-export function normalizeServerUrl(input: string): string {
-  const trimmed = input.trim().replace(/\/+$/, '');
-  if (!trimmed) return '';
-  return /^https?:\/\//i.test(trimmed) ? trimmed : `http://${trimmed}`;
+  return serverUrlFromHostUri(Constants.expoConfig?.hostUri);
 }
 
 interface ServerState {

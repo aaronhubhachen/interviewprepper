@@ -3,7 +3,6 @@
   "main": "expo-router/entry",
   "version": "1.0.0",
   "dependencies": {
-    "@expo/ui": "~57.0.20",
     "@react-native-async-storage/async-storage": "2.2.0",
     "expo": "~57.0.25",
     "expo-constants": "~57.0.19",
@@ -37,12 +36,13 @@
     "typescript": "~6.0.3"
   },
   "scripts": {
-    "start": "NODE_PATH=$PWD/node_modules expo start",
-    "android": "NODE_PATH=$PWD/node_modules expo start --android",
-    "ios": "NODE_PATH=$PWD/node_modules expo start --ios",
-    "web": "NODE_PATH=$PWD/node_modules expo start --web",
+    "start": "expo start",
+    "android": "expo start --android",
+    "ios": "expo start --ios",
+    "web": "expo start --web",
     "lint": "expo lint",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
   },
   "private": true,
   "description": "Prepr mobile app (Expo): dashboard, flashcard review, practice stages, spar, and resume grill against the web API."
