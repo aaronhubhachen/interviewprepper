@@ -1,7 +1,7 @@
 /**
  * Regression cases for key-point phrasing: the heuristic grader (used whenever the LLM is unavailable) must not
- * credit a wrong answer as correct, and must not reject a natural correct one. The grader drops operators and
- * ignores negation, so these pin the content-side workarounds.
+ * credit a wrong answer as correct, and must not reject a natural correct one. The grader reads operators ("n + 1" is
+ * not "n - 1"), parenthesised groups and simple negation; these pin both the grader and the content phrasing.
  */
 import { describe, expect, it } from "vitest";
 import { getMicroCard, getProblem, type KeyPoint } from "../src/content";
@@ -70,6 +70,7 @@ describe("mc-dijkstra-lazy-heap", () => {
   it.each([
     "Skip stale entries where d > dist[u], relax the edges, and the total is O(E log V).",
     "Skip stale entries where d > dist[u], relax the edges, and the total is O((V + E) log V).",
+    "Skip stale entries where d > dist[u], relax the edges, and the total is O((E + V) log V).",
   ])("credits the binary-heap bound: %s", (answer) => {
     expect(grade(card, answer)).toBe("correct");
   });
@@ -156,6 +157,11 @@ describe("p-3sum", () => {
     expect(grade(invariant, answer)).toBe("correct");
   });
 
+  it("tells nums[i-1] from the classic wrong nums[i+1]", () => {
+    expect(missed(edgeCase, "Compare nums[i] == nums[i+1] and continue.")).toContain("Skip a repeated anchor i");
+    expect(missed(edgeCase, "Compare nums[i] == nums[i-1] and continue.")).not.toContain("Skip a repeated anchor i");
+  });
+
   it("credits l/r shorthand in the edge case", () => {
     const answer =
       "Skip i if nums[i] == nums[i-1]; after a match do l++ while nums[l] == nums[l-1] and r-- while nums[r] == nums[r+1]. Sorted means equal values are adjacent.";
@@ -196,6 +202,12 @@ describe("p-top-k-frequent-elements edge case", () => {
   it("does not credit the off-by-one bucket count", () => {
     const answer = "Allocate n - 1 buckets. Values can be negative so count them in a hash map.";
     expect(grade(edgeCase, answer)).not.toBe("correct");
+  });
+
+  it("tells n + 1 from n - 1 however it is written", () => {
+    const label = "Frequency can reach n, so n + 1 buckets";
+    for (const bucketCount of ["n+1", "n + 1", "n plus 1"]) expect(missed(edgeCase, `Allocate ${bucketCount} buckets.`)).not.toContain(label);
+    for (const bucketCount of ["n-1", "n - 1", "n minus 1"]) expect(missed(edgeCase, `Allocate ${bucketCount} buckets.`)).toContain(label);
   });
 
   it("credits n + 1 buckets with the reason", () => {
@@ -262,5 +274,39 @@ describe("p-merge-intervals edge case and p-longest-substring-without-repeating 
     const answer =
       "Every char in the window appears once. Track last positions in a hash map and jump left past the previous occurrence.";
     expect(grade(stage("p-longest-substring-without-repeating", "invariant"), answer)).toBe("correct");
+  });
+});
+
+describe("keyword stuffing and paraphrase gaps", () => {
+  it.each([
+    ["mc-lru-cache-o1", "map dll pop"],
+    ["mc-validate-bst-bounds", "subtree sorted"],
+    ["mc-dijkstra-negative-edges", "final bellman"],
+    ["mc-palindrome-expand-center", "2n odd n^2"],
+  ])("%s does not grade generic single words as correct: %s", (id, answer) => {
+    expect(grade(micro(id), answer)).not.toBe("correct");
+  });
+
+  it("gives a shared 'still valid' guard to one spiral bound only", () => {
+    const card = micro("mc-spiral-matrix-bounds");
+    expect(grade(card, "Only walk the bottom row and the left column while the bounds are still valid.")).toBe("partial");
+    expect(grade(card, "Walk the bottom row only if top <= bottom, and the left column only if left <= right.")).toBe("correct");
+  });
+
+  it("does not credit the classic wrong 2n center count", () => {
+    const card = micro("mc-palindrome-expand-center");
+    expect(missed(card, "Try 2n centers, one per char and gap, O(n^2) time and O(1) space.")).toContain("2n - 1 centers");
+    expect(grade(card, "n centers for odd lengths plus n - 1 gaps for even ones, so O(n^2) time and O(1) space.")).toBe("correct");
+  });
+
+  it.each([
+    ["mc-lru-cache-o1", "A hash map from key to node plus a doubly linked list by recency; drop the least recently used node from the back."],
+    ["mc-lru-cache-o1", "Map keys to nodes in a doubly linked list, move a node to the front on access, and pop the tail when full."],
+    ["mc-single-number-xor", "XOR everything together: pairs cancel out, and XOR is order independent, so only the single number is left."],
+    ["mc-dijkstra-negative-edges", "Dijkstra treats a node as optimal once popped, but a negative edge found later could make it cheaper; use Bellman-Ford."],
+    ["mc-dijkstra-negative-edges", "Once a node is popped its distance is final, which assumes weights never go below zero; use Bellman-Ford instead."],
+    ["mc-validate-bst-bounds", "Every node in the right subtree must beat the root, not just its parent, so pass down low/high bounds."],
+  ])("%s credits a natural paraphrase: %s", (id, answer) => {
+    expect(grade(micro(id), answer)).toBe("correct");
   });
 });
