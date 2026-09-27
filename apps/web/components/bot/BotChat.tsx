@@ -15,6 +15,16 @@ const STARTERS = [
   "Suggest three tricky test cases for this problem.",
 ];
 
+/** One-click asks, sent as normal messages so they show in the transcript and count in the review. */
+const QUICK_ACTIONS = [
+  {
+    label: "Suggest edits",
+    prompt: "Suggest edits to my current code: fix any bugs and improve it with minimal changes. Explain each change briefly and show the complete updated code.",
+  },
+  { label: "Find bugs", prompt: "Review my current code for bugs and edge cases it misses. Point to the exact lines; don't rewrite it yet." },
+  { label: "Complexity", prompt: "What are the time and space complexity of my current code, and is there a better approach?" },
+];
+
 type Part = { kind: "text"; text: string } | { kind: "code"; lang: string; code: string };
 
 /** Splits a Markdown reply into prose and fenced code blocks (so code gets action buttons). */
@@ -38,7 +48,7 @@ export function BotChat({
   offline,
   language,
   onSend,
-  onInsert,
+  onApply,
   onCopy,
   docked = false,
   actions,
@@ -56,7 +66,8 @@ export function BotChat({
   offline: boolean;
   language: CodeLanguage;
   onSend: (text: string) => void;
-  onInsert: (code: string) => void;
+  /** Open a code block as a diff against the editor (accept / reject). */
+  onApply: (code: string) => void;
   onCopy: (code: string) => void;
 }) {
   const [draft, setDraft] = useState("");
@@ -130,7 +141,7 @@ export function BotChat({
                 part.kind === "text" ? (
                   <Markdown key={partIndex} source={part.text} className="text-sm" />
                 ) : (
-                  <CodeBlock key={partIndex} code={part.code} lang={part.lang || LANGUAGE_LABELS[language]} onInsert={onInsert} onCopy={onCopy} />
+                  <CodeBlock key={partIndex} code={part.code} lang={part.lang || LANGUAGE_LABELS[language]} onApply={onApply} onCopy={onCopy} />
                 ),
               )}
             </div>
@@ -154,6 +165,23 @@ export function BotChat({
             {error}
           </Banner>
         ) : null}
+        <div className="mb-2 flex flex-wrap gap-1.5">
+          {QUICK_ACTIONS.map((action) => (
+            <button
+              key={action.label}
+              type="button"
+              disabled={sending}
+              onClick={() => onSend(action.prompt)}
+              title={action.prompt}
+              className="rounded-lg border border-line bg-ink-900/60 px-2.5 py-1 text-xs font-medium text-fg-muted transition-colors hover:border-synapse/60 hover:text-fg disabled:opacity-50"
+            >
+              <span aria-hidden="true" className="text-synapse">
+                ✦{" "}
+              </span>
+              {action.label}
+            </button>
+          ))}
+        </div>
         <label htmlFor="bot-input" className="sr-only">
           Message Prepr Bot
         </label>
@@ -177,7 +205,7 @@ export function BotChat({
   );
 }
 
-function CodeBlock({ code, lang, onInsert, onCopy }: { code: string; lang: string; onInsert: (code: string) => void; onCopy: (code: string) => void }) {
+function CodeBlock({ code, lang, onApply, onCopy }: { code: string; lang: string; onApply: (code: string) => void; onCopy: (code: string) => void }) {
   const [copied, setCopied] = useState(false);
   const copy = async () => {
     try {
@@ -197,8 +225,8 @@ function CodeBlock({ code, lang, onInsert, onCopy }: { code: string; lang: strin
           <Button size="sm" variant="ghost" className="h-7" onClick={() => void copy()}>
             {copied ? "Copied" : "Copy"}
           </Button>
-          <Button size="sm" variant="ghost" className="h-7" onClick={() => onInsert(code)} title="Replace the editor contents with this code">
-            Use in editor
+          <Button size="sm" variant="ghost" className="h-7" onClick={() => onApply(code)} title="Review this code as a diff against your editor, then accept or reject it">
+            Apply
           </Button>
         </div>
       </div>

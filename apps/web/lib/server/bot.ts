@@ -22,7 +22,7 @@ import { fields, type Fields } from "./validate";
 const MAX_MESSAGES = 60;
 const MAX_EVENTS = 400;
 const MAX_MESSAGE_CHARS = 8_000;
-const EVENT_KINDS: readonly BotEventKind[] = ["prompt", "insert", "copy", "paste", "run", "submit"];
+const EVENT_KINDS: readonly BotEventKind[] = ["prompt", "insert", "copy", "paste", "run", "submit", "accept", "reject"];
 
 /**
  * Planted-bug notes travel through the browser sealed (AES-GCM, per-process key), so the

@@ -9,12 +9,12 @@ import { PlainCodeEditor } from "./PlainCodeEditor";
 
 /** Monaco comes from the jsDelivr CDN (@monaco-editor/loader's default); fall back to a textarea if it never arrives. */
 const MONACO_LOAD_TIMEOUT_MS = 15_000;
-const THEME_DARK = "prepr-dark";
-const THEME_LIGHT = "prepr-light";
+export const THEME_DARK = "prepr-dark";
+export const THEME_LIGHT = "prepr-light";
 
 let themed = false;
 
-function monoFontFamily(): string {
+export function monoFontFamily(): string {
   const fallback = "ui-monospace, 'Cascadia Code', Consolas, 'SFMono-Regular', Menlo, monospace";
   if (typeof document === "undefined") return fallback;
   const family = getComputedStyle(document.documentElement).getPropertyValue("--font-jetbrains-mono").trim();
@@ -25,7 +25,7 @@ interface LanguageServiceDefaults {
   setDiagnosticsOptions?: (options: { noSemanticValidation?: boolean; noSyntaxValidation?: boolean }) => void;
 }
 
-const beforeMount: BeforeMount = (monaco) => {
+export const beforeMount: BeforeMount = (monaco) => {
   if (themed) return;
   themed = true;
   monaco.editor.defineTheme(THEME_DARK, {

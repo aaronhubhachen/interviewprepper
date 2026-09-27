@@ -36,8 +36,10 @@ export interface AiAssistant {
   trapMode: boolean;
   setTrapMode: (on: boolean) => void;
   send: (text: string) => void;
-  /** Log a Use-in-editor insert; returns the snippet for the caller to apply. */
-  noteInsert: (snippet: string) => void;
+  /** Log an accepted suggested edit (the caller applies it to the editor). */
+  noteAccept: (code: string, stats: { added: number; removed: number }) => void;
+  /** Log a suggested edit the candidate reviewed and discarded. */
+  noteReject: (stats: { added: number; removed: number }) => void;
   noteCopy: (snippet: string) => void;
   /** Call on every editor change; detects pastes (inserts are excluded). */
   noteEdit: (previous: string, next: string) => void;
@@ -129,10 +131,18 @@ export function useAiAssistant({ problemId, language, getCode }: { problemId: st
     [getCode, language, log, messages, persist, problemId, sending, trapMode, traps],
   );
 
-  const noteInsert = useCallback(
-    (snippet: string) => {
-      inserted.current = snippet;
-      log({ kind: "insert", detail: `${snippet.split("\n").length} lines from the AI` });
+  const noteAccept = useCallback(
+    (code: string, stats: { added: number; removed: number }) => {
+      inserted.current = code;
+      log({ kind: "accept", detail: `accepted a suggested edit (+${stats.added} −${stats.removed} lines)` });
+      persist(messages, traps);
+    },
+    [log, messages, persist, traps],
+  );
+
+  const noteReject = useCallback(
+    (stats: { added: number; removed: number }) => {
+      log({ kind: "reject", detail: `rejected a suggested edit (+${stats.added} −${stats.removed} lines)` });
       persist(messages, traps);
     },
     [log, messages, persist, traps],
@@ -209,7 +219,8 @@ export function useAiAssistant({ problemId, language, getCode }: { problemId: st
     trapMode,
     setTrapMode,
     send,
-    noteInsert,
+    noteAccept,
+    noteReject,
     noteCopy,
     noteEdit,
     noteRun,

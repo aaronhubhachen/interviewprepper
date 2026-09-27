@@ -57,3 +57,15 @@ export function fenceUntrusted(label: string, text: string, maxChars = 4000): st
   const safe = clipped.replace(/</g, "‹").replace(/>/g, "›");
   return `<${label}>\n${safe}\n</${label}>`;
 }
+
+/**
+ * fenceUntrusted for code: < and > must survive (generics, comparisons, arrows), so instead of
+ * escaping them the block is bounded by a random nonce that the untrusted text cannot forge.
+ */
+export function fenceCode(label: string, text: string, maxChars = 8000): string {
+  const clipped = text.length > maxChars ? `${text.slice(0, maxChars)} [truncated]` : text;
+  const bytes = new Uint8Array(6);
+  globalThis.crypto.getRandomValues(bytes);
+  const nonce = Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
+  return `[${label} ${nonce}]\n${clipped}\n[/${label} ${nonce}]`;
+}

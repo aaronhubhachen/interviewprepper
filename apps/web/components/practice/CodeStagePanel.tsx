@@ -17,6 +17,7 @@ import { shortcutLabels, useIsApplePlatform } from "@/lib/keyboard";
 import type { ClientProblem } from "@/lib/types";
 import { ConfirmButton, StageTimer } from "./bits";
 import { CodeEditor } from "./CodeEditor";
+import { DiffReview, lineDiffStats } from "./DiffReview";
 import { JudgeResults } from "./JudgeResults";
 import { canGiveUp, codeStorageKey, LANGUAGE_STORAGE_KEY, safeStorage, STAGE_META, type CodeStageState } from "./session";
 
@@ -87,6 +88,8 @@ export function CodeStagePanel({
     codeRef.current = code;
   }, [code]);
   const getCode = useCallback(() => codeRef.current[language], [language]);
+  /** An AI edit under review: the editor's code when it was opened, and the suggestion. */
+  const [suggestion, setSuggestion] = useState<{ base: string; code: string; language: CodeLanguage } | null>(null);
   const ai = useAiAssistant({ problemId: problem.id, language, getCode });
 
   const visibleCount = useMemo(() => stage.tests.filter((test) => !test.hidden).length || stage.tests.length, [stage.tests]);
@@ -140,6 +143,7 @@ export function CodeStagePanel({
   };
 
   const switchLanguage = (next: CodeLanguage) => {
+    setSuggestion(null);
     storage.setItem(LANGUAGE_STORAGE_KEY, next);
     onLanguage(next);
   };
@@ -270,6 +274,23 @@ export function CodeStagePanel({
           </ConfirmButton>
         </div>
 
+        {suggestion && suggestion.language === language ? (
+          <DiffReview
+            original={suggestion.base}
+            suggestion={suggestion.code}
+            language={language}
+            height={EDITOR_HEIGHT}
+            onAccept={(accepted) => {
+              ai.noteAccept(accepted, lineDiffStats(suggestion.base, accepted));
+              updateCode(accepted);
+              setSuggestion(null);
+            }}
+            onReject={() => {
+              ai.noteReject(lineDiffStats(suggestion.base, suggestion.code));
+              setSuggestion(null);
+            }}
+          />
+        ) : (
         <CodeEditor
           value={code[language]}
           language={language}
@@ -284,6 +305,7 @@ export function CodeStagePanel({
           height={EDITOR_HEIGHT}
           path={`file:///synapse/${problem.id}/solution.${LANGUAGE_EXTENSIONS[language]}`}
         />
+        )}
 
         <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line px-4 py-3">
           <p className="text-xs text-fg-subtle">{practiceMode ? "Practice mode: runs are not recorded." : submitsLabel}</p>
@@ -348,10 +370,7 @@ export function CodeStagePanel({
               offline={ai.offline}
               language={language}
               onSend={ai.send}
-              onInsert={(snippet) => {
-                ai.noteInsert(snippet);
-                updateCode(snippet);
-              }}
+              onApply={(snippet) => setSuggestion({ base: codeRef.current[language], code: snippet, language })}
               onCopy={ai.noteCopy}
               actions={
                 <>
