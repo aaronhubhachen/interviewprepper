@@ -62,6 +62,8 @@ const SHARED_STORE = Symbol.for("synapse.sharedStore");
 /** Process-wide store on the default path, cached on globalThis so Next.js dev reloads reuse one connection. */
 export function getSharedStore(): SynapseStore {
   const holder = globalThis as typeof globalThis & { [SHARED_STORE]?: SynapseStore };
-  holder[SHARED_STORE] ??= openStore();
+  // After a dev hot reload of the store code, the cached instance still has the old class's
+  // methods (and would serve stale Stats); open a fresh one built from the current class.
+  if (!(holder[SHARED_STORE] instanceof SynapseStore)) holder[SHARED_STORE] = openStore();
   return holder[SHARED_STORE];
 }

@@ -1,6 +1,6 @@
 import "server-only";
 
-import { getConfig, getSharedStore, loadEnv, type SynapseConfig, type SynapseStore } from "@synapse/core";
+import { getConfig, getSharedStore, loadEnv, type SynapseConfig, SynapseStore } from "@synapse/core";
 
 /**
  * Server-side access to the shared SQLite store. The store is cached on
@@ -28,7 +28,8 @@ export function config(): SynapseConfig {
 }
 
 export function getStore(): SynapseStore {
-  if (!holder[STORE_KEY]) {
+  // instanceof: a dev hot reload of core's store module makes the cached instance stale.
+  if (!(holder[STORE_KEY] instanceof SynapseStore)) {
     loadEnv();
     holder[STORE_KEY] = getSharedStore();
   }

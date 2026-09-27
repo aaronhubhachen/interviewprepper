@@ -23,7 +23,7 @@ export function trendSummary(scores: readonly number[]): { text: string; directi
 }
 
 export function TrendsCard({ trends, className }: { trends: StatsResponse["trends"]; className?: string }) {
-  const active = ROWS.filter((row) => trends[row.key].length > 0);
+  const active = ROWS.filter((row) => (trends?.[row.key]?.length ?? 0) > 0);
   const rows = active.length > 0 ? active : ROWS.slice(0, 3);
 
   return (
@@ -34,7 +34,7 @@ export function TrendsCard({ trends, className }: { trends: StatsResponse["trend
       />
       <ul className="space-y-4">
         {rows.map((row) => {
-          const points = trends[row.key];
+          const points = trends?.[row.key] ?? [];
           const summary = trendSummary(points.map((point) => point.score));
           return (
             <li key={row.key}>

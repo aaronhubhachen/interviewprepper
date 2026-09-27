@@ -13,6 +13,27 @@ export const THEME_DARK = "prepr-dark";
 export const THEME_LIGHT = "prepr-light";
 
 let themed = false;
+let quieted = false;
+
+/**
+ * Monaco rejects with "Canceled" when an editor is disposed mid-request (navigating away), and
+ * Safari refuses its background clipboard reads with NotAllowedError. Both are harmless, but Next's
+ * dev overlay reports them as runtime errors. Swallow exactly those two, nothing else.
+ */
+export function quietMonacoNoise(): void {
+  if (quieted || typeof window === "undefined") return;
+  quieted = true;
+  const benign = (reason: unknown) => {
+    const error = reason as { name?: string; message?: string } | null;
+    return error?.name === "Canceled" || error?.message === "Canceled" || error?.name === "NotAllowedError";
+  };
+  window.addEventListener("unhandledrejection", (event) => {
+    if (benign(event.reason)) event.preventDefault();
+  });
+  window.addEventListener("error", (event) => {
+    if (benign(event.error)) event.preventDefault();
+  });
+}
 
 export function monoFontFamily(): string {
   const fallback = "ui-monospace, 'Cascadia Code', Consolas, 'SFMono-Regular', Menlo, monospace";
@@ -26,6 +47,7 @@ interface LanguageServiceDefaults {
 }
 
 export const beforeMount: BeforeMount = (monaco) => {
+  quietMonacoNoise();
   if (themed) return;
   themed = true;
   monaco.editor.defineTheme(THEME_DARK, {
@@ -167,6 +189,7 @@ export default function MonacoCodeEditor(props: CodeEditorProps) {
   }, []);
 
   useEffect(() => {
+    quietMonacoNoise();
     let settled = false;
     const timer = window.setTimeout(() => {
       if (!settled) setFailed(true);
