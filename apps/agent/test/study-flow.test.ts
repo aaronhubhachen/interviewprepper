@@ -341,13 +341,13 @@ describe("commands", () => {
 describe("linking & onboarding", () => {
   it("rejects a wrong code and explains how to link", async () => {
     setup();
-    const code = h.store.createOrGetLinkCode(WEB_USER);
-    await h.controller.handleText(h.space, `link ${code === "1111" ? "2222" : "1111"}`);
+    const code = h.store.createOrGetLinkCode(WEB_USER, h.clock.now());
+    await h.controller.handleText(h.space, `link ${code === "111111" ? "222222" : "111111"}`);
     expect(h.space.last.text).toMatch(/^🤔 That code didn't match/);
     expect(h.store.getUser(WEB_USER)?.spaceId).toBeNull();
 
     await h.controller.handleText(h.space, "link");
-    expect(h.space.last.text).toContain("e.g. 'link 1234'");
+    expect(h.space.last.text).toContain("e.g. 'link 123456'");
 
     await h.controller.handleText(h.space, `Link: ${code}!`);
     expect(h.store.getUser(WEB_USER)?.spaceId).toBe(h.space.id);
@@ -384,7 +384,7 @@ describe("linking & onboarding", () => {
     expect(h.store.getUser(WEB_USER)?.spaceId).toBeNull();
     expect(stranger.texts[0]).toMatch(/^🧠 You're in!/);
     expect(stranger.texts.join("\n")).not.toMatch(/🔗 Linked!/);
-    expect(h.store.stats(WEB_USER, h.clock.now()).link.linkCode).toMatch(/^\d{4}$/);
+    expect(h.store.stats(WEB_USER, h.clock.now()).link.linkCode).toMatch(/^\d{6}$/);
   });
 
   it("'start' from a second person creates a solo account when the web user is taken", async () => {

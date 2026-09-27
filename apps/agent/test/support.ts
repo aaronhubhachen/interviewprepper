@@ -156,13 +156,13 @@ export function createHarness(options: HarnessOptions): Harness {
 
 /** Texts "link <code>" like a real user (the agent replies and sends the first card). */
 export async function linkByText(h: Harness): Promise<void> {
-  const code = h.store.createOrGetLinkCode(WEB_USER);
+  const code = h.store.createOrGetLinkCode(WEB_USER, h.clock.now());
   await h.controller.handleText(h.space, `link ${code}`, { handle: "(314) 555-0101" });
 }
 
 /** Binds the fake space to the web user without any conversation (for scheduler tests). */
 export function linkQuietly(h: Harness): void {
-  const code = h.store.createOrGetLinkCode(WEB_USER);
+  const code = h.store.createOrGetLinkCode(WEB_USER, h.clock.now());
   h.store.linkByCode(code, { spaceId: h.space.id, handle: "+13145550101", platform: "imessage" }, h.clock.now());
   h.controller.rememberSpace(h.space);
 }

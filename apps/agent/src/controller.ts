@@ -36,7 +36,6 @@ import {
 import { parseCommand, textAsTapback, type Command } from "./commands";
 import * as M from "./messages";
 import { maskHandle, redact } from "./redact";
-import { gradeWithSnapshot, regradeReview, type ReviewSnapshot } from "./regrade";
 import { AgentState, spaceScope, userScope } from "./state";
 import { activeMsBetween } from "./timing";
 
@@ -228,7 +227,6 @@ interface GradeMemo {
   messageIds: string[];
   answer: string | null;
   verdict: Evaluation | null;
-  snapshot: ReviewSnapshot;
 }
 
 interface LockEntry {
@@ -418,6 +416,8 @@ export class StudyController<S extends ChatSpace = ChatSpace> {
   private identity(space: S, sender: SenderInfo): SpaceIdentity {
     return {
       spaceId: space.id,
+      // The platform's own dm/group flag, so core's group guard does not rely only on the iMessage ";+;" GUID.
+      spaceType: isGroupSpace(space) ? "group" : space.type === "dm" ? "dm" : null,
       handle: sender.handle ?? null,
       displayName: sender.displayName ?? null,
       platform: sender.platform ?? this.policy.platform,
@@ -466,7 +466,7 @@ export class StudyController<S extends ChatSpace = ChatSpace> {
   private linkWebUser(identity: SpaceIdentity, now: number): User | null {
     const web = this.store.getUser(this.policy.webUserId);
     if (!web || web.spaceId) return null;
-    return this.store.linkByCode(this.store.createOrGetLinkCode(web.id), identity, now);
+    return this.store.linkByCode(this.store.createOrGetLinkCode(web.id, now), identity, now);
   }
 
   /** The web user, or a texter who has engaged (studied at least once or has a card open). */
@@ -551,7 +551,7 @@ export class StudyController<S extends ChatSpace = ChatSpace> {
   }
 
   /**
-   * "link 1234". Wrong codes are counted by the store (per chat and per handle,
+   * "link 482193". Wrong codes are counted by the store (per chat and per handle,
    * persisted in SQLite); after MAX_LINK_FAILURES_PER_SENDER misses in the
    * window it refuses, and the chat hears "too many wrong codes" once.
    */
@@ -682,7 +682,7 @@ export class StudyController<S extends ChatSpace = ChatSpace> {
     now: number,
     ratedMessageIds: (string | null | undefined)[],
   ): GradeOutcome {
-    const { outcome, snapshot } = gradeWithSnapshot(this.store, {
+    const outcome = this.store.gradeCard({
       userId,
       cardId: card.id,
       grade,
@@ -700,7 +700,6 @@ export class StudyController<S extends ChatSpace = ChatSpace> {
       messageIds,
       answer: pending.answer,
       verdict: pending.verdict,
-      snapshot,
     });
     this.remember(userId, card.id, [pending.questionMessageId, pending.feedbackMessageId], now);
     return outcome;
@@ -780,17 +779,14 @@ export class StudyController<S extends ChatSpace = ChatSpace> {
     if (now - memo.at > REGRADE_WINDOW_MS) return false;
     if (memo.grade === grade) return true; // the same rating again: nothing changes
     if (pending?.cardId === memo.cardId) return true; // the card is already back as a new probe
-    const regraded = regradeReview(
-      this.store,
-      { userId: user.id, cardId: memo.cardId, reviewId: memo.reviewId, reviewedAt: memo.at, snapshot: memo.snapshot },
-      { userId: user.id, cardId: memo.cardId, grade, source: "imessage", now, answer: memo.answer, verdict: memo.verdict },
-    );
-    if (!regraded) {
+    // Core restores the card's pre-review state and grades again (same answer and verdict); null if the card
+    // was reviewed again since. memo.reviewId is this user's latest review of memo.cardId.
+    const outcome = this.store.regradeReview(memo.reviewId, grade, now);
+    if (!outcome) {
       this.clearGradeMemo(user.id);
       return false;
     }
-    const { outcome, snapshot } = regraded;
-    this.setGradeMemo(user.id, { ...memo, grade, reviewId: outcome.reviewId, at: now, snapshot });
+    this.setGradeMemo(user.id, { ...memo, grade, reviewId: outcome.reviewId, at: now });
     this.log(`re-rated ${memo.cardId} for ${user.id}: grade ${memo.grade} → ${grade} (${outcome.nextLabel})`);
     await this.sayAfterCommit(space, M.regraded(outcome, M.ratingForGrade(grade)), M.gradeSaved(outcome, M.ratingForGrade(grade)));
     return true;

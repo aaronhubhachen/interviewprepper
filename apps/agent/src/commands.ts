@@ -104,9 +104,9 @@ export function normalizeCommandText(text: string): string {
 }
 
 /**
- * "link", "link 1234", "link code 1234", "link 12 34". The remainder must be
+ * "link", "link 482193", "link code 482193", "link 482 193". The remainder must be
  * digits, so an answer like "Link the smaller head each step" stays an answer.
- * Wrong-length codes still parse (the controller explains the 4-digit format).
+ * Wrong-length codes still parse (the controller explains the 6-digit format).
  */
 function parseLink(normalized: string): Command | undefined {
   const match = /^link(?: (.+))?$/.exec(normalized);

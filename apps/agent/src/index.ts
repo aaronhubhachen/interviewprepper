@@ -115,7 +115,7 @@ class MissingPhotonCredentials extends Error {
 
 /**
  * SYNAPSE_OWNER_HANDLE: DM the owner first and bind that chat to the web user,
- * so pushes start without anyone texting "link 1234". The controller says
+ * so pushes start without anyone texting "link 482193". The controller says
  * hello and delivers the first card under the chat's lock, so the first tick
  * cannot race it.
  */

@@ -239,12 +239,12 @@ export function onboarding(webUrl: string): string {
   return [
     "👋 Hey! I'm Synapse, your spaced-repetition interview coach. I text bite-size DSA cards right before you'd forget them.",
     "",
-    `🔗 Text 'link 1234' with the code on your dashboard (${webUrl}) to sync, or 'start' to jump right in.`,
+    `🔗 Text 'link 123456' with the code on your dashboard (${webUrl}) to sync, or 'start' to jump right in.`,
   ].join("\n");
 }
 
 export function notStarted(webUrl: string): string {
-  return `👋 Text 'start' to begin drilling here, or 'link 1234' with the code on your dashboard (${webUrl}).`;
+  return `👋 Text 'start' to begin drilling here, or 'link 123456' with the code on your dashboard (${webUrl}).`;
 }
 
 export function linked(): string {
@@ -257,7 +257,7 @@ export function linked(): string {
 export function startedSolo(webUrl: string): string {
   return [
     "🧠 You're in! I'll text cards right when they're due.",
-    `Rate my feedback with a tapback: ❤️ effortless · 👍 hesitant · 👎 guessed. To sync the web dashboard later, text 'link 1234' with the code from ${webUrl}.`,
+    `Rate my feedback with a tapback: ❤️ effortless · 👍 hesitant · 👎 guessed. To sync the web dashboard later, text 'link 123456' with the code from ${webUrl}.`,
   ].join("\n");
 }
 
@@ -266,15 +266,15 @@ export function welcomeBack(): string {
 }
 
 export function linkFailed(webUrl: string): string {
-  return `🤔 That code didn't match. Grab the 4-digit code from your dashboard (${webUrl}) and text 'link 1234'.`;
+  return `🤔 That code didn't match (codes expire after 10 minutes). Grab the 6-digit code from your dashboard (${webUrl}) and text 'link 123456'.`;
 }
 
 export function linkUsage(webUrl: string): string {
-  return `🔗 Text 'link' plus the 4-digit code from your dashboard (${webUrl}), e.g. 'link 1234'.`;
+  return `🔗 Text 'link' plus the 6-digit code from your dashboard (${webUrl}), e.g. 'link 123456'.`;
 }
 
 export function linkLocked(): string {
-  return "🔒 Too many wrong codes. Wait an hour, then text 'link' with the 4-digit code from your dashboard.";
+  return "🔒 Too many wrong codes. Wait an hour, then text 'link' with the 6-digit code from your dashboard.";
 }
 
 export function textOnly(): string {

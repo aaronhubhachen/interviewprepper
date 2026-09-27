@@ -18,7 +18,7 @@ function setup(options: Partial<Parameters<typeof createHarness>[0]> = {}): Harn
 }
 
 function wrongCode(code: string, offset: number): string {
-  return String(((Number(code) - 1000 + offset) % 9000) + 1000);
+  return String(((Number(code) - 100_000 + offset) % 900_000) + 100_000);
 }
 
 describe("group chats are never served", () => {
@@ -143,7 +143,7 @@ describe("code-free linking is owner-only", () => {
 describe("link-code brute force", () => {
   it(`locks a chat out after ${MAX_LINK_FAILURES_PER_SENDER} wrong codes, even for the right one, and survives a restart`, async () => {
     setup();
-    const code = h.store.createOrGetLinkCode(WEB_USER);
+    const code = h.store.createOrGetLinkCode(WEB_USER, h.clock.now());
     for (let attempt = 1; attempt <= MAX_LINK_FAILURES_PER_SENDER; attempt++) {
       h.clock.advance(SECOND);
       await h.controller.handleText(h.space, `link ${wrongCode(code, attempt)}`, { handle: OWNER });
@@ -153,18 +153,18 @@ describe("link-code brute force", () => {
 
     h.restart();
     h.clock.advance(SECOND);
-    await h.controller.handleText(h.space, `link ${h.store.createOrGetLinkCode(WEB_USER)}`, { handle: OWNER });
+    await h.controller.handleText(h.space, `link ${h.store.createOrGetLinkCode(WEB_USER, h.clock.now())}`, { handle: OWNER });
     expect(h.store.getUser(WEB_USER)?.spaceId).toBeNull();
     expect(h.space.sent).toHaveLength(sent); // the lockout notice is sent once
 
     // The same handle from another chat is locked too.
     const other = new FakeSpace(`SMS;-;${OWNER}`);
-    await h.controller.handleText(other, `link ${h.store.createOrGetLinkCode(WEB_USER)}`, { handle: OWNER });
+    await h.controller.handleText(other, `link ${h.store.createOrGetLinkCode(WEB_USER, h.clock.now())}`, { handle: OWNER });
     expect(h.store.getUser(WEB_USER)?.spaceId).toBeNull();
     expect(other.last.text).toMatch(/^🔒 Too many wrong codes/);
 
     h.clock.advance(61 * MINUTE);
-    await h.controller.handleText(h.space, `link ${h.store.createOrGetLinkCode(WEB_USER)}`, { handle: OWNER });
+    await h.controller.handleText(h.space, `link ${h.store.createOrGetLinkCode(WEB_USER, h.clock.now())}`, { handle: OWNER });
     expect(h.store.getUser(WEB_USER)?.spaceId).toBe(h.space.id);
     expect(h.space.texts).toContainEqual(expect.stringMatching(/^🔗 Linked!/));
   });

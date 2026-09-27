@@ -125,7 +125,7 @@ function sqlite() {
 /** Links the chat by texting the dashboard code; the agent answers with a probe. Returns the probe message. */
 async function linkAndReceiveProbe() {
   const harness = h!;
-  const code = harness.store.createOrGetLinkCode(WEB_USER);
+  const code = harness.store.createOrGetLinkCode(WEB_USER, harness.clock.now());
   const result = await deliver(text(`link ${code}`));
   expect(result.handled).toBe("text");
   expect(harness.store.getUser(WEB_USER)).toMatchObject({ spaceId: harness.space.id, handle: HANDLE, platform: "imessage" });

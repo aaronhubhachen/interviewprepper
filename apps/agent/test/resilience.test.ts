@@ -93,7 +93,7 @@ describe("agent state survives a restart", () => {
   it("remembers the iMessage line a chat is on and hands it to resolveSpace after a restart", async () => {
     setup();
     const space = new FakeSpace("iMessage;-;+13145550101", "dm", "+13145550100");
-    const code = h.store.createOrGetLinkCode(WEB_USER);
+    const code = h.store.createOrGetLinkCode(WEB_USER, h.clock.now());
     await h.controller.handleText(space, `link ${code}`, { handle: "+13145550101" });
     await completeProbeIn(space);
 
