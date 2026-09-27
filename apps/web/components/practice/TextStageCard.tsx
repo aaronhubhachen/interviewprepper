@@ -14,7 +14,7 @@ import { formatClock } from "@/lib/format";
 import type { ClientStagePrompt } from "@/lib/types";
 import { RATING_META, StageTimer, VERDICT_META } from "./bits";
 import { FlipCard } from "./FlipCard";
-import { STAGE_META, type TextStageKey, type TextStageState } from "./session";
+import { evaluationRetry, STAGE_META, type TextStageKey, type TextStageState } from "./session";
 
 const MAX_ANSWER = 4000;
 
@@ -37,6 +37,8 @@ export interface TextStageCardProps {
   readOnly: boolean;
   evaluating: boolean;
   evalError: string | null;
+  /** The failed evaluation was "I'm stuck": Retry reveals again instead of grading the draft. */
+  evalErrorRevealed?: boolean;
   /** Rating whose attempt is being saved. */
   saving: Rating | null;
   saveError: string | null;
@@ -89,6 +91,7 @@ function Front({
   state,
   evaluating,
   evalError,
+  evalErrorRevealed = false,
   getElapsed,
   onDraft,
   onHint,
@@ -116,6 +119,9 @@ function Front({
     if (!trimmed || evaluating) return;
     onEvaluate(false);
   };
+
+  // Retry repeats what failed: a failed "I'm stuck" reveals again rather than grading a partial draft.
+  const retry = evaluationRetry(evalErrorRevealed, state.draft);
 
   return (
     <Card glow as="article" aria-labelledby={`${answerId}-heading`} className="overflow-hidden">
@@ -177,7 +183,22 @@ function Front({
         ) : null}
 
         {evalError ? (
-          <Banner tone="danger" title="Couldn't grade that answer" action={<Button size="sm" variant="secondary" onClick={() => submit()}>Retry</Button>}>
+          <Banner
+            tone="danger"
+            title={evalErrorRevealed ? "Couldn't reveal the answer" : "Couldn't grade that answer"}
+            action={
+              <Button
+                size="sm"
+                variant="secondary"
+                disabled={retry === null || evaluating}
+                onClick={() => {
+                  if (retry !== null && !evaluating) onEvaluate(retry);
+                }}
+              >
+                Retry
+              </Button>
+            }
+          >
             {evalError}
           </Banner>
         ) : null}
@@ -221,6 +242,9 @@ function Back({
   headingRef,
 }: TextStageCardProps & { headingRef: RefObject<HTMLHeadingElement | null> }) {
   const headingId = useId();
+  // The 3/2/1 rating shortcuts only fire while focus is inside this card (WCAG 2.1.4). tabIndex -1 keeps a
+  // click on the card's text inside the scope instead of dropping focus to <body>.
+  const scopeRef = useRef<HTMLElement>(null);
   const result = state.result;
   if (!result) return null;
   const verdict = VERDICT_META[result.evaluation.verdict];
@@ -229,7 +253,7 @@ function Back({
   const missed = new Set(result.evaluation.missed.map((label) => label.toLowerCase()));
 
   return (
-    <Card glow as="article" aria-labelledby={headingId} className="overflow-hidden">
+    <Card ref={scopeRef} tabIndex={-1} glow as="article" aria-labelledby={headingId} className="overflow-hidden outline-none">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <StageEyebrow stage={stage} />
         <div className="flex items-center gap-2">
@@ -306,6 +330,7 @@ function Back({
           loading={saving ?? false}
           disabled={readOnly}
           keyboard={!readOnly}
+          keyboardScope={scopeRef}
           label="How confident were you?"
         />
         {saveError ? (

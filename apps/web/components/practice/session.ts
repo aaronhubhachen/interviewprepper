@@ -79,6 +79,8 @@ export interface CodeStageState {
   failedSubmits: number;
   last: JudgeSummary | null;
   lastSubmit: JudgeSummary | null;
+  /** Highest-scoring counted submit (optional: sessions persisted before it existed lack it). */
+  bestSubmit?: JudgeSummary | null;
   gaveUp: boolean;
   /** Accepted submission or give-up recorded. */
   completed: boolean;
@@ -116,6 +118,7 @@ export function newSession(problemId: string, now: number, language: JudgeLangua
       failedSubmits: 0,
       last: null,
       lastSubmit: null,
+      bestSubmit: null,
       gaveUp: false,
       completed: false,
       activeMs: 0,
@@ -202,6 +205,7 @@ export function sessionReducer(state: PracticeSession, action: SessionAction): P
         code.submits += 1;
         if (failed) code.failedSubmits += 1;
         code.lastSubmit = summary;
+        code.bestSubmit = betterSubmit(bestSubmit(state.code), summary);
       }
       return { ...state, code };
     }
@@ -220,6 +224,39 @@ export function sessionReducer(state: PracticeSession, action: SessionAction): P
 }
 
 // ── derived ────────────────────────────────────────────────────────────────
+
+function passRate(summary: JudgeSummary): number {
+  return summary.total > 0 ? summary.passed / summary.total : 0;
+}
+
+/** The higher-scoring of two submits (ties keep the earlier one). */
+function betterSubmit(best: JudgeSummary | null, candidate: JudgeSummary): JudgeSummary {
+  return best && passRate(best) >= passRate(candidate) ? best : candidate;
+}
+
+/** Highest-scoring counted submit; falls back to the last one for sessions persisted before bestSubmit existed. */
+export function bestSubmit(code: CodeStageState): JudgeSummary | null {
+  return code.bestSubmit ?? code.lastSubmit;
+}
+
+/**
+ * "Give up" is only recordable while nothing is being saved and no submit was
+ * accepted: an accepted solve (saving, saved, or failed to save) must never
+ * get a give-up recorded on top of it.
+ */
+export function canGiveUp(code: CodeStageState, saving: boolean): boolean {
+  return !saving && !code.completed && code.lastSubmit?.status !== "accepted";
+}
+
+/**
+ * What the "Couldn't grade that answer" Retry should send: a failed "I'm
+ * stuck" reveals again (true), a failed answer re-grades the draft (false),
+ * and null when there is nothing to retry (the draft was cleared).
+ */
+export function evaluationRetry(failedReveal: boolean, draft: string): boolean | null {
+  if (failedReveal) return true;
+  return draft.trim() ? false : null;
+}
 
 export function hintsUsed(session: PracticeSession): number {
   return (session.invariant.hintShown ? 1 : 0) + (session.edgeCase.hintShown ? 1 : 0);

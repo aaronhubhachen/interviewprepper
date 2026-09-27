@@ -120,9 +120,14 @@ export interface PracticeStat {
   lastAt: number;
 }
 
+type PracticedSession = Pick<SparSessionSummary, "id" | "questionId" | "overall" | "createdAt">;
+
 /** Sessions per question (main answers and follow-ups both count as practice). */
-export function practiceStats(sessions: readonly SparSessionSummary[]): Map<string, PracticeStat> {
-  const stats = new Map<string, PracticeStat>();
+export function practiceStats(
+  sessions: readonly Omit<PracticedSession, "id">[],
+  base: ReadonlyMap<string, PracticeStat> = new Map(),
+): Map<string, PracticeStat> {
+  const stats = new Map(base);
   for (const session of sessions) {
     const current = stats.get(session.questionId);
     stats.set(session.questionId, {
@@ -132,6 +137,44 @@ export function practiceStats(sessions: readonly SparSessionSummary[]): Map<stri
     });
   }
   return stats;
+}
+
+/**
+ * Practice over EVERY session, computed on the server at page load. The history list only carries the latest
+ * few dozen sessions, so stats built from it alone would forget older practice (a question answered 16
+ * questions ago would read as "New to you" and lose its best score).
+ */
+export interface PracticeTotals {
+  byQuestion: Record<string, PracticeStat>;
+  /** Highest session id counted; client-side sessions above it are added on top. */
+  throughId: number;
+}
+
+export function practiceTotals(sessions: readonly PracticedSession[]): PracticeTotals {
+  return {
+    byQuestion: Object.fromEntries(practiceStats(sessions)),
+    throughId: sessions.reduce((max, session) => Math.max(max, session.id), 0),
+  };
+}
+
+/** Page-load totals plus sessions recorded since (ids above throughId); just the list when there are no totals. */
+export function mergePracticeStats(totals: PracticeTotals | null, sessions: readonly PracticedSession[]): Map<string, PracticeStat> {
+  if (!totals) return practiceStats(sessions);
+  return practiceStats(
+    sessions.filter((session) => session.id > totals.throughId),
+    new Map(Object.entries(totals.byQuestion)),
+  );
+}
+
+/** Answers and best score across every question (for the history header). */
+export function practiceSummary(stats: ReadonlyMap<string, PracticeStat>): { count: number; best: number | null } {
+  let count = 0;
+  let best: number | null = null;
+  for (const stat of stats.values()) {
+    count += stat.count;
+    best = best === null ? stat.best : Math.max(best, stat.best);
+  }
+  return { count, best };
 }
 
 /** "Surprise me": a random question among the least-practiced ones (never the one just asked, when possible). */

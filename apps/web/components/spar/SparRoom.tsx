@@ -6,6 +6,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode, type
 import { Banner, Button, Card, Kbd } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import { formatClock, plural } from "@/lib/format";
+import { isWithinScope } from "@/lib/keyboard";
 import {
   clampDurationMs,
   countWords,
@@ -46,6 +47,8 @@ export interface SparRoomProps {
   onRetrySubmit: () => void;
   onDismissError: () => void;
   onCancelEvaluation: () => void;
+  /** Recording (or finishing a transcript) started / ended: the studio must not speak into a live mic. */
+  onBusyChange?: (busy: boolean) => void;
   headingRef?: Ref<HTMLHeadingElement>;
 }
 
@@ -87,6 +90,7 @@ export function SparRoom({
   onRetrySubmit,
   onDismissError,
   onCancelEvaluation,
+  onBusyChange,
   headingRef,
 }: SparRoomProps) {
   const speech = useSpeechRecognition();
@@ -98,9 +102,14 @@ export function SparRoom({
   const [notice, setNotice] = useState<Notice | null>(null);
   const [announcement, setAnnouncement] = useState("");
   const startRef = useRef<number | null>(null);
+  /** Record was pressed; the clock starts once the microphone is actually listening. */
+  const armedRef = useRef(false);
   const stoppingRef = useRef(false);
   const milestoneRef = useRef(0);
   const mountedRef = useRef(true);
+  const rootRef = useRef<HTMLDivElement>(null);
+  /** Keyboard focus was last inside the room (restored when a swapped-out button takes focus with it). */
+  const focusInRoomRef = useRef(false);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -112,7 +121,24 @@ export function SparRoom({
   const recording = snapshot.status === "starting" || snapshot.status === "listening";
   const busy = recording || snapshot.status === "stopping";
 
-  // Speaking clock: wall time from Record to Stop.
+  const onBusyChangeRef = useLatest(onBusyChange);
+  useEffect(() => {
+    onBusyChangeRef.current?.(busy);
+  }, [busy, onBusyChangeRef]);
+  useEffect(() => () => onBusyChangeRef.current?.(false), [onBusyChangeRef]);
+
+  // Anchor the clock to the moment the engine starts listening, not the click: the first-use mic permission
+  // prompt and engine start-up are not speaking time (durationMs drives WPM, pace, the ring and auto-stop).
+  useEffect(() => {
+    if (snapshot.status === "listening" && armedRef.current) {
+      armedRef.current = false;
+      startRef.current = performance.now();
+    } else if (snapshot.status === "idle") {
+      armedRef.current = false;
+    }
+  }, [snapshot.status]);
+
+  // Speaking clock: wall time from "listening" to Stop (0 while the microphone is starting).
   useEffect(() => {
     if (!recording) return;
     const tick = () => {
@@ -170,7 +196,9 @@ export function SparRoom({
     speech.reset();
     setElapsedMs(0);
     milestoneRef.current = 0;
-    startRef.current = performance.now();
+    // The clock starts when the engine reports "listening" (see the anchor effect above).
+    startRef.current = null;
+    armedRef.current = true;
     speech.start();
     setAnnouncement("Recording. Answer out loud, then press Stop.");
   }, [onDismissError, speech, tts]);
@@ -182,6 +210,7 @@ export function SparRoom({
       const started = startRef.current;
       const duration = started === null ? elapsedMs : performance.now() - started;
       startRef.current = null;
+      armedRef.current = false;
       setElapsedMs(duration);
       setAnnouncement("Stopped. Finishing the transcript.");
       const transcript = await speech.stop();
@@ -196,6 +225,7 @@ export function SparRoom({
   const discard = useCallback(() => {
     speech.abort();
     startRef.current = null;
+    armedRef.current = false;
     setElapsedMs(0);
     setNotice(null);
     setAnnouncement("Recording discarded.");
@@ -236,7 +266,8 @@ export function SparRoom({
     if (lit.length) setAnnouncement(`${lit.map((part) => STAR_COPY[part].label).join(" and ")} detected.`);
   }, [starKey, recording, mode]);
 
-  // "R" toggles recording (ignored while typing in a field).
+  // "R" toggles recording (ignored while typing in a field). A bare-letter shortcut, so it only fires while
+  // focus is inside the room (WCAG 2.1.4): a stray "r" elsewhere on the page never starts or submits a take.
   const toggleRef = useLatest(() => {
     if (recording) void stopRecording();
     else if (!busy) startRecording();
@@ -245,6 +276,7 @@ export function SparRoom({
     const onKey = (event: KeyboardEvent) => {
       if (event.key !== "r" && event.key !== "R") return;
       if (event.metaKey || event.ctrlKey || event.altKey || event.repeat) return;
+      if (!isWithinScope(rootRef.current, event.target)) return;
       const target = event.target as HTMLElement | null;
       if (target?.closest("input, textarea, select, [contenteditable='true'], [role='textbox']")) return;
       if (mode !== "voice" || !speech.supported || evaluating) return;
@@ -254,6 +286,28 @@ export function SparRoom({
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [evaluating, mode, speech.supported, toggleRef]);
+
+  // Track whether focus is in the room: focus leaving it (Tab, or a click outside) clears the flag.
+  useEffect(() => {
+    const onOutside = (event: Event) => {
+      if (!isWithinScope(rootRef.current, event.target)) focusInRoomRef.current = false;
+    };
+    document.addEventListener("focusin", onOutside);
+    document.addEventListener("pointerdown", onOutside);
+    return () => {
+      document.removeEventListener("focusin", onOutside);
+      document.removeEventListener("pointerdown", onOutside);
+    };
+  }, []);
+
+  // Start → Stop → "Finishing…" swap the focused button out of the DOM, which drops focus to <body> and would
+  // switch the scoped "R" shortcut off mid-take. Pull focus back to the room when that happens.
+  useEffect(() => {
+    const root = rootRef.current;
+    if (!root || !focusInRoomRef.current) return;
+    const active = document.activeElement;
+    if (active === null || active === document.body) root.focus({ preventScroll: true });
+  }, [snapshot.status, evaluating]);
 
   // ── render ───────────────────────────────────────────────────────────
 
@@ -266,7 +320,7 @@ export function SparRoom({
       "Starting the microphone…"
     ) : recording ? (
       <>
-        Listening… open with one sentence of context. <span className="text-fg-faint">Filler words will be highlighted.</span>
+        Listening… open with one sentence of context. <span className="text-fg-subtle">Filler words will be highlighted.</span>
       </>
     ) : speech.supported === null ? (
       "Checking microphone support…"
@@ -278,7 +332,15 @@ export function SparRoom({
     );
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_22.5rem]">
+    // tabIndex -1: a click anywhere in the room keeps focus inside it (the scope for the "R" shortcut).
+    <div
+      ref={rootRef}
+      tabIndex={-1}
+      onFocus={() => {
+        focusInRoomRef.current = true;
+      }}
+      className="grid gap-6 outline-none lg:grid-cols-[minmax(0,1fr)_22.5rem]"
+    >
       <p className="sr-only" aria-live="polite">
         {announcement}
       </p>

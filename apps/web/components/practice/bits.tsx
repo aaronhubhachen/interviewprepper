@@ -128,11 +128,14 @@ export function ConfirmButton({
       }}
     >
       {prompt ? <span className="text-sm text-fg-muted">{prompt}</span> : null}
+      {/* `disabled` also covers an already-open confirm (e.g. a submit started after "Give up" was clicked). */}
       <Button
         ref={confirmRef}
         variant={confirmVariant}
         size={size}
+        disabled={disabled}
         onClick={() => {
+          if (disabled) return;
           setAsking(false);
           onConfirm();
         }}

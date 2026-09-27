@@ -15,13 +15,28 @@ import { Pill } from "@/components/ui/Pill";
 import { Spinner } from "@/components/ui/Spinner";
 import { TapbackButtons } from "@/components/ui/TapbackButtons";
 import { useToast } from "@/components/ui/Toast";
-import { errorMessage, evaluateCardAnswer, fetchBonusCard, fetchNextCard, gradeCard, isAbort } from "@/lib/api";
+import { DUE_CHANGED_EVENT, errorMessage, evaluateCardAnswer, fetchBonusCard, fetchNextCard, gradeCard, isAbort } from "@/lib/api";
 import { cn } from "@/lib/cn";
 import { plural } from "@/lib/format";
+import { isWithinScope } from "@/lib/keyboard";
 import { usePrefersReducedMotion } from "@/components/dashboard/hooks";
 import { Composer, MAX_ANSWER_CHARS } from "./Composer";
 import { SessionSidebar } from "./SessionSidebar";
-import { currentTurn, initialSession, reviewedCount, sessionReducer, type SessionAction, type SessionState } from "./session";
+import {
+  awaitingCards,
+  currentTurn,
+  doneCopy,
+  dueRecheckDelay,
+  fetchSessionCard,
+  IDLE_RECHECK_MS,
+  initialSession,
+  MIN_RECHECK_MS,
+  reviewedCount,
+  sessionReducer,
+  type CardFetchers,
+  type SessionAction,
+  type SessionState,
+} from "./session";
 import { TurnView } from "./TurnView";
 
 /** Pause on the "returns in 6d" confirmation before the next card slides in. */
@@ -31,6 +46,8 @@ const TYPING_MS = 450;
 const IDK_ANSWER = "I don't know";
 
 const sleep = (ms: number) => new Promise<void>((resolve) => window.setTimeout(resolve, ms));
+
+const FETCHERS: CardFetchers = { next: fetchNextCard, bonus: fetchBonusCard };
 
 export interface ReviewSessionProps {
   /** Only cards with this tag (/review?tag=…). */
@@ -65,24 +82,25 @@ export function ReviewSession({ tag, invalidTag, initialState, tagOptions }: Rev
 
   const loadController = useRef<AbortController | null>(null);
   const requestController = useRef<AbortController | null>(null);
+  const cardRef = useRef<HTMLElement>(null);
   const threadRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const ratingRef = useRef<HTMLDivElement>(null);
   const doneRef = useRef<HTMLDivElement>(null);
   const interacted = useRef(false);
+  /** The current card arrived via a background re-check: only take focus if nothing else has it. */
+  const quietArrival = useRef(false);
 
   const loadNext = useCallback(async () => {
     loadController.current?.abort();
     const controller = new AbortController();
     loadController.current = controller;
+    quietArrival.current = false;
     act({ type: "load" });
     const { mode, skipped } = stateRef.current;
-    const query = { tag, exclude: skipped };
     try {
       const [response] = await Promise.all([
-        mode === "bonus"
-          ? fetchBonusCard(query, { signal: controller.signal })
-          : fetchNextCard(query, { signal: controller.signal }),
+        fetchSessionCard(mode, { tag, exclude: skipped }, FETCHERS, { signal: controller.signal }),
         reducedMotionRef.current ? Promise.resolve() : sleep(TYPING_MS),
       ]);
       if (controller.signal.aborted) return;
@@ -91,6 +109,28 @@ export function ReviewSession({ tag, invalidTag, initialState, tagOptions }: Rev
     } catch (error) {
       if (controller.signal.aborted || isAbort(error)) return;
       act({ type: "error", scope: "next", message: errorMessage(error) });
+    }
+  }, [act, tag]);
+
+  // Background re-check while the queue is empty (or the last load failed): no typing bubble, and the
+  // "caught up" screen stays put unless a card is actually available (or the countdown changed).
+  const recheck = useCallback(async () => {
+    if (!awaitingCards(stateRef.current)) return;
+    loadController.current?.abort();
+    const controller = new AbortController();
+    loadController.current = controller;
+    const { mode, skipped } = stateRef.current;
+    try {
+      const response = await fetchSessionCard(mode, { tag, exclude: skipped }, FETCHERS, { signal: controller.signal });
+      if (controller.signal.aborted || !awaitingCards(stateRef.current)) return;
+      if (response.card !== null) {
+        quietArrival.current = true;
+        act({ type: "card", next: response });
+      } else {
+        act({ type: "empty", empty: response });
+      }
+    } catch {
+      // Best-effort: keep the current screen (its Retry / actions still work) and try again later.
     }
   }, [act, tag]);
 
@@ -108,6 +148,36 @@ export function ReviewSession({ tag, invalidTag, initialState, tagOptions }: Rev
     const timer = window.setTimeout(() => void loadNext(), ADVANCE_MS);
     return () => window.clearTimeout(timer);
   }, [state.phase, loadNext]);
+
+  // Nothing to show: look again when the next card comes due, on a slow poll (at demo scale new cards
+  // unlock as the SRS day rolls, with nothing coming due), and when the tab regains attention or another
+  // surface changes the queue. The copy promises cards "will appear here", so they must.
+  const waiting = awaitingCards(state);
+  const nextDueAt = state.phase === "done" ? (state.empty?.nextDueAt ?? null) : null;
+  // Reviews are due but none was served (a race with the bonus fallback): one quick look, then the poll.
+  const dueWaiting = state.phase === "done" && (state.queue?.dueNow ?? 0) > 0 && state.skipped.length === 0 && !tag;
+  useEffect(() => {
+    if (!waiting) return;
+    const check = () => {
+      if (document.visibilityState !== "hidden") void recheck();
+    };
+    const poll = window.setInterval(check, IDLE_RECHECK_MS);
+    const delay = dueWaiting ? MIN_RECHECK_MS : dueRecheckDelay(nextDueAt, Date.now());
+    const dueTimer = delay === null || delay >= IDLE_RECHECK_MS ? undefined : window.setTimeout(check, delay);
+    const onVisible = () => {
+      if (document.visibilityState === "visible") void recheck();
+    };
+    window.addEventListener("focus", check);
+    window.addEventListener(DUE_CHANGED_EVENT, check);
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      window.clearInterval(poll);
+      window.clearTimeout(dueTimer);
+      window.removeEventListener("focus", check);
+      window.removeEventListener(DUE_CHANGED_EVENT, check);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [waiting, nextDueAt, dueWaiting, recheck]);
 
   const submit = useCallback(
     async (raw: string, gaveUp: boolean) => {
@@ -174,6 +244,14 @@ export function ReviewSession({ tag, invalidTag, initialState, tagOptions }: Rev
     void loadNext();
   }, [act, loadNext]);
 
+  // Skipped cards "stay in your queue": this brings them back (the server was told to exclude them).
+  const reviewSkipped = useCallback(() => {
+    if (stateRef.current.skipped.length === 0) return;
+    interacted.current = true;
+    act({ type: "unskip" });
+    void loadNext();
+  }, [act, loadNext]);
+
   const turn = currentTurn(state);
 
   // Keep the newest message in view: scroll so the latest anchor starts at the
@@ -197,6 +275,13 @@ export function ReviewSession({ tag, invalidTag, initialState, tagOptions }: Rev
   useEffect(() => {
     if (state.phase === "answering") {
       const coarse = window.matchMedia("(pointer: coarse)").matches;
+      if (quietArrival.current) {
+        // A card that showed up on its own must not pull focus away from wherever the user is.
+        quietArrival.current = false;
+        const active = document.activeElement;
+        const free = active === null || active === document.body || isWithinScope(cardRef.current, active);
+        if (!free) return;
+      }
       if (interacted.current || !coarse) textareaRef.current?.focus({ preventScroll: true });
     } else if (state.phase === "rating") {
       ratingRef.current?.focus({ preventScroll: true });
@@ -209,7 +294,7 @@ export function ReviewSession({ tag, invalidTag, initialState, tagOptions }: Rev
   const reviewed = reviewedCount(state);
   const subtitle =
     state.mode === "bonus"
-      ? "Bonus practice: new cards past today's cap"
+      ? "Bonus practice: due cards first, then new ones past today's cap"
       : label
         ? `Drilling ${label}`
         : "Same loop as iMessage: answer, feedback, tapback";
@@ -240,7 +325,14 @@ export function ReviewSession({ tag, invalidTag, initialState, tagOptions }: Rev
       ) : null}
 
       <div className="grid grid-cols-1 items-start gap-4 sm:gap-6 lg:grid-cols-[minmax(0,1fr)_19rem]">
-        <Card padded={false} className="flex h-[clamp(28rem,calc(100dvh_-_12rem),52rem)] flex-col overflow-hidden">
+        {/* The 1/2/3 tapback shortcuts only fire while focus is in this card (WCAG 2.1.4); tabIndex -1 keeps a
+            click on the conversation inside that scope. */}
+        <Card
+          ref={cardRef}
+          tabIndex={-1}
+          padded={false}
+          className="flex h-[clamp(28rem,calc(100dvh_-_12rem),52rem)] flex-col overflow-hidden outline-none"
+        >
           <div className="flex items-center gap-3 border-b border-line px-4 py-3 sm:px-6">
             <SynapseGlyph className="h-9 w-9 shrink-0" />
             <div className="min-w-0 flex-1">
@@ -305,6 +397,7 @@ export function ReviewSession({ tag, invalidTag, initialState, tagOptions }: Rev
                     onRate={(grade, rating) => void rate(grade, rating)}
                     suggested={turn.evaluation.suggestedRating}
                     loading={state.phase === "grading" ? turn.rating ?? true : false}
+                    keyboardScope={cardRef}
                     label="How was your recall?"
                   />
                 </div>
@@ -316,11 +409,22 @@ export function ReviewSession({ tag, invalidTag, initialState, tagOptions }: Rev
               </p>
             ) : state.phase === "done" ? (
               <div ref={doneRef} className="flex w-full flex-wrap items-center justify-center gap-2 sm:gap-3">
+                {state.skipped.length > 0 ? (
+                  <Button onClick={reviewSkipped} leftIcon={<span aria-hidden="true">↩️</span>}>
+                    Review skipped ({state.skipped.length})
+                  </Button>
+                ) : null}
                 {state.exhausted ? (
-                  <ButtonLink href="/practice">Practice a problem</ButtonLink>
+                  <ButtonLink href="/practice" variant={state.skipped.length > 0 ? "secondary" : "primary"}>
+                    Practice a problem
+                  </ButtonLink>
                 ) : (
                   <>
-                    <Button onClick={studyNew} leftIcon={<span aria-hidden="true">✨</span>}>
+                    <Button
+                      onClick={studyNew}
+                      variant={state.skipped.length > 0 ? "secondary" : "primary"}
+                      leftIcon={<span aria-hidden="true">✨</span>}
+                    >
                       Study new cards
                     </Button>
                     <ButtonLink href="/practice" variant="secondary">
@@ -368,32 +472,23 @@ export function ReviewSession({ tag, invalidTag, initialState, tagOptions }: Rev
   );
 }
 
-function DoneMessage({ state, patternLabel: label }: { state: SessionState; patternLabel: string | null }) {
+export function DoneMessage({ state, patternLabel: label }: { state: SessionState; patternLabel: string | null }) {
   const reviewed = reviewedCount(state);
-  const nextIn = state.empty?.nextDueIn;
+  const copy = doneCopy(state, label);
   const summary =
     reviewed > 0
       ? `You reviewed ${plural(reviewed, "card")}: ❤️ ${state.tally.love} · 👍 ${state.tally.like} · 👎 ${state.tally.dislike}.`
       : null;
 
-  if (state.exhausted) {
-    return (
-      <EmptyState
-        icon="🏆"
-        title={label ? `You've seen every ${label} card` : "You've seen every card"}
-        description={`${summary ? `${summary} ` : ""}${nextIn ? `Your next review is due in ${nextIn}.` : "Reviews will appear here as they come due."}`}
-      />
-    );
+  if (state.exhausted && state.skipped.length === 0) {
+    return <EmptyState icon={copy.icon} title={copy.title} description={`${summary ? `${summary} ` : ""}${copy.description}`} />;
   }
-
-  const title = label ? `Nothing due in ${label}` : "All caught up";
-  const description = nextIn ? `Next card due in ${nextIn}.` : "Nothing is scheduled yet.";
 
   if (state.turns.length === 0) {
     return (
       <EmptyState
-        icon="🎉"
-        title={`${title}. ${description}`}
+        icon={copy.icon}
+        title={`${copy.title}. ${copy.description}`}
         description="Study new cards past today's limit, or practice a problem in the card-flip IDE. Synapse will text you when reviews come due."
       />
     );
@@ -402,7 +497,7 @@ function DoneMessage({ state, patternLabel: label }: { state: SessionState; patt
   return (
     <div className="flex flex-col gap-3">
       <ChatBubble from="agent" tail={!summary}>
-        {`🎉 ${title}. ${description}`}
+        {`${copy.icon} ${copy.title}. ${copy.description}`}
       </ChatBubble>
       {summary ? <ChatBubble from="agent">{summary}</ChatBubble> : null}
     </div>

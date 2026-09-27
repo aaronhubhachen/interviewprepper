@@ -4,8 +4,11 @@ import type { Evaluation } from "@synapse/core/grading";
 import type { PracticeAttemptResponse } from "@/lib/types";
 import { inlineToText, parseInline, parseMarkdown } from "./markdown-parser";
 import {
+  bestSubmit,
+  canGiveUp,
   codeAttemptRequest,
   drillMessage,
+  evaluationRetry,
   joinLabels,
   flaggedTags,
   hintsUsed,
@@ -252,6 +255,42 @@ describe("practice session", () => {
   it("marks unsaved stages as local-only", () => {
     expect(unsavedSync(true, 1)).toMatchObject({ saved: false, passed: true, struggled: false, scheduled: null });
   });
+
+  it("remembers the best submit, not just the last one", () => {
+    const submit = (passed: number, at: number) => ({
+      type: "judged" as const,
+      counted: true,
+      summary: { mode: "submit" as const, status: "wrong_answer" as const, passed, total: 9, language: "javascript" as const, at },
+    });
+    const session = run(newSession("p-x", 0), submit(8, 1), submit(2, 2));
+    expect(session.code.lastSubmit?.passed).toBe(2);
+    expect(bestSubmit(session.code)).toMatchObject({ passed: 8, total: 9 });
+    // Sessions persisted before bestSubmit existed fall back to the last submit.
+    expect(bestSubmit({ ...session.code, bestSubmit: undefined })?.passed).toBe(2);
+    expect(bestSubmit(newSession("p-x", 0).code)).toBeNull();
+  });
+
+  it("never allows a give-up while saving or on top of an accepted submit", () => {
+    const fresh = newSession("p-x", 0).code;
+    expect(canGiveUp(fresh, false)).toBe(true);
+    expect(canGiveUp(fresh, true)).toBe(false);
+    const accepted = run(newSession("p-x", 0), {
+      type: "judged",
+      counted: true,
+      summary: { mode: "submit", status: "accepted", passed: 9, total: 9, language: "javascript", at: 1 },
+    }).code;
+    // Accepted but the save has not landed (in flight or failed): still no give-up.
+    expect(accepted.completed).toBe(false);
+    expect(canGiveUp(accepted, false)).toBe(false);
+    expect(canGiveUp({ ...fresh, completed: true }, false)).toBe(false);
+  });
+
+  it("retries a failed \"I'm stuck\" as a reveal, not as a graded draft", () => {
+    expect(evaluationRetry(true, "")).toBe(true);
+    expect(evaluationRetry(true, "half an idea")).toBe(true);
+    expect(evaluationRetry(false, "my answer")).toBe(false);
+    expect(evaluationRetry(false, "   ")).toBeNull();
+  });
 });
 
 function summary(overrides: Partial<ProblemSummary> & Pick<ProblemSummary, "id">): ProblemSummary {
@@ -317,6 +356,10 @@ describe("problem filters", () => {
     expect(recommendProblem(problems, weak)?.problem.id).toBe("p-c");
     expect(recommendProblem(problems.slice(0, 2), weak)).toMatchObject({ problem: { id: "p-b" }, reason: "weak" });
     expect(recommendProblem(problems.slice(0, 1), new Set())).toMatchObject({ problem: { id: "p-a" }, reason: "new" });
+    // Everything attempted, one still unsolved and not on a weak tag: pick it up again, not "a fresh problem".
+    const attempted = { ...problems[0]!.progress, attempts: 2, lastAttemptAt: 5 };
+    const started = [summary({ id: "p-a", progress: attempted }), summary({ id: "p-s", progress: { ...attempted, solved: true } })];
+    expect(recommendProblem(started, new Set())).toMatchObject({ problem: { id: "p-a" }, reason: "unfinished" });
     expect(problemStatus(problems[2]!)).toBe("due");
     expect(problemStatus(problems[0]!)).toBe("new");
   });

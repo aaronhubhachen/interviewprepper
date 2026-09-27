@@ -129,7 +129,7 @@ function FeedbackBubble({ evaluation, gaveUp }: { evaluation: ReviewEvaluateResp
             const hit = covered.has(label.toLowerCase());
             return (
               <li key={label} className="max-w-full">
-                <Pill tone={hit ? "success" : "warning"} icon={hit ? "✓" : "✗"}>
+                <Pill tone={hit ? "success" : "warning"} icon={hit ? "✓" : "✗"} wrap>
                   <span className="sr-only">{hit ? "Covered: " : "Missed: "}</span>
                   {label}
                 </Pill>

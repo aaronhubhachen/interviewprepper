@@ -21,6 +21,9 @@ Your training data is outdated; the docs are the source of truth.
   `@synapse/core` (SQLite, dotenv, OpenAI) is server-only: use it from `lib/server/**` and `app/api/**`.
   `test/client-bundle.test.ts` walks every `"use client"` import graph and enforces both rules.
 - Talk to the server through the typed fetchers in `lib/api.ts`; response types live in `lib/types.ts`.
+- The judge worker (`public/judge-worker.js`) runs pasted code on our origin. `next.config.ts` serves it with
+  `JUDGE_WORKER_CSP` from `lib/judge/csp.ts`, whose connect-src deliberately has no `'self'`, so the code cannot
+  reach `/api`. Never widen that policy. If Pyodide moves off `cdn.jsdelivr.net/pyodide/`, update `PYODIDE_CDN_SOURCE`.
 - Shared UI lives in `components/ui/` (Button, Card, Pill, TagPill, StatTile, TapbackButtons,
   ChatBubble, Banner, Toast, Spinner, EmptyState, ProgressBar, Kbd, PageHeader, Skeleton).
 - Design tokens are Tailwind v4 `@theme` variables in `app/globals.css` (`bg-ink-900`, `text-fg-muted`,

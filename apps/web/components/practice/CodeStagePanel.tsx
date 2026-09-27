@@ -9,11 +9,12 @@ import { Kbd } from "@/components/ui/Kbd";
 import { cn } from "@/lib/cn";
 import type { JudgeMode, JudgeOutcome } from "@/lib/judge";
 import { useJudge } from "@/lib/judge/useJudge";
+import { shortcutLabels, useIsApplePlatform } from "@/lib/keyboard";
 import type { ClientProblem } from "@/lib/types";
 import { ConfirmButton, Segmented, StageTimer } from "./bits";
 import { CodeEditor } from "./CodeEditor";
 import { JudgeResults } from "./JudgeResults";
-import { codeStorageKey, LANGUAGE_STORAGE_KEY, safeStorage, STAGE_META, type CodeStageState } from "./session";
+import { canGiveUp, codeStorageKey, LANGUAGE_STORAGE_KEY, safeStorage, STAGE_META, type CodeStageState } from "./session";
 
 const LANGUAGES: ReadonlyArray<{ value: JudgeLanguage; label: string }> = [
   { value: "javascript", label: "JavaScript" },
@@ -165,7 +166,10 @@ export function CodeStagePanel({
     return () => window.removeEventListener("keydown", onKey);
   }, [onRun, onSubmit]);
 
+  // Monaco binds CtrlCmd (⌘ on macOS) and toggles Tab focus with Ctrl+Shift+M there: label what actually works.
+  const keys = shortcutLabels(useIsApplePlatform());
   const pythonLoading = language === "python" && pythonStatus === "loading";
+  const giveUpAllowed = running === null && canGiveUp(state, saving);
   const meta = STAGE_META.code;
   const submitsLabel =
     state.submits === 0 ? "No submissions yet" : `${state.submits} submission${state.submits === 1 ? "" : "s"}${state.failedSubmits ? ` · ${state.failedSubmits} failed` : ""}`;
@@ -195,18 +199,20 @@ export function CodeStagePanel({
             {runtimeLabel(language, pythonStatus)}
           </span>
           <span className="hidden items-center gap-1.5 2xl:inline-flex">
-            <Kbd>Ctrl</Kbd>
+            <Kbd>{keys.mod}</Kbd>
             <Kbd>&apos;</Kbd> run
             <span className="mx-1 text-fg-faint" aria-hidden="true">
               ·
             </span>
-            <Kbd>Ctrl</Kbd>
+            <Kbd>{keys.mod}</Kbd>
             <Kbd>Enter</Kbd> submit
             <span className="mx-1 text-fg-faint" aria-hidden="true">
               ·
             </span>
-            <Kbd>Ctrl</Kbd>
-            <Kbd>M</Kbd> Tab moves focus
+            {keys.tabFocusKeys.map((key) => (
+              <Kbd key={key}>{key}</Kbd>
+            ))}{" "}
+            Tab moves focus
           </span>
           <ConfirmButton
             size="sm"
@@ -227,7 +233,7 @@ export function CodeStagePanel({
           onChange={updateCode}
           onRun={onRun}
           onSubmit={onSubmit}
-          ariaLabel={`${language === "python" ? "Python" : "JavaScript"} solution for ${problem.title}. Press Control M to let Tab move focus.`}
+          ariaLabel={`${language === "python" ? "Python" : "JavaScript"} solution for ${problem.title}. Press ${keys.tabFocusSpoken} to let Tab move focus.`}
           height={EDITOR_HEIGHT}
           path={`file:///synapse/${problem.id}/solution.${language === "python" ? "py" : "js"}`}
         />
@@ -241,8 +247,8 @@ export function CodeStagePanel({
               loading={running === "run"}
               loadingLabel="Running visible tests"
               disabled={running !== null}
-              aria-keyshortcuts="Control+'"
-              title="Run the visible tests (Ctrl+')"
+              aria-keyshortcuts={keys.aria("'")}
+              title={`Run the visible tests (${keys.combo("'")})`}
               leftIcon={
                 <svg aria-hidden="true" viewBox="0 0 12 12" className="h-3 w-3 fill-current">
                   <path d="M3 1.8v8.4a.6.6 0 0 0 .92.5l6.5-4.2a.6.6 0 0 0 0-1L3.92 1.3A.6.6 0 0 0 3 1.8Z" />
@@ -256,8 +262,8 @@ export function CodeStagePanel({
               loading={running === "submit" || saving}
               loadingLabel={saving ? "Saving your attempt" : "Submitting"}
               disabled={running !== null || saving}
-              aria-keyshortcuts="Control+Enter"
-              title="Run every test, hidden ones included (Ctrl+Enter)"
+              aria-keyshortcuts={keys.aria("Enter")}
+              title={`Run every test, hidden ones included (${keys.combo("Enter")})`}
             >
               Submit
             </Button>
@@ -339,8 +345,11 @@ export function CodeStagePanel({
             <ConfirmButton
               confirmLabel="Show the solution"
               prompt="Give up? This counts as a struggle and queues drills."
-              onConfirm={onGiveUp}
-              disabled={saving || running !== null}
+              onConfirm={() => {
+                // An open confirm must not record a give-up on top of a submit that is judging, saving or accepted.
+                if (giveUpAllowed) onGiveUp();
+              }}
+              disabled={!giveUpAllowed}
               leftIcon={<span aria-hidden="true">🏳️</span>}
             >
               Give up

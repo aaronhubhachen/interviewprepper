@@ -136,16 +136,28 @@ export interface SessionHistoryProps {
   onRetry: () => void;
   onOpen: (session: SparSessionSummary) => void;
   activeId?: number | null;
+  /** Answers and best score over every session (`sessions` is only the latest page); null: label the list as recent. */
+  totals?: { count: number; best: number | null } | null;
   now: number;
   className?: string;
 }
 
 const COLLAPSED = 6;
 
-export function SessionHistory({ sessions, status, error, onRetry, onOpen, activeId, now, className }: SessionHistoryProps) {
+/** "32 answers · best 81" over all sessions, or "30 recent answers · best 78" when only the list is known. */
+export function historySummary(sessions: readonly Pick<SparSessionSummary, "overall">[], totals?: SessionHistoryProps["totals"]): string | null {
+  if (totals && totals.count >= sessions.length && totals.count > 0) {
+    return `${plural(totals.count, "answer")}${totals.best === null ? "" : ` · best ${totals.best}`}`;
+  }
+  if (!sessions.length) return null;
+  const best = Math.max(...sessions.map((session) => session.overall));
+  return `${plural(sessions.length, "recent answer")} · best ${best}`;
+}
+
+export function SessionHistory({ sessions, status, error, onRetry, onOpen, activeId, totals, now, className }: SessionHistoryProps) {
   const [expanded, setExpanded] = useState(false);
   const visible = expanded ? sessions : sessions.slice(0, COLLAPSED);
-  const best = sessions.length ? Math.max(...sessions.map((session) => session.overall)) : null;
+  const summary = historySummary(sessions, totals);
 
   return (
     <Card as="aside" aria-labelledby="history-title" className={className}>
@@ -154,9 +166,7 @@ export function SessionHistory({ sessions, status, error, onRetry, onOpen, activ
           Past sessions
         </h2>
         <p className="mt-1 text-sm text-fg-muted">
-          {status === "ready" && sessions.length
-            ? `${plural(sessions.length, "answer")} · best ${best}`
-            : "Every answer is scored and saved here."}
+          {status === "ready" && sessions.length && summary ? summary : "Every answer is scored and saved here."}
         </p>
       </div>
 

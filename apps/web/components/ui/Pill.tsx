@@ -19,14 +19,20 @@ export interface PillProps extends ComponentProps<"span"> {
   tone?: PillTone;
   size?: "sm" | "md";
   icon?: ReactNode;
+  /**
+   * Wrap long labels onto more lines instead of truncating them with an ellipsis. Use it for sentence-length
+   * content the user must be able to read in full (e.g. review key points on a phone).
+   */
+  wrap?: boolean;
 }
 
 /** Small status/label chip. */
-export function Pill({ tone = "neutral", size = "sm", icon, className, children, ...rest }: PillProps) {
+export function Pill({ tone = "neutral", size = "sm", icon, wrap = false, className, children, ...rest }: PillProps) {
   return (
     <span
       className={cn(
-        "inline-flex max-w-full items-center gap-1 rounded-full border font-medium",
+        "inline-flex max-w-full gap-1 border font-medium",
+        wrap ? "items-start rounded-xl text-left" : "items-center rounded-full",
         size === "sm" ? "px-2 py-0.5 text-xs" : "px-3 py-1 text-sm",
         TONES[tone],
         className,
@@ -34,7 +40,7 @@ export function Pill({ tone = "neutral", size = "sm", icon, className, children,
       {...rest}
     >
       {icon ? <span aria-hidden="true">{icon}</span> : null}
-      <span className="truncate">{children}</span>
+      <span className={wrap ? "min-w-0 whitespace-normal break-words" : "truncate"}>{children}</span>
     </span>
   );
 }

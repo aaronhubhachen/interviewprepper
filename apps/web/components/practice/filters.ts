@@ -80,7 +80,8 @@ export function problemStatus(problem: ProblemSummary): ProblemStatus {
   return "new";
 }
 
-export type RecommendReason = "due" | "weak" | "new" | "review";
+/** "unfinished": attempted but never solved (only once every problem has been started). */
+export type RecommendReason = "due" | "weak" | "new" | "unfinished" | "review";
 
 export interface Recommendation {
   problem: ProblemSummary;
@@ -88,15 +89,20 @@ export interface Recommendation {
   weakHits: Tag[];
 }
 
-/** Due problem cards first, then unsolved problems on a weak tag, then fresh ones, then the soonest review. */
+/**
+ * Due problem cards first, then unsolved problems on a weak tag, then fresh ones, then started-but-unsolved
+ * ones, then the soonest review.
+ */
 export function recommendProblem(problems: readonly ProblemSummary[], weak: ReadonlySet<Tag>): Recommendation | null {
   const byDue = (a: ProblemSummary, b: ProblemSummary) => (a.progress.card.dueAt ?? Infinity) - (b.progress.card.dueAt ?? Infinity);
   const due = problems.filter((p) => p.progress.card.due).sort(byDue)[0];
   if (due) return { problem: due, reason: "due", weakHits: weakHits(due, weak) };
   const weakPick = problems.find((p) => !p.progress.solved && weakHits(p, weak).length > 0);
   if (weakPick) return { problem: weakPick, reason: "weak", weakHits: weakHits(weakPick, weak) };
-  const fresh = problems.find((p) => p.progress.attempts === 0) ?? problems.find((p) => !p.progress.solved);
+  const fresh = problems.find((p) => p.progress.attempts === 0);
   if (fresh) return { problem: fresh, reason: "new", weakHits: weakHits(fresh, weak) };
+  const unfinished = problems.find((p) => !p.progress.solved);
+  if (unfinished) return { problem: unfinished, reason: "unfinished", weakHits: weakHits(unfinished, weak) };
   const review = [...problems].sort(byDue)[0];
   return review ? { problem: review, reason: "review", weakHits: weakHits(review, weak) } : null;
 }

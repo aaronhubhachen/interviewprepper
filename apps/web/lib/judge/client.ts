@@ -10,9 +10,14 @@
  *   terminates it and immediately starts warming a new one.
  * - The time limit starts at the worker's "started" message, so Pyodide's
  *   first-load time never counts against the user's code.
+ *
+ * The worker runs untrusted code on the app's origin. next.config.ts serves it
+ * with JUDGE_WORKER_CSP (csp.ts). That policy leaves 'self' out of connect-src,
+ * so pasted code cannot call /api or send data anywhere except the Pyodide CDN.
  */
 import { buildJsRunner, PYODIDE_INDEX_URL, PYTHON_HARNESS, type RawTestResult, type RunFailure } from "@synapse/core/judge";
 import type { JudgeLanguage } from "@synapse/core/content";
+import { JUDGE_WORKER_URL } from "./csp";
 import { isWorkerResponse, normalizeRaw, type WorkerRequest, type WorkerResponse } from "./protocol";
 
 /** Per-run time limit (ms of user-code execution). */
@@ -22,7 +27,7 @@ export const BOOT_TIMEOUT_MS = 15_000;
 /** How long Pyodide may take to download + initialise on a cold start. */
 export const PYTHON_LOAD_TIMEOUT_MS = 120_000;
 
-export const JUDGE_WORKER_URL = "/judge-worker.js";
+export { JUDGE_WORKER_URL };
 
 /** The subset of the DOM Worker API the client needs (lets tests inject fakes). */
 export interface WorkerLike {

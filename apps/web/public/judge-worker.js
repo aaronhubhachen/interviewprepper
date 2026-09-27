@@ -6,6 +6,15 @@
  * enforces the time limit by terminating this worker. Nothing here talks to the
  * network except Pyodide's own CDN download, and user code never leaves the tab.
  *
+ * Isolation: this runs pasted code on the app's origin. The real barrier is the
+ * Content-Security-Policy that next.config.ts serves with this file (see
+ * apps/web/lib/judge/csp.ts). Its connect-src has no 'self', so /api and any other
+ * host are unreachable. As defense in depth, lockDown() also removes the
+ * network-capable globals before the first line of user code runs: every run for
+ * JavaScript (one fresh worker per run), and once Pyodide is ready for Python. A
+ * worker that has run JavaScript therefore cannot load Pyodide afterwards. Only
+ * the CSP can block dynamic import().
+ *
  * Protocol (typed in apps/web/lib/judge/protocol.ts):
  *   in   { type: "run", id, language: "javascript", source, argsJson }
  *          source = core's buildJsRunner(code, fn); new Function(source)() returns run(argsJson)
@@ -39,9 +48,52 @@
     if (setupLogs.length > 200) setupLogs.shift();
   }
 
+  // ── lockdown ───────────────────────────────────────────────────────────
+
+  // Globals that can reach the network or start a fresh, unlocked global scope.
+  // Pyodide's socket module is built on WebSocket. Cache.add() fetches.
+  var NETWORK_GLOBALS = [
+    "fetch",
+    "XMLHttpRequest",
+    "WebSocket",
+    "WebSocketStream",
+    "EventSource",
+    "WebTransport",
+    "importScripts",
+    "Worker",
+    "SharedWorker",
+    "BroadcastChannel",
+    "caches",
+  ];
+  var hasOwn = Object.prototype.hasOwnProperty;
+  var lockedDown = false;
+
+  function lockDown() {
+    if (lockedDown) return;
+    lockedDown = true;
+    NETWORK_GLOBALS.forEach(function (name) {
+      for (var target = scope; target; target = Object.getPrototypeOf(target)) {
+        if (!hasOwn.call(target, name)) continue;
+        try {
+          delete target[name];
+        } catch (_) {
+          // non-configurable: fall through to overwriting it
+        }
+        if (hasOwn.call(target, name)) {
+          try {
+            target[name] = undefined;
+          } catch (_) {
+            // read-only accessor; nothing more we can do (the CSP still applies)
+          }
+        }
+      }
+    });
+  }
+
   // ── JavaScript ─────────────────────────────────────────────────────────
 
   function runJavaScript(message) {
+    lockDown();
     post({ type: "started", id: message.id });
     var run;
     try {
@@ -72,6 +124,8 @@
         pyodide.runPython(message.harness);
         var runTests = pyodide.globals.get("synapse_run_tests");
         if (typeof runTests !== "function") throw new Error("The Python harness did not define synapse_run_tests");
+        // Everything Pyodide downloads is loaded by now, and runs never load packages.
+        lockDown();
         post({ type: "status", status: "python-ready" });
         return { run: runTests };
       });
