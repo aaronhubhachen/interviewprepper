@@ -40,7 +40,7 @@ export const MICROCARDS_B: MicroCard[] = [
     hint: "Which days are still waiting for a warmer day? When a hot day arrives, which of them get resolved first?",
     explanation:
       "Because the stack decreases from bottom to top, the top is always the coldest unresolved day, so a warmer day resolves days from the top down. Once popped, a day never matters again, which bounds the total work at O(n). The same pattern solves next greater element, stock span, and largest rectangle in a histogram.",
-    tags: ["monotonic_stack"],
+    tags: ["monotonic_stack", "stack"],
     difficulty: 2,
     relatedProblem: { title: "Daily Temperatures", leetcodeSlug: "daily-temperatures" },
   },
@@ -213,7 +213,7 @@ export const MICROCARDS_B: MicroCard[] = [
     hint: "When a bar gets popped, the bar that forced it out is its first shorter bar on the right. Where is its first shorter bar on the left?",
     explanation:
       "Heights on the stack increase, so whatever sits under a popped bar is shorter than it, and the current bar is the first one to its right that is shorter. Appending a sentinel bar of height 0 flushes every remaining bar at the end, and since each bar is pushed and popped once, the scan is O(n). Maximal Rectangle in a binary matrix reuses this routine on each row's histogram.",
-    tags: ["monotonic_stack"],
+    tags: ["monotonic_stack", "stack"],
     difficulty: 3,
     relatedProblem: { title: "Largest Rectangle in Histogram", leetcodeSlug: "largest-rectangle-in-histogram" },
   },

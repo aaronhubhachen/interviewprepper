@@ -12,7 +12,9 @@ export type Command =
   | { type: "stats" }
   | { type: "pause" }
   | { type: "resume" }
-  | { type: "why" };
+  | { type: "why" }
+  | { type: "grill" }
+  | { type: "endGrill" };
 
 type SimpleCommand = Exclude<Command, { type: "link" }>["type"];
 
@@ -85,6 +87,8 @@ const PHRASES: Readonly<Record<SimpleCommand, readonly string[]>> = {
   stats: ["stats", "stat", "status", "progress", "streak", "score", "how am i doing", "my stats"],
   pause: ["pause", "stop", "mute", "snooze", "quiet", "unsubscribe", "stop texting", "leave me alone", "pause texts"],
   resume: ["resume", "unpause", "unmute", "continue", "restart", "im back", "resume texts"],
+  grill: ["grill", "grill me", "resume grill", "grill my resume", "roast my resume", "start grill"],
+  endGrill: ["end grill", "stop grill", "finish grill", "done grill", "quit grill", "cancel grill", "end the grill"],
   why: ["why", "explain", "explain it", "explain that", "explanation", "tell me more", "why is that", "more detail", "details"],
 };
 
@@ -146,6 +150,7 @@ export const TERMINAL_COMMANDS: readonly { name: `/${string}`; description: stri
   { name: "/skip", description: "Skip the open card" },
   { name: "/why", description: "Explain the last card" },
   { name: "/stats", description: "Your progress" },
+  { name: "/grill", description: "Defend your resume, one question at a time" },
   { name: "/help", description: "Everything Prepr can do" },
 ];
 

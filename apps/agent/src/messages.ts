@@ -2,6 +2,7 @@
  * Every user-facing text the agent sends. iMessage renders plain text only:
  * no markdown, no LaTeX. Keep lines short, emoji-led and phone-friendly.
  */
+import type { GrillQuestion, GrillReport } from "@synapse/core";
 import {
   clampSentences,
   toPlainText,
@@ -299,6 +300,7 @@ export function help(): string {
     "• why: explain the last card",
     "• stats: your progress",
     "• pause / resume: texts off / on",
+    "• grill: defend your resume against a skeptical interviewer ('end grill' to stop)",
     "Rate my feedback with a tapback: ❤️ effortless · 👍 hesitant · 👎 guessed. ‼️ marks a weak spot.",
   ].join("\n");
 }
@@ -337,4 +339,48 @@ export function ownerHello(webUrl: string): string {
 
 export function glitch(): string {
   return "⚠️ Something glitched on my end. Try that again in a sec.";
+}
+
+// ── Resume grill over text ─────────────────────────────────────────────────
+
+export function grillIntro(questions: number): string {
+  return [
+    "🔥 Resume grill. Paste your resume as text in your next message (a PDF won't come through).",
+    `I'll pick it apart one claim at a time for ${questions} questions: inflated verbs, unverifiable numbers, shallow tech.`,
+    "Reply 'end grill' anytime for the verdict so far.",
+  ].join("\n");
+}
+
+export function grillNeedsResume(minChars: number): string {
+  return `📄 That's too short to be a resume. Paste the full text (at least ${minChars} characters), or 'end grill' to cancel.`;
+}
+
+export function grillQuestion(question: GrillQuestion, number: number, total: number): string {
+  const lines = [];
+  if (question.reaction) lines.push(question.reaction);
+  lines.push(`🔥 ${number}/${total}: ${question.question}`);
+  lines.push(`(On: ${question.target})`);
+  return lines.join("\n");
+}
+
+export function grillWeighing(): string {
+  return "⚖️ The panel is weighing your answers…";
+}
+
+const CLAIM_EMOJI = { held: "✅", shaky: "🟡", cracked: "💥" } as const;
+
+export function grillVerdict(report: GrillReport, webUrl: string): string {
+  const lines = [`🔥 Resume grill verdict: ${report.overall}/100`, report.summary];
+  for (const claim of report.claims.slice(0, 4)) lines.push(`${CLAIM_EMOJI[claim.verdict]} ${claim.claim}`);
+  if (report.fixes[0]) lines.push(`Fix first: ${report.fixes[0]}`);
+  lines.push(`Full report: ${webUrl.replace(/\/$/, "")}/grill`);
+  return lines.join("\n");
+}
+
+export function grillCancelled(): string {
+  return "🧯 Grill cancelled. Your resume text is deleted. Reply 'grill' to start again.";
+}
+
+export function grillNotRunning(): string {
+  return "No grill running. Reply 'grill' to start one.";
 }

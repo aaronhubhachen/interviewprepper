@@ -11,7 +11,8 @@ resume grill. If you struggle in the IDE, your phone drills that exact pattern t
   **AI-assisted coding interviews**. It can plant a subtle bug in code it writes, and **Review** scores how you used
   it: framing, prompting, verification, catching its mistakes, and ownership.
 - **Resume grill:** upload your resume (PDF) and defend every line against a skeptical interviewer, then get a
-  held-up / shaky / cracked verdict per claim.
+  held-up / shaky / cracked verdict per claim. Over iMessage, text `grill` and paste your resume. Every round is saved,
+  and the dashboard's **Interview rounds** card shows your score trends.
 - **Voice sparring:** answer behavioral questions out loud with live STAR, filler, and pace metrics.
 - **Mobile app** (Expo): review, practice stages, spar, and grill from your phone against the same data.
 

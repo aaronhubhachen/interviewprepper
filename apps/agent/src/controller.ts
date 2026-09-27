@@ -1,6 +1,7 @@
 import {
   drillCardsForProblem,
   evaluateAnswer,
+  evaluateGrill,
   formatDuration,
   getCard,
   getProblem,
@@ -10,6 +11,7 @@ import {
   LINK_FAILURE_WINDOW_MS,
   localDayKey,
   localHour,
+  nextGrillQuestion,
   normalizeHandle,
   normalizeTapback,
   parseTextGrade,
@@ -34,6 +36,7 @@ import {
   type User,
 } from "@synapse/core";
 import { parseCommand, textAsTapback, type Command } from "./commands";
+import { isExpired, MIN_RESUME_CHARS, newGrill, SMS_GRILL_QUESTIONS, type SmsGrill } from "./grill";
 import * as M from "./messages";
 import { maskHandle, redact } from "./redact";
 import { AgentState, spaceScope, userScope } from "./state";
@@ -176,6 +179,7 @@ export type TickSkipReason =
   | "quiet-hours"
   | "daily-cap"
   | "cooldown"
+  | "grilling"
   | "drill-soon"
   | "no-space"
   | "group-chat"
@@ -499,6 +503,9 @@ export class StudyController<S extends ChatSpace = ChatSpace> {
 
     if (command) return this.onCommand(space, user, command, trimmed, now);
 
+    const grill = this.activeGrill(user.id, now);
+    if (grill) return this.onGrillText(space, user, grill, trimmed, now);
+
     const tapback = textAsTapback(trimmed);
     if (tapback) return this.onTapback(space, user, tapback, undefined, now);
 
@@ -544,6 +551,10 @@ export class StudyController<S extends ChatSpace = ChatSpace> {
         if (user.paused) this.store.setPaused(user.id, false, now);
         await this.say(space, M.resumed());
         return;
+      case "grill":
+        return this.onGrillStart(space, user, now);
+      case "endGrill":
+        return this.onGrillEnd(space, user, now);
       case "link":
       case "start":
         return; // handled before user resolution
@@ -901,6 +912,8 @@ export class StudyController<S extends ChatSpace = ChatSpace> {
     if (isGroupSpaceId(user.spaceId)) return skip("group-chat");
     if (!this.isStarted(user)) return skip("not-started");
     if (user.paused) return skip("paused");
+    // Mid-grill, a flashcard would hijack the next reply meant for the interviewer.
+    if (this.activeGrill(userId, now)) return skip("grilling");
 
     const extra: Partial<TickResult> = {};
     let preempted: PendingProbe | undefined;
@@ -1303,6 +1316,76 @@ export class StudyController<S extends ChatSpace = ChatSpace> {
       this.log(`evaluator failed, using heuristic: ${describeError(error)}`);
       return heuristicEvaluation(input);
     }
+  }
+
+  // ── Resume grill over text ───────────────────────────────────────────────
+
+  private activeGrill(userId: string, now: number): SmsGrill | undefined {
+    const grill = this.state.get<SmsGrill>(userScope(userId), "grill");
+    if (!grill) return undefined;
+    if (isExpired(grill, now)) {
+      this.state.delete(userScope(userId), "grill");
+      return undefined;
+    }
+    return grill;
+  }
+
+  private async onGrillStart(space: S, user: User, now: number): Promise<void> {
+    this.state.set(userScope(user.id), "grill", newGrill(now), now);
+    await this.say(space, M.grillIntro(SMS_GRILL_QUESTIONS));
+  }
+
+  private async onGrillText(space: S, user: User, grill: SmsGrill, text: string, now: number): Promise<void> {
+    if (grill.phase === "awaiting_resume") {
+      if (text.length < MIN_RESUME_CHARS) {
+        await this.say(space, M.grillNeedsResume(MIN_RESUME_CHARS));
+        return;
+      }
+      const started: SmsGrill = { ...grill, phase: "awaiting_answer", resume: text.slice(0, 20_000), touchedAt: now };
+      await this.askGrillQuestion(space, user, started);
+      return;
+    }
+    const current = grill.asked[grill.turns.length];
+    if (!current) return this.finishGrill(space, user, grill);
+    const answered: SmsGrill = {
+      ...grill,
+      turns: [...grill.turns, { question: current.question, target: current.target, answer: text.slice(0, 6_000) }],
+      touchedAt: now,
+    };
+    if (answered.turns.length >= SMS_GRILL_QUESTIONS) return this.finishGrill(space, user, answered);
+    await this.askGrillQuestion(space, user, answered);
+  }
+
+  private async askGrillQuestion(space: S, user: User, grill: SmsGrill): Promise<void> {
+    const question = await this.withTyping(space, () => nextGrillQuestion({ resume: grill.resume, turns: grill.turns }));
+    const next: SmsGrill = { ...grill, asked: [...grill.asked.slice(0, grill.turns.length), question], touchedAt: this.clock() };
+    this.state.set(userScope(user.id), "grill", next, next.touchedAt);
+    await this.say(space, M.grillQuestion(question, grill.turns.length + 1, SMS_GRILL_QUESTIONS));
+  }
+
+  private async onGrillEnd(space: S, user: User, now: number): Promise<void> {
+    const grill = this.activeGrill(user.id, now);
+    if (!grill) {
+      await this.say(space, M.grillNotRunning());
+      return;
+    }
+    if (grill.turns.length === 0) {
+      this.state.delete(userScope(user.id), "grill");
+      await this.say(space, M.grillCancelled());
+      return;
+    }
+    return this.finishGrill(space, user, grill);
+  }
+
+  /** Scores the answers, texts the verdict, saves the report (not the resume), and deletes the state. */
+  private async finishGrill(space: S, user: User, grill: SmsGrill): Promise<void> {
+    this.state.delete(userScope(user.id), "grill");
+    await this.say(space, M.grillWeighing());
+    const report = await this.withTyping(space, () => evaluateGrill({ resume: grill.resume, turns: grill.turns }));
+    const at = this.clock();
+    this.store.recordPracticeSession({ userId: user.id, kind: "grill", subject: "Resume", score: report.overall, report, now: at });
+    this.log(`grill finished for ${user.id}: ${report.overall}/100 (${report.source})`);
+    await this.say(space, M.grillVerdict(report, this.policy.webUrl));
   }
 
   private async withTyping<T>(space: S, work: () => Promise<T>): Promise<T> {

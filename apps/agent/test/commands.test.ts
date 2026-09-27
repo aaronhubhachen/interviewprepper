@@ -27,6 +27,10 @@ describe("parseCommand", () => {
     ["prepr", "greeting"],
     ["hey prepr", "greeting"],
     ["start prepr", "start"],
+    ["grill", "grill"],
+    ["Grill me!", "grill"],
+    ["end grill", "endGrill"],
+    ["stop grill", "endGrill"],
     ["synapse more", "more"],
   ])("%j → %s", (text, type) => {
     expect(parseCommand(text)?.type).toBe(type);

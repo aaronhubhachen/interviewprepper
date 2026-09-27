@@ -44,7 +44,7 @@ export const MICROCARDS_A: MicroCard[] = [
     hint: "Try nums = [3, 2, 4], target = 6. What goes wrong if 3 goes into the map before you look for 6 - 3?",
     explanation:
       "Each lookup asks: have I already seen the partner this number needs? That is O(n) time and O(n) space versus O(n^2) brute force. Lookup-first still finds [3, 3] because the first 3 is already in the map when the second one arrives.",
-    tags: ["hashing"],
+    tags: ["hashing", "arrays"],
     difficulty: 1,
     relatedProblem: { title: "Two Sum", leetcodeSlug: "two-sum" },
   },
@@ -221,7 +221,7 @@ export const MICROCARDS_A: MicroCard[] = [
     hint: "Fix the shorter line and pair it with any closer line, taller or not. Can the area ever go up?",
     explanation:
       "Moving the taller pointer keeps the same or a lower height cap while the width drops, so it can never improve. Moving the shorter pointer is the only move with a chance at a taller bottleneck. Each step safely eliminates one line, giving O(n) instead of checking all O(n^2) pairs.",
-    tags: ["two_pointers", "greedy"],
+    tags: ["two_pointers", "greedy", "arrays"],
     difficulty: 2,
     relatedProblem: { title: "Container With Most Water", leetcodeSlug: "container-with-most-water" },
   },
@@ -646,7 +646,7 @@ export const MICROCARDS_A: MicroCard[] = [
     hint: "Split the product around position i into two halves. Can each half be built incrementally in one pass?",
     explanation:
       "Division fails when the array contains a zero and is usually banned anyway. The prefix and suffix passes are O(n) time, and since the output doesn't count as extra space, only the running suffix variable is extra. Zeros need no special handling with this approach.",
-    tags: ["prefix_sum"],
+    tags: ["prefix_sum", "arrays"],
     difficulty: 2,
     relatedProblem: { title: "Product of Array Except Self", leetcodeSlug: "product-of-array-except-self" },
   },
@@ -1550,7 +1550,7 @@ export const MICROCARDS_A: MicroCard[] = [
     hint: "A single min variable breaks the moment you pop the minimum. What if every level of the stack remembered its own answer?",
     explanation:
       "The elements below any stack position never change while that position exists, so the min up to that position is a fixed fact you can cache at push time. A space optimization pushes onto the min stack only when value <= current min, and pops it when the popped value equals its top; the <= keeps duplicate minimums safe.",
-    tags: ["design"],
+    tags: ["design", "stack"],
     difficulty: 1,
     relatedProblem: { title: "Min Stack", leetcodeSlug: "min-stack" },
   },
