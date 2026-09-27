@@ -119,6 +119,8 @@ to that address and run `dev:lan`. The app's ⚙︎ screen shows and tests the a
 
 ## 3-minute demo script (judges)
 
+**Full script with talking points, an 8-minute cut, and fallbacks: [DEMO.md](DEMO.md).**
+
 **Before you start (5 min):**
 
 - Put the demo time scale in `.env` so that one SRS day equals one minute, and add a second LLM key:
