@@ -22,6 +22,11 @@ describe("study plans", () => {
     expect(progress.available).toBeGreaterThan(20);
   });
 
+  it("has every Blind 75 problem in the catalog", () => {
+    const catalog = new Set(listProblems().map((problem) => problem.leetcodeSlug));
+    expect(planSlugs(getStudyPlan("blind75")!).filter((slug) => !catalog.has(slug))).toEqual([]);
+  });
+
   it("titles slugs for problems Prepr doesn't have", () => {
     expect(titleFromSlug("two-sum-ii-input-array-is-sorted")).toBe("Two Sum II Input Array Is Sorted");
     expect(titleFromSlug("kth-smallest-element-in-a-bst")).toBe("Kth Smallest Element in a BST");
