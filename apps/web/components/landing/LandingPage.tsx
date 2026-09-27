@@ -8,29 +8,44 @@ import { ButtonLink } from "@/components/ui/Button";
 import { fetchProblems, fetchStats } from "@/lib/api";
 import { cn } from "@/lib/cn";
 
+const ROUNDS = [
+  { href: "/practice", label: "Coding", icon: "⌨️" },
+  { href: "/design", label: "System design", icon: "🏗️" },
+  { href: "/spar", label: "Behavioral", icon: "🎙️" },
+  { href: "/grill", label: "Resume deep-dive", icon: "🔥" },
+  { href: "/review", label: "Flashcards over iMessage", icon: "💬" },
+] as const;
+
 export function LandingPage() {
   return (
     <section className="grid min-h-[calc(100dvh-12rem)] items-center gap-14 py-6 lg:grid-cols-[1fr_1.05fr] lg:gap-10">
       <div className="motion-safe:animate-fade-up">
-        <span className="inline-flex rounded-full border border-line bg-ink-900 px-3 py-1 font-mono text-xs text-fg-subtle">
-          Spaced repetition for SWE interviews
-        </span>
-        <h1 className="mt-8 font-bold tracking-tight text-fg">
-          <span className="block text-4xl sm:text-5xl">A better way to</span>
-          <span className="mt-1 block text-7xl leading-[0.95] tracking-tighter sm:text-8xl xl:text-9xl">
-            Prepare
-            <span aria-hidden="true" className="ml-1 inline-block h-[0.14em] w-[0.14em] bg-synapse" />
+        <h1 className="font-bold tracking-tight text-fg">
+          <span className="block text-5xl leading-[1.02] tracking-tighter sm:text-6xl xl:text-7xl">
+            Prep for every part of the SWE interview
+            <span aria-hidden="true" className="ml-1.5 inline-block h-[0.16em] w-[0.16em] bg-synapse" />
           </span>
+          <span className="mt-4 block text-2xl font-semibold text-fg-subtle sm:text-3xl">Not just LeetCode.</span>
         </h1>
-        <p className="mt-8 max-w-md text-base leading-relaxed text-fg-muted sm:text-lg">
-          Flashcards over iMessage, a coding IDE, and mock interviews.
-        </p>
-        <div className="mt-10 flex flex-wrap gap-3">
+        <ul className="mt-8 flex max-w-lg flex-wrap gap-2" aria-label="Interview rounds">
+          {ROUNDS.map((round) => (
+            <li key={round.href}>
+              <Link
+                href={round.href}
+                className="inline-flex items-center gap-1.5 rounded-full border border-line-strong bg-ink-850 px-3 py-1.5 text-sm font-medium text-fg-muted transition-colors hover:border-synapse hover:text-fg"
+              >
+                <span aria-hidden="true">{round.icon}</span>
+                {round.label}
+              </Link>
+            </li>
+          ))}
+        </ul>
+        <div className="mt-8 flex flex-wrap gap-3">
           <ButtonLink href="/review" size="lg" rightIcon={<span aria-hidden="true">→</span>}>
             Start reviewing
           </ButtonLink>
-          <ButtonLink href="/practice" size="lg" variant="secondary">
-            Practice
+          <ButtonLink href="/mock" size="lg" variant="secondary">
+            Run a mock onsite
           </ButtonLink>
         </div>
         <PlanStrip />
@@ -118,7 +133,9 @@ function useTopicProgress(): Map<Tag, TopicProgress> | null {
 function TopicTree() {
   const progress = useTopicProgress();
   return (
-    <nav aria-label="Practice by topic" className="relative mx-auto aspect-[600/520] w-full max-w-xl">
+    <div className="mx-auto w-full max-w-xl">
+      <p className="mb-4 text-center font-mono text-xs uppercase tracking-[0.14em] text-fg-subtle">Coding roadmap</p>
+      <nav aria-label="Practice by topic" className="relative aspect-[600/520] w-full">
       <svg viewBox={`0 0 ${W} ${H}`} className="absolute inset-0 h-full w-full text-line-strong" fill="none" aria-hidden="true">
         {EDGES.map(([from, to]) => (
           <path
@@ -160,7 +177,8 @@ function TopicTree() {
           </Link>
         );
       })}
-    </nav>
+      </nav>
+    </div>
   );
 }
 
