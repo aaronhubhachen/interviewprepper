@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { allCards, drillCardsForProblem, tagLabel } from "@synapse/core";
+import { allCards, drillCardsForProblem, getCard, tagLabel } from "@synapse/core";
 import type { TickResult } from "../src/controller";
 import {
   DAY,
@@ -94,7 +94,42 @@ describe("tick: one outstanding probe", () => {
     expect(pending(h).phase).toBe("awaiting_grade");
 
     expect(await tickAt(chicago(9, 28, 16, 30))).toMatchObject({ reason: "outstanding" });
-    expect(await tickAt(chicago(9, 28, 21, 1))).toMatchObject({ action: "sent", expiredCardId: expect.any(String) });
+    // Answered but never rated: it keeps the evaluator's grade rather than expiring.
+    expect(await tickAt(chicago(9, 28, 21, 1))).toMatchObject({ action: "sent", gradedCardId: expect.any(String) });
+  });
+
+  it("does not count quiet hours toward expiry, so a card texted at 21:30 can be answered at breakfast", async () => {
+    setup({ start: chicago(9, 28, 21) });
+    const evening = await tickAt(chicago(9, 28, 21, 30));
+    expect(evening).toMatchObject({ action: "sent" });
+    const overnight = await tickAt(chicago(9, 29, 3, 31));
+    expect(overnight).toMatchObject({ action: "skipped", reason: "outstanding" });
+    expect(overnight.expiredCardId).toBeUndefined();
+
+    h.clock.set(chicago(9, 29, 7, 45));
+    const card = pending(h);
+    await h.controller.handleText(h.space, getCard(card.cardId)!.answerKey);
+    expect(h.space.last.text).toMatch(/^✅ /);
+    expect(pending(h).phase).toBe("awaiting_grade");
+  });
+
+  it("still sends the next morning's briefing when last night's card is unanswered, pointing at that card", async () => {
+    setup({ start: chicago(9, 28, 21) });
+    const evening = await tickAt(chicago(9, 28, 21, 30));
+    const open = pending(h);
+    const card = getCard(open.cardId)!;
+
+    const morning = await tickAt(chicago(9, 29, 9));
+    expect(morning).toMatchObject({ action: "sent", morning: true, cardId: evening.cardId });
+    const [briefing, reminder] = h.space.texts.slice(-2);
+    expect(briefing).toMatch(/^☕ Morning Synapse — /);
+    expect(reminder).toBe(`🧠 Still open: ${card.title}. Answer in 1 sentence, 'hint' for a nudge, or 'skip' for a different card.`);
+    expect(pending(h)).toEqual(open);
+    expect(await tickAt(chicago(9, 29, 9, 30))).toMatchObject({ action: "skipped", reason: "outstanding" });
+
+    h.clock.set(chicago(9, 29, 9, 40));
+    await h.controller.handleText(h.space, card.answerKey);
+    expect(pending(h)).toMatchObject({ cardId: card.id, phase: "awaiting_grade" });
   });
 });
 

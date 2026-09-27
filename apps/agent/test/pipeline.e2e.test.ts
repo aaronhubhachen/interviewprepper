@@ -7,8 +7,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { getCard, openStore, type Evaluation, type EvaluationInput, type SynapseStore } from "@synapse/core";
 import { dispatchSpectrumMessage, type Dispatched, type InboundMessage } from "../src/dispatch";
-import { glitch } from "../src/messages";
-import { CHI, DAY, MINUTE, SECOND, WEB_USER, chicago, createHarness, isProbe, type Harness } from "./support";
+import { glitch, textOnly } from "../src/messages";
+import { CHI, DAY, FakeSpace, MINUTE, SECOND, WEB_USER, chicago, createHarness, isProbe, type Harness } from "./support";
 
 /** Monday 10:00 AM, Chicago: inside active hours and after the morning hour. */
 const MONDAY_10AM = chicago(9, 28, 10);
@@ -94,10 +94,11 @@ const tapback = (emoji: string, targetId: string | undefined, overrides?: Partia
   inbound({ type: "reaction", emoji, target: targetId ? { id: targetId } : undefined }, overrides);
 
 /** Feeds one event through the production dispatch and waits for the controller to finish. */
-async function deliver(event: InboundMessage): Promise<Dispatched> {
+async function deliver(event: InboundMessage, space?: FakeSpace, log?: (line: string) => void): Promise<Dispatched> {
   if (!h) throw new Error("call setup() first");
-  const result = dispatchSpectrumMessage(h.controller, h.space, event, {
+  const result = dispatchSpectrumMessage(h.controller, space ?? h.space, event, {
     platform: "imessage",
+    log,
     onError: (_what, error) => dispatchErrors.push(error),
   });
   await result.done;
@@ -269,8 +270,8 @@ describe("Spectrum event → dispatch → controller → SQLite", () => {
       [text("my answer", { sender: { id: "synapse", kind: "agent" } }), "agent"],
       [tapback("❤️", probe.id, { direction: "outbound" }), "outbound"],
       [tapback("❤️", probe.id, { sender: { id: "synapse", kind: "agent" } }), "agent"],
-      [inbound({ type: "attachment" }), "unsupported"],
-      [inbound({ type: "typing" }), "unsupported"],
+      [inbound({ type: "typing", state: "start" } as InboundMessage["content"]), "unsupported"],
+      [inbound({ type: "custom" }), "unsupported"],
       [inbound({ type: "text", text: 42 }), "malformed"],
       [inbound({ type: "reaction", emoji: undefined, target: { id: probe.id } }), "malformed"],
     ];
@@ -305,5 +306,82 @@ describe("Spectrum event → dispatch → controller → SQLite", () => {
     expect((await deliver(tapback("👍", feedback.id))).handled).toBe("reaction");
     expect(db.progress(cardId)).toMatchObject({ repetition: 1, interval_days: 1, phase: "review" });
     expect(db.reviews(cardId)).toHaveLength(1);
+  });
+});
+
+describe("dispatch: what reaches the controller", () => {
+  it("a swipe-to-reply answer (content.type 'reply' wrapping text) is graded like any answer", async () => {
+    const { harness, evaluate } = setup();
+    const db = sqlite();
+    const probe = await linkAndReceiveProbe();
+    harness.clock.advance(30 * SECOND);
+    const answer = "hash map + doubly linked list";
+    const result = await deliver(inbound({ type: "reply", content: { type: "text", text: answer }, target: { id: probe.id } }));
+    expect(result.handled).toBe("text");
+    expect(evaluate).toHaveBeenCalledTimes(1);
+    expect(db.pending()).toMatchObject({ phase: "awaiting_grade", answer });
+    expect(dispatchErrors).toEqual([]);
+  });
+
+  it("text sent with an iMessage effect (content.type 'effect') is read like plain text", async () => {
+    const { harness } = setup();
+    await linkAndReceiveProbe();
+    harness.clock.advance(SECOND);
+    const result = await deliver(inbound({ type: "effect", content: { type: "text", text: "stats" }, effect: "slam" } as InboundMessage["content"]));
+    expect(result.handled).toBe("text");
+    expect(harness.space.last.text).toMatch(/^📊 Your Synapse/);
+  });
+
+  it("a photo with a caption (content.type 'group') is read by its text", async () => {
+    const { harness } = setup();
+    await linkAndReceiveProbe();
+    harness.clock.advance(SECOND);
+    const result = await deliver(
+      inbound({ type: "group", items: [{ content: { type: "attachment", name: "a.png" } }, { content: { type: "text", text: "stats" } }] }),
+    );
+    expect(result.handled).toBe("text");
+    expect(harness.space.last.text).toMatch(/^📊 Your Synapse/);
+  });
+
+  it("voice memos, photos and files get one 'text only' notice instead of silence", async () => {
+    const { harness, evaluate } = setup();
+    const db = sqlite();
+    await linkAndReceiveProbe();
+    const pendingBefore = db.pending();
+    const sent = harness.space.sent.length;
+
+    expect(await deliver(inbound({ type: "voice", mimeType: "audio/caf" } as InboundMessage["content"]))).toMatchObject({ handled: "unsupported" });
+    expect(harness.space.last.text).toBe(textOnly());
+    expect(await deliver(inbound({ type: "attachment", name: "whiteboard.jpg" } as InboundMessage["content"]))).toMatchObject({ handled: "unsupported" });
+    expect(await deliver(inbound({ type: "group", items: [{ content: { type: "attachment" } }] }))).toMatchObject({ handled: "unsupported" });
+    expect(harness.space.sent).toHaveLength(sent + 1);
+    expect(evaluate).not.toHaveBeenCalled();
+    expect(db.pending()).toEqual(pendingBefore);
+  });
+
+  it("group chats are ignored before they reach the controller", async () => {
+    const { harness } = setup();
+    await linkAndReceiveProbe();
+    const group = new FakeSpace("iMessage;+;chat123456", "group");
+    expect(await deliver(text("lol what is this bot", { sender: { id: "+15550001111", kind: "user" } }), group)).toMatchObject({
+      handled: "ignored",
+      reason: "group-chat",
+    });
+    expect(await deliver(tapback("❤️", "someone-elses-photo"), group)).toMatchObject({ handled: "ignored", reason: "group-chat" });
+    expect(group.sent).toHaveLength(0);
+    expect(harness.store.getUser(WEB_USER)?.spaceId).toBe(harness.space.id);
+  });
+
+  it("logs mask the sender's number and leave out message text", async () => {
+    const { harness } = setup();
+    await linkAndReceiveProbe();
+    const lines: string[] = [];
+    harness.clock.advance(30 * SECOND);
+    await deliver(text("my secret answer about heaps"), undefined, (line) => lines.push(line));
+    await deliver(tapback("❤️", harness.space.last.id), undefined, (line) => lines.push(line));
+    const log = lines.join("\n");
+    expect(log).toContain("0101");
+    expect(log).not.toContain(HANDLE);
+    expect(log).not.toContain("secret answer");
   });
 });

@@ -367,14 +367,24 @@ describe("linking & onboarding", () => {
     expect(h.space.sent).toHaveLength(1);
   });
 
-  it("'start' auto-links the sole unlinked web user and merges the placeholder", async () => {
-    setup();
-    await h.controller.handleText(h.space, "hey", { handle: "+15550001111" });
-    await h.controller.handleText(h.space, "Start!", { handle: "+15550001111" });
+  it("'start' from SYNAPSE_OWNER_HANDLE links the unlinked web user and merges the placeholder", async () => {
+    setup({ policy: { ownerHandle: "(314) 555-0101" } });
+    await h.controller.handleText(h.space, "hey", { handle: "+13145550101" });
+    await h.controller.handleText(h.space, "Start!", { handle: "+13145550101" });
     expect(h.store.getUser(WEB_USER)?.spaceId).toBe(h.space.id);
     expect(h.store.listUsers().map((user) => user.id)).toEqual([WEB_USER]);
     expect(h.space.texts).toContainEqual(expect.stringMatching(/^🔗 Linked!/));
     expect(isProbe(h.space.last.text)).toBe(true);
+  });
+
+  it("'start' from anyone else never claims the web user: they get a solo account", async () => {
+    setup();
+    const stranger = new FakeSpace("iMessage;-;+19995550000");
+    await h.controller.handleText(stranger, "start", { handle: "+19995550000" });
+    expect(h.store.getUser(WEB_USER)?.spaceId).toBeNull();
+    expect(stranger.texts[0]).toMatch(/^🧠 You're in!/);
+    expect(stranger.texts.join("\n")).not.toMatch(/🔗 Linked!/);
+    expect(h.store.stats(WEB_USER, h.clock.now()).link.linkCode).toMatch(/^\d{4}$/);
   });
 
   it("'start' from a second person creates a solo account when the web user is taken", async () => {

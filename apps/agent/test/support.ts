@@ -38,7 +38,11 @@ export class FakeSpace implements ChatSpace {
   typing = 0;
   private seq = 0;
 
-  constructor(readonly id = "iMessage;-;+13145550101") {}
+  constructor(
+    readonly id = "iMessage;-;+13145550101",
+    readonly type?: "dm" | "group",
+    readonly phone?: string,
+  ) {}
 
   async send(text: string): Promise<{ id: string }> {
     const id = `${this.id}#${++this.seq}`;
@@ -88,11 +92,15 @@ export interface HarnessOptions {
 
 export interface Harness {
   store: SynapseStore;
+  /** Every (redacted) line the controller logged. */
+  logs: string[];
   /** The temp SQLite file behind `store` (open a second connection to inspect rows). */
   dbPath: string;
   controller: StudyController<FakeSpace>;
   space: FakeSpace;
   clock: Clock;
+  /** A fresh controller on the same SQLite file, as after an agent restart (the in-memory space cache is gone). */
+  restart: (policy?: Partial<AgentPolicy>) => StudyController<FakeSpace>;
   cleanup: () => void;
 }
 
@@ -117,24 +125,33 @@ export function createHarness(options: HarnessOptions): Harness {
     advance: (ms) => (current += ms),
   };
   store.ensureUser(WEB_USER, options.start - DAY);
-  const controller = new StudyController<FakeSpace>({
+  const logs: string[] = [];
+  const makeController = (policy: Partial<AgentPolicy> = {}) =>
+    new StudyController<FakeSpace>({
+      store,
+      now: clock.now,
+      evaluate: options.evaluate ?? heuristic,
+      policy: { pushGapMs: 0, webUserId: WEB_USER, webUrl: "http://synapse.test", ...options.policy, ...policy },
+      log: (line) => logs.push(line),
+      sendRetryDelayMs: 0,
+    });
+  const harness: Harness = {
     store,
-    now: clock.now,
-    evaluate: options.evaluate ?? heuristic,
-    policy: { pushGapMs: 0, webUserId: WEB_USER, webUrl: "http://synapse.test", ...options.policy },
-    log: () => undefined,
-  });
-  return {
-    store,
+    logs,
     dbPath,
-    controller,
+    controller: makeController(),
     space: new FakeSpace(),
     clock,
+    restart: (policy) => {
+      harness.controller = makeController(policy);
+      return harness.controller;
+    },
     cleanup: () => {
       store.close();
       fs.rmSync(dir, { recursive: true, force: true });
     },
   };
+  return harness;
 }
 
 /** Texts "link <code>" like a real user (the agent replies and sends the first card). */
