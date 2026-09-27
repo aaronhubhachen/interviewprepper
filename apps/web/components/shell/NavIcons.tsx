@@ -56,3 +56,14 @@ export function GrillIcon(props: SVGProps<SVGSVGElement>) {
     </svg>
   );
 }
+
+export function MockIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base} {...props}>
+      <rect x="4" y="3.5" width="16" height="17" rx="2.5" />
+      <path d="M9 3.5v2h6v-2" />
+      <path d="m8.5 12 2.2 2.2 4.8-4.7" />
+      <path d="M8.5 17h7" />
+    </svg>
+  );
+}

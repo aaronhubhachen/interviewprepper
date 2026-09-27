@@ -8,3 +8,4 @@ export * from "./spar";
 export * from "./store";
 export * from "./judge/native-runner";
 export * from "./bot";
+export * from "./mock";

@@ -4,6 +4,7 @@
  * components. Every timestamp is epoch milliseconds.
  */
 import type { RawTestResult, RunFailure } from "@synapse/core/judge";
+import type { MockBehavioralRound, MockCodingRound, MockGrillRound, MockLoopInput, MockPacket } from "@synapse/core";
 import type { BehavioralFeedback, BotEvent, PracticeSession, BotMessage, BotReport, CodeLanguage, NativeLanguage, GrillQuestion, GrillReport, GrillTurn, IdeStage, PickReason, Stats } from "@synapse/core";
 import type {
   BehavioralQuestion,
@@ -25,7 +26,7 @@ import type {
   TranscriptAnalysis,
 } from "@synapse/core/browser";
 
-export type { BehavioralFeedback, CodeLanguage, Evaluation, IdeStage, IntervalPreview, Rating, Stats, Tag, TextGrade };
+export type { BehavioralFeedback, BehavioralQuestion, CodeLanguage, Evaluation, IdeStage, IntervalPreview, Rating, Stats, Tag, TextGrade };
 
 /** Every non-2xx response has this body. */
 export interface ApiErrorBody {
@@ -539,3 +540,7 @@ export interface BotInlineEditResponse {
   source: "llm" | "heuristic";
   trapToken: string | null;
 }
+
+// ── /api/mock/packet ───────────────────────────────────────────────────────
+
+export type { MockBehavioralRound, MockCodingRound, MockGrillRound, MockLoopInput, MockPacket };

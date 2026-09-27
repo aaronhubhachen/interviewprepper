@@ -15,6 +15,8 @@ import type {
   BotReportResponse,
   GrillNextResponse,
   GrillReport,
+  MockLoopInput,
+  MockPacket,
   PracticeSessionsResponse,
   JudgeLanguagesResponse,
   JudgeRunRequest,
@@ -254,6 +256,13 @@ export function fetchGrillReport(body: GrillSessionRequest, options?: RequestOpt
 /** GET /api/sessions?kind=&limit=: saved grill / AI-assisted / mock / design reports, newest first. */
 export function fetchPracticeSessions(kind: "grill" | "bot" | "mock" | "design", limit = 20, options?: RequestOptions): Promise<PracticeSessionsResponse> {
   return get(`/api/sessions?kind=${kind}&limit=${limit}`, options);
+}
+
+// ── Mock loop ────────────────────────────────────────────────────────────
+
+/** POST /api/mock/packet: the hiring-committee packet for a finished loop (LLM, up to ~30 s). */
+export function fetchMockPacket(body: MockLoopInput, options?: RequestOptions): Promise<MockPacket> {
+  return post("/api/mock/packet", body, options);
 }
 
 // ── Prepr Bot ────────────────────────────────────────────────────────────

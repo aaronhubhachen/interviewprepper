@@ -16,6 +16,7 @@ import { POST as botEditPOST } from "@/app/api/bot/edit/route";
 import { POST as botReportPOST } from "@/app/api/bot/report/route";
 import { openTrap, sealTrap } from "@/lib/server/bot";
 import { POST as grillNextPOST } from "@/app/api/grill/next/route";
+import { POST as mockPacketPOST } from "@/app/api/mock/packet/route";
 import { POST as grillReportPOST } from "@/app/api/grill/report/route";
 import { POST as grillResumePOST } from "@/app/api/grill/resume/route";
 import { GET as linkGET, POST as linkPOST } from "@/app/api/link/route";
@@ -41,6 +42,7 @@ import type {
   GrillNextResponse,
   GrillReport,
   GrillResumeResponse,
+  MockPacket,
   PracticeSessionsResponse,
   LinkResponse,
   PracticeAttemptResponse,
@@ -671,6 +673,43 @@ describe("saved interview rounds", () => {
     expect(stats.trends.bot).toHaveLength(1);
 
     await body<ApiErrorBody>(await sessionsListGET(get("/api/sessions?kind=nope"), NO_CTX), 400);
+  });
+});
+
+describe("mock loop", () => {
+  const coding = {
+    problemTitle: "Two Sum",
+    difficulty: "easy",
+    language: "Python",
+    passed: 5,
+    total: 5,
+    status: "accepted",
+    minutesUsed: 12.5,
+    minutesAllowed: 25,
+    aiAllowed: false,
+    aiUse: null,
+  };
+  const behavioral = { question: "Tell me about a conflict.", competency: "Conflict", overall: 70, strengths: ["Clear result"], improvements: ["Own more"] };
+  const grill = { overall: 60, summary: "Mostly held.", held: 2, shaky: 1, cracked: 1 };
+
+  it("writes a packet offline and saves it as a mock session", async () => {
+    const packet = await body<MockPacket>(await mockPacketPOST(post("/api/mock/packet", { coding, behavioral, grill }), NO_CTX));
+    expect(packet.source).toBe("heuristic");
+    expect(packet.rounds.map((round) => round.round)).toEqual(["coding", "behavioral", "grill"]);
+    expect(packet.overall).toBeGreaterThan(0);
+    const mocks = await body<PracticeSessionsResponse>(await sessionsListGET(get("/api/sessions?kind=mock"), NO_CTX));
+    expect(mocks.sessions[0]).toMatchObject({ kind: "mock", subject: "Two Sum", score: packet.overall });
+    const stats = await body<StatsResponse>(await statsGET(get("/api/stats"), NO_CTX));
+    expect(stats.trends.mock).toHaveLength(1);
+  });
+
+  it("accepts a partial loop and rejects bad rounds", async () => {
+    const partial = await body<MockPacket>(await mockPacketPOST(post("/api/mock/packet", { coding: null, behavioral, grill: null }), NO_CTX));
+    expect(partial.rounds).toHaveLength(1);
+    await body<ApiErrorBody>(await mockPacketPOST(post("/api/mock/packet", { coding: null, behavioral: null, grill: null }), NO_CTX), 400);
+    await body<ApiErrorBody>(await mockPacketPOST(post("/api/mock/packet", { coding: { ...coding, passed: -1 } }), NO_CTX), 400);
+    await body<ApiErrorBody>(await mockPacketPOST(post("/api/mock/packet", { behavioral: { ...behavioral, strengths: "nope" } }), NO_CTX), 400);
+    await body<ApiErrorBody>(await mockPacketPOST(post("/api/mock/packet", { grill: { ...grill, overall: 140 } }), NO_CTX), 400);
   });
 });
 

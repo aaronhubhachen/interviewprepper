@@ -62,7 +62,19 @@ export interface AiAssistant {
  * interaction log (prompts, inserts, pastes, runs) that the "Review my AI use" report scores.
  * Persists per problem in sessionStorage so switching stages or reloading keeps the thread.
  */
-export function useAiAssistant({ problemId, language, getCode }: { problemId: string; language: CodeLanguage; getCode: () => string }): AiAssistant {
+export function useAiAssistant({
+  problemId,
+  language,
+  getCode,
+  scope = "",
+}: {
+  problemId: string;
+  language: CodeLanguage;
+  getCode: () => string;
+  /** Separates stored threads for the same problem (the mock loop starts a fresh chat). */
+  scope?: string;
+}): AiAssistant {
+  const storageId = scope ? `${scope}:${problemId}` : problemId;
   const [messages, setMessages] = useState<BotMessage[]>([]);
   const [traps, setTraps] = useState<Stored["traps"]>([]);
   const [sending, setSending] = useState(false);
@@ -79,7 +91,7 @@ export function useAiAssistant({ problemId, language, getCode }: { problemId: st
   const inserted = useRef<string | null>(null);
 
   useEffect(() => {
-    const stored = load(problemId);
+    const stored = load(storageId);
     startedAt.current = stored?.startedAt ?? Date.now();
     events.current = stored?.events ?? [];
     try {
@@ -92,18 +104,18 @@ export function useAiAssistant({ problemId, language, getCode }: { problemId: st
       setMessages(stored.messages);
       setTraps(stored.traps ?? []);
     }
-  }, [problemId]);
+  }, [storageId]);
 
   const persist = useCallback(
     (nextMessages: BotMessage[], nextTraps: Stored["traps"]) => {
       try {
         const data: Stored = { messages: nextMessages, traps: nextTraps, events: events.current, startedAt: startedAt.current };
-        window.sessionStorage.setItem(chatKey(problemId), JSON.stringify(data));
+        window.sessionStorage.setItem(chatKey(storageId), JSON.stringify(data));
       } catch {
         // storage full or blocked: the thread still works for this page view
       }
     },
-    [problemId],
+    [storageId],
   );
 
   const log = useCallback((event: Omit<BotEvent, "at">) => {
@@ -244,11 +256,11 @@ export function useAiAssistant({ problemId, language, getCode }: { problemId: st
     startedAt.current = Date.now();
     lastResult.current = null;
     try {
-      window.sessionStorage.removeItem(chatKey(problemId));
+      window.sessionStorage.removeItem(chatKey(storageId));
     } catch {
       // storage blocked
     }
-  }, [problemId]);
+  }, [storageId]);
 
   return {
     messages,
