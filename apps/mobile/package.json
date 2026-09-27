@@ -45,5 +45,5 @@
     "test": "vitest run"
   },
   "private": true,
-  "description": "Prepr mobile app (Expo): dashboard, flashcard review, practice stages, spar, and resume grill against the web API."
+  "description": "Prepr mobile app (Expo): dashboard, flashcard review, practice stages, study plans, behavioral, resume grill, and interview trends against the web API."
 }

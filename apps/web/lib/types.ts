@@ -565,3 +565,31 @@ export interface DesignNextResponse extends DesignQuestion {
 }
 
 export type { ReportCard };
+
+// ── /api/plans ────────────────────────────────────────────────────────────
+
+export interface PlanItem {
+  slug: string;
+  title: string;
+  /** null when Prepr doesn't have the problem yet (link to LeetCode). */
+  problemId: string | null;
+  difficulty: ProblemDifficulty | null;
+  solved: boolean;
+}
+
+export interface PlanProgressCounts {
+  total: number;
+  available: number;
+  solved: number;
+}
+
+export interface PlanSummary extends PlanProgressCounts {
+  id: "blind75" | "neetcode150";
+  title: string;
+  description: string;
+  categories: Array<PlanProgressCounts & { name: string; items: PlanItem[] }>;
+}
+
+export interface PlansResponse {
+  plans: PlanSummary[];
+}

@@ -29,6 +29,7 @@ import type {
   SparSessionsResponse,
   StatsResponse,
   Tag,
+  PlansResponse,
   ReportCard,
 } from '@web/types';
 
@@ -117,11 +118,19 @@ export function fetchNextCard(query: { tag?: Tag; exclude?: string[] } = {}) {
   const qs = params.toString();
   return get<ReviewNextResponse>(`/api/review/next${qs ? `?${qs}` : ''}`);
 }
+export function fetchBonusCard(query: { tag?: Tag; exclude?: string[] } = {}) {
+  const params = new URLSearchParams();
+  if (query.tag) params.set('tag', query.tag);
+  if (query.exclude?.length) params.set('exclude', query.exclude.join(','));
+  const qs = params.toString();
+  return get<ReviewNextResponse>(`/api/review/bonus${qs ? `?${qs}` : ''}`);
+}
 export const evaluateCardAnswer = (body: ReviewEvaluateRequest) => post<ReviewEvaluateResponse>('/api/review/evaluate', body);
 export const gradeCard = (body: ReviewGradeRequest) => post<ReviewGradeResponse>('/api/review/grade', body);
 
 // Practice (text stages; the code stage opens the web IDE)
 export const fetchProblems = () => get<ProblemsResponse>('/api/problems');
+export const fetchPlans = () => get<PlansResponse>('/api/plans');
 export const fetchProblem = (id: string) => get<ProblemResponse>(`/api/problems/${encodeURIComponent(id)}`);
 export const evaluateStageAnswer = (body: PracticeEvaluateRequest) => post<PracticeEvaluateResponse>('/api/practice/evaluate', body);
 export const recordAttempt = (body: PracticeAttemptRequest) => post<PracticeAttemptResponse>('/api/practice/attempt', body);

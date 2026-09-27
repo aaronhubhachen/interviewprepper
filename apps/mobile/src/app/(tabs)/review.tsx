@@ -3,7 +3,7 @@ import { useEffect, useEffectEvent, useState } from 'react';
 import { View } from 'react-native';
 import { EvaluationCard, TapbackRow } from '@/components/feedback';
 import { Button, Card, ErrorCard, Field, Loading, Pill, Row, T, TabScreen } from '@/components/ui';
-import { errorMessage, evaluateCardAnswer, fetchNextCard, gradeCard } from '@/lib/api';
+import { errorMessage, evaluateCardAnswer, fetchBonusCard, fetchNextCard, gradeCard } from '@/lib/api';
 import { humanizeTag } from '@/lib/format';
 import { space, usePalette } from '@/lib/theme';
 import type { ReviewEvaluateResponse, ReviewNextResponse, Tag } from '@web/types';
@@ -16,18 +16,22 @@ type Step =
   | { kind: 'empty'; next: Extract<ReviewNextResponse, { card: null }> };
 
 export default function ReviewScreen() {
-  const params = useLocalSearchParams<{ tag?: string }>();
+  const params = useLocalSearchParams<{ tag?: string; mode?: string }>();
   const tag = (params.tag || undefined) as Tag | undefined;
-  // Remount per tag so a new drill starts from a clean session.
-  return <ReviewSession key={tag ?? 'all'} tag={tag} />;
+  const bonus = params.mode === 'bonus';
+  // Remount per tag and mode so a new drill starts from a clean session.
+  return <ReviewSession key={`${tag ?? 'all'}:${bonus}`} tag={tag} initialBonus={bonus} />;
 }
 
 function stepFor(next: ReviewNextResponse): Step {
   return next.card ? { kind: 'answer', next } : { kind: 'empty', next };
 }
 
-function ReviewSession({ tag }: { tag: Tag | undefined }) {
+function ReviewSession({ tag, initialBonus }: { tag: Tag | undefined; initialBonus: boolean }) {
   const p = usePalette();
+  /** "Study new cards": never-seen cards past the daily new-card cap. */
+  const [bonus, setBonus] = useState(initialBonus);
+  const fetchCard = (query: { tag?: Tag; exclude?: string[] }, extra = bonus) => (extra ? fetchBonusCard(query) : fetchNextCard(query));
   const [step, setStep] = useState<Step>({ kind: 'loading' });
   const [answer, setAnswer] = useState('');
   const [showHint, setShowHint] = useState(false);
@@ -36,19 +40,19 @@ function ReviewSession({ tag }: { tag: Tag | undefined }) {
   const [skipped, setSkipped] = useState<string[]>([]);
   const [reviewed, setReviewed] = useState(0);
 
-  const load = async (exclude: string[] = []) => {
+  const load = async (exclude: string[] = [], extra = bonus) => {
     setStep({ kind: 'loading' });
     setAnswer('');
     setShowHint(false);
     try {
-      setStep(stepFor(await fetchNextCard({ tag, exclude })));
+      setStep(stepFor(await fetchCard({ tag, exclude }, extra)));
     } catch (error) {
       setStep({ kind: 'error', message: errorMessage(error) });
     }
   };
 
   const loadFirst = useEffectEvent(() => {
-    fetchNextCard({ tag }).then(
+    fetchCard({ tag }).then(
       (next) => setStep(stepFor(next)),
       (error: unknown) => setStep({ kind: 'error', message: errorMessage(error) }),
     );
@@ -118,11 +122,20 @@ function ReviewSession({ tag }: { tag: Tag | undefined }) {
       {step.kind === 'empty' ? (
         <Card style={{ gap: space.md, alignItems: 'center', paddingVertical: space.xxl }}>
           <T variant="display">🎉</T>
-          <T variant="heading">All caught up</T>
+          <T variant="heading">{bonus ? 'No new cards left' : 'All caught up'}</T>
           <T variant="muted" style={{ textAlign: 'center' }}>
             {step.next.nextDueIn ? `Next card is due in ${step.next.nextDueIn}.` : 'Nothing else is scheduled.'}
           </T>
-          <Button label="Check again" variant="secondary" onPress={() => void load()} />
+          {bonus ? null : (
+            <Button
+              label="Study new cards"
+              onPress={() => {
+                setBonus(true);
+                void load(skipped, true);
+              }}
+            />
+          )}
+          <Button label="Check again" variant="secondary" onPress={() => void load(skipped)} />
         </Card>
       ) : null}
 

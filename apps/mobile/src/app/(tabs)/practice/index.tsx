@@ -1,12 +1,12 @@
-import { Link, Stack, useLocalSearchParams } from 'expo-router';
+import { Link, router, Stack, useLocalSearchParams } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
-import { Card, ErrorCard, Loading, Pill, Row, Screen, T } from '@/components/ui';
-import { fetchProblems } from '@/lib/api';
+import { Linking, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Card, ErrorCard, Loading, Pill, ProgressBar, Row, Screen, T } from '@/components/ui';
+import { fetchPlans, fetchProblems } from '@/lib/api';
 import { humanizeTag } from '@/lib/format';
 import { radius, space, usePalette } from '@/lib/theme';
 import { useLoad } from '@/lib/useLoad';
-import type { ProblemSummary } from '@web/types';
+import type { PlanSummary, ProblemSummary } from '@web/types';
 
 const STAGES = ['invariant', 'edgeCase', 'code'] as const;
 
@@ -15,6 +15,9 @@ export default function PracticeList() {
   const problems = useLoad(fetchProblems);
   const [query, setQuery] = useState('');
   const [tag, setTag] = useState<string | null>(params.tag ?? null);
+  const [planId, setPlanId] = useState<PlanSummary['id'] | null>(null);
+  const plans = useLoad(fetchPlans, String(problems.data?.problems.filter((problem) => problem.progress.solved).length ?? 0));
+  const plan = plans.data?.plans.find((candidate) => candidate.id === planId) ?? null;
   const p = usePalette();
 
   const tags = useMemo(() => {
@@ -36,6 +39,15 @@ export default function PracticeList() {
       />
       <Screen refreshing={problems.refreshing} onRefresh={problems.refresh}>
         <T variant="muted">Invariant and edge case here; code on the web.</T>
+        <Row style={{ gap: space.sm }}>
+          <Chip label="All problems" active={!planId} onPress={() => setPlanId(null)} />
+          {(plans.data?.plans ?? []).map((candidate) => (
+            <Chip key={candidate.id} label={candidate.title} active={planId === candidate.id} onPress={() => setPlanId(candidate.id)} />
+          ))}
+        </Row>
+        {plan ? <PlanView plan={plan} /> : null}
+        {plan ? null : (
+        <>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: space.sm }}>
           <Chip label="All" active={!tag} onPress={() => setTag(null)} />
           {tags.map((t) => (
@@ -54,7 +66,54 @@ export default function PracticeList() {
             {visible.length} of {problems.data.problems.length} problems
           </T>
         ) : null}
+        </>
+        )}
       </Screen>
+    </>
+  );
+}
+
+function PlanView({ plan }: { plan: PlanSummary }) {
+  const p = usePalette();
+  return (
+    <>
+      <Card style={{ gap: space.sm }}>
+        <Row style={{ justifyContent: 'space-between' }}>
+          <T variant="heading">{plan.title}</T>
+          <T variant="muted">
+            {plan.solved}/{plan.total} solved
+          </T>
+        </Row>
+        <ProgressBar value={plan.solved / plan.total} />
+      </Card>
+      {plan.categories.map((category) => (
+        <Card key={category.name} style={{ gap: space.sm }}>
+          <Row style={{ justifyContent: 'space-between' }}>
+            <T variant="heading">{category.name}</T>
+            <T variant="small">
+              {category.solved}/{category.total}
+            </T>
+          </Row>
+          <ProgressBar value={category.solved / category.total} />
+          {category.items.map((item) => {
+            const open = () =>
+              item.problemId
+                ? router.push({ pathname: '/practice/[id]', params: { id: item.problemId } })
+                : void Linking.openURL(`https://leetcode.com/problems/${item.slug}/`);
+            return (
+              <Pressable key={item.slug} onPress={open} style={({ pressed }) => [styles.planRow, { borderColor: p.line, opacity: pressed ? 0.7 : 1 }]}>
+                <T style={{ width: 20, color: item.solved ? p.accent : p.faint }}>{item.solved ? '✓' : '○'}</T>
+                <T style={{ flex: 1, color: item.problemId ? p.text : p.subtle }} numberOfLines={1}>
+                  {item.title}
+                </T>
+                <T variant="small" style={{ color: p.faint }}>
+                  {item.problemId ? (item.difficulty ?? '') : 'LeetCode ↗'}
+                </T>
+              </Pressable>
+            );
+          })}
+        </Card>
+      ))}
     </>
   );
 }
@@ -111,4 +170,5 @@ const styles = StyleSheet.create({
   chip: { borderWidth: 1, borderRadius: radius.pill, paddingHorizontal: 14, paddingVertical: 8 },
   dots: { flexDirection: 'row', gap: 4 },
   dot: { width: 8, height: 8, borderRadius: 4 },
+  planRow: { flexDirection: 'row', alignItems: 'center', gap: space.sm, paddingVertical: 8, borderTopWidth: StyleSheet.hairlineWidth },
 });

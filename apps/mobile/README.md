@@ -1,56 +1,20 @@
-# Welcome to your Expo app 👋
+# Prepr mobile (Expo)
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+The phone app for Prepr. It has no data of its own: every screen talks to the Prepr web server on your computer
+(`apps/web`), so progress is shared with the web app and the iMessage agent.
 
-## Get started
+**Tabs:** Home (due cards, streak, interview-round trends, weekly report card, iMessage pause), Review (flashcards with
+tapback-style ratings and "Study new cards"), Practice (stages 1–2 of every problem, Blind 75 / NeetCode 150 progress;
+the coding stage opens the web IDE), Behavioral (STAR answers with an Engineering Manager follow-up), and Grill
+(defend your resume). Prepr Bot chat is available inside each problem.
 
-1. Install dependencies
+## Run it
 
-   ```bash
-   npm install
-   ```
+1. Start the web server on your LAN from the repo root: set `SYNAPSE_WEB_URL=http://<your-lan-ip>:3000` in `.env`, then
+   `npm run dev:lan -w @synapse/web`.
+2. `npm start -w @synapse/mobile` and scan the QR code with Expo Go (or `npm run ios -w @synapse/mobile` for the simulator).
+3. The ⚙︎ screen on Home shows and tests the server address.
 
-2. Start the app
+## Checks
 
-   ```bash
-   npx expo start
-   ```
-
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
-
-```bash
-npm run reset-project
-```
-
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
-
-### Other setup steps
-
-- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
-- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
-- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
-
-## Learn more
-
-To learn more about developing your project with Expo, look at the following resources:
-
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
-
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+`npx tsc --noEmit`, `npx expo lint`, and `npx vitest run` (pure modules in `src/lib`).

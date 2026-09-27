@@ -43,6 +43,7 @@ export default function HomeScreen() {
       ) : (
         <>
           <Dashboard stats={stats.data} onChanged={stats.refresh} />
+          <Rounds trends={stats.data.trends} />
           <WeeklyReport url={url} refreshKey={stats.data.generatedAt} />
         </>
       )}
@@ -76,7 +77,7 @@ function Dashboard({ stats, onChanged }: { stats: StatsResponse; onChanged: () =
         <Button
           label={due + newLeft > 0 ? 'Start review' : 'Review ahead'}
           icon="→"
-          onPress={() => router.push('/review')}
+          onPress={() => router.push(due + newLeft > 0 ? '/review' : { pathname: '/review', params: { mode: 'bonus' } })}
         />
       </Card>
 
@@ -199,6 +200,7 @@ function LinkCard({ stats, onChanged }: { stats: StatsResponse; onChanged: () =>
 }
 
 const styles = StyleSheet.create({
+  spark: { flexDirection: 'row', alignItems: 'flex-end', gap: 3, height: 22, marginHorizontal: space.md },
   mark: { width: 30, height: 30 },
   grade: { width: 36, height: 36, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center' },
   gear: { width: 40, height: 40, borderRadius: radius.md, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
@@ -233,6 +235,43 @@ function WeeklyReport({ url, refreshKey }: { url: string; refreshKey: number }) 
         {card.aiUse ? ` · AI-use ${card.aiUse.average}` : ''}
       </T>
       <Button label="Open shareable card" variant="secondary" onPress={() => void Linking.openURL(`${url}/report`)} />
+    </Card>
+  );
+}
+
+const ROUND_LABELS: [keyof StatsResponse['trends'], string][] = [
+  ['bot', 'AI-assisted coding'],
+  ['spar', 'Behavioral'],
+  ['grill', 'Resume grill'],
+  ['design', 'System design'],
+  ['mock', 'Mock onsite'],
+];
+
+/** Latest score and a mini trend per interview round type (same data as the web dashboard). */
+function Rounds({ trends }: { trends: StatsResponse['trends'] }) {
+  const p = usePalette();
+  const rows = ROUND_LABELS.filter(([key]) => (trends?.[key]?.length ?? 0) > 0);
+  if (rows.length === 0) return null;
+  return (
+    <Card style={{ gap: space.sm }}>
+      <T variant="heading">Interview rounds</T>
+      {rows.map(([key, label]) => {
+        const points = trends[key].slice(-8);
+        const latest = points[points.length - 1]!.score;
+        return (
+          <Row key={key} style={{ justifyContent: 'space-between', flexWrap: 'nowrap' }}>
+            <T style={{ flex: 1 }}>{label}</T>
+            <View style={styles.spark}>
+              {points.map((point, index) => (
+                <View key={index} style={{ width: 5, height: Math.max(3, (point.score / 100) * 22), borderRadius: 2, backgroundColor: index === points.length - 1 ? p.accent : p.accentSoft }} />
+              ))}
+            </View>
+            <T variant="heading" style={{ width: 40, textAlign: 'right' }}>
+              {latest}
+            </T>
+          </Row>
+        );
+      })}
     </Card>
   );
 }

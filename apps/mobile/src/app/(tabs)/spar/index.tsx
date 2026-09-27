@@ -7,7 +7,7 @@ import { useLoad } from '@/lib/useLoad';
 
 export default function SparList() {
   const questions = useLoad(fetchBehavioral);
-  const sessions = useLoad(() => fetchSparSessions(10));
+  const sessions = useLoad(() => fetchSparSessions(50));
   const p = usePalette();
 
   const refresh = () => {

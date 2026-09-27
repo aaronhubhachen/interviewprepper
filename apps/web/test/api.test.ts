@@ -27,6 +27,7 @@ import { POST as practiceEvaluatePOST } from "@/app/api/practice/evaluate/route"
 import { GET as problemGET } from "@/app/api/problems/[id]/route";
 import { GET as solutionGET } from "@/app/api/problems/[id]/solution/route";
 import { GET as problemsGET } from "@/app/api/problems/route";
+import { GET as plansGET } from "@/app/api/plans/route";
 import { GET as dueGET } from "@/app/api/review/due/route";
 import { POST as reviewEvaluatePOST } from "@/app/api/review/evaluate/route";
 import { POST as gradePOST } from "@/app/api/review/grade/route";
@@ -48,6 +49,7 @@ import type {
   DesignReport,
   MockPacket,
   PracticeSessionsResponse,
+  PlansResponse,
   LinkResponse,
   PracticeAttemptResponse,
   PracticeEvaluateResponse,
@@ -752,6 +754,22 @@ describe("system design", () => {
     await body<ApiErrorBody>(await designReportPOST(post("/api/design/report", { ...base, turns: [] }), NO_CTX), 400);
     const full = Array.from({ length: 6 }, () => ({ phase: "requirements", question: "Q", answer: "A" }));
     await body<ApiErrorBody>(await designNextPOST(post("/api/design/next", { ...base, turns: full }), NO_CTX), 400);
+  });
+});
+
+describe("study plans", () => {
+  it("returns both plans with category progress and playable problem ids", async () => {
+    const { plans } = await body<PlansResponse>(await plansGET(get("/api/plans"), NO_CTX));
+    expect(plans.map((plan) => [plan.id, plan.total])).toEqual([
+      ["blind75", 75],
+      ["neetcode150", 150],
+    ]);
+    const blind = plans[0]!;
+    expect(blind.available).toBe(75);
+    const twoSum = blind.categories.flatMap((category) => category.items).find((item) => item.slug === "two-sum");
+    expect(twoSum).toMatchObject({ problemId: "p-two-sum", title: "Two Sum", solved: false });
+    const missing = plans[1]!.categories.flatMap((category) => category.items).find((item) => item.problemId === null);
+    expect(missing?.title.length).toBeGreaterThan(0);
   });
 });
 
