@@ -125,8 +125,9 @@ web server and agent share the file. Synchronous; every time-dependent method ta
   be texted ("shortly" when a drill card is already overdue). `nextDrillTime(now)`, `listIdeAttempts`.
 - Sparring: `recordSparSession({ userId, questionId, transcript, durationMs, feedback, now })`, `listSparSessions`.
 - Activity & dashboard: `logEvent(userId, kind, title, detail, now)`, `recentEvents`, `stats(userId, now) → Stats`
-  (dueNow, reviewedToday, streakDays, retention30d, cardsLearned, totalCards, forecast14, reviewsByDay (30),
-  masteryByTag, weakTags, recentActivity, link, demoScale). `stats` ensures the user and, while unlinked, a link code.
+  (dueNow, reviewedToday, streakDays, activeToday (a review, IDE attempt or spar today), retention30d, cardsLearned,
+  totalCards, forecast14, reviewsByDay (30), masteryByTag, weakTags, recentActivity, link, demoScale). `stats` ensures
+  the user and, while unlinked, a link code.
 
 ## LLM & evaluators
 

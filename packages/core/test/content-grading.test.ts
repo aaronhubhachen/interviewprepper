@@ -306,7 +306,191 @@ describe("keyword stuffing and paraphrase gaps", () => {
     ["mc-dijkstra-negative-edges", "Dijkstra treats a node as optimal once popped, but a negative edge found later could make it cheaper; use Bellman-Ford."],
     ["mc-dijkstra-negative-edges", "Once a node is popped its distance is final, which assumes weights never go below zero; use Bellman-Ford instead."],
     ["mc-validate-bst-bounds", "Every node in the right subtree must beat the root, not just its parent, so pass down low/high bounds."],
+    ["mc-dijkstra-negative-edges", "Dijkstra assumes edges can't make paths shorter, so once a node is popped it's settled; use Bellman-Ford."],
   ])("%s credits a natural paraphrase: %s", (id, answer) => {
     expect(grade(micro(id), answer)).toBe("correct");
+  });
+
+  it("gives mc-next-greater-circular's pop point to 'popped by' but not to a bare 'pop'", () => {
+    const card = micro("mc-next-greater-circular");
+    expect(grade(card, "Decreasing stack; an index gets its answer when it's popped by a larger value; loop 2n times with i % n.")).toBe("correct");
+    expect(grade(card, "2n decreasing pop")).not.toBe("correct");
+  });
+
+  it("credits 2 * n - 1 centers without reopening the 2n count", () => {
+    const card = micro("mc-palindrome-expand-center");
+    expect(grade(card, "Try 2*n - 1 centers since palindromes are odd or even length; O(n^2) time, O(1) space.")).toBe("correct");
+    expect(grade(card, "Try 2 * n - 1 centers since palindromes are odd or even length; O(n^2) time, O(1) space.")).toBe("correct");
+    expect(missed(card, "Try 2 * n centers, one per char and gap, O(n^2) time and O(1) space.")).toContain("2n - 1 centers");
+  });
+});
+
+describe("mc-binary-search-lower-bound", () => {
+  const card = micro("mc-binary-search-lower-bound");
+  const hiMid = "Otherwise hi = mid, keeping mid in range (not mid - 1)";
+
+  it("does not credit the wrong updates", () => {
+    expect(
+      grade(
+        card,
+        "Everything before lo is less than target and everything at or after hi is at least target; if nums[mid] < target set lo = mid, else hi = mid - 1, and return lo when lo == hi.",
+      ),
+    ).not.toBe("correct");
+    for (const answer of [
+      "Everything before lo is less than target and everything at or after hi is at least target; if nums[mid] < target set lo = mid + 1, else hi = mid - 1.",
+      "Before lo is < target and at or after hi is >= target; lo = mid + 1, otherwise set r = mid - 1.",
+      // "r = mid" written bare would match "lower mid" (compact "rmid").
+      "Before lo is < target and at or after hi is >= target; lo = mid + 1, else hi = mid - 1, using the lower mid.",
+      "Before lo is < target and at or after hi is >= target; lo = mid + 1, else hi = mid + 1.",
+    ]) {
+      expect(missed(card, answer), answer).toContain(hiMid);
+    }
+  });
+
+  it.each([
+    "Invariant: nums[i] < target for i < lo, nums[i] >= target for i >= hi. If nums[mid] < target, lo = mid + 1, else hi = mid.",
+    "Everything before lo is less than target, everything at or after hi is at least target. If nums[mid] < target set lo = mid + 1 else hi = mid.",
+    "Left of lo is < target and from hi onward is >= target; lo = mid + 1 when nums[mid] < target, otherwise hi = mid.",
+    "Before lo is < target, at or after hi is >= target. lo = mid + 1 if nums[mid] < target else r = mid.",
+  ])("credits a complete answer that ends with hi = mid: %s", (answer) => {
+    expect(grade(card, answer)).toBe("correct");
+    expect(missed(card, answer)).not.toContain(hiMid);
+  });
+});
+
+describe("mc-tree-dfs-orders", () => {
+  const card = micro("mc-tree-dfs-orders");
+
+  it.each(["(a) inorder, (b) postorder, (c) preorder.", "(a) postorder, (b) preorder, (c) inorder.", "1) inorder 2) postorder 3) preorder"])(
+    "does not credit a shuffled mapping: %s",
+    (answer) => {
+      expect(grade(card, answer)).not.toBe("correct");
+    },
+  );
+
+  it.each([
+    "(a) preorder, (b) inorder, (c) postorder.",
+    "1) preorder 2) inorder 3) postorder",
+    "Serialize with preorder, read sorted values with inorder, and compute heights with postorder.",
+  ])("credits a labeled or job-bound mapping: %s", (answer) => {
+    expect(grade(card, answer)).toBe("correct");
+  });
+
+  it("gives an unlabeled list in prompt order partial credit, not incorrect", () => {
+    expect(grade(card, "Preorder, inorder, postorder.")).toBe("partial");
+    expect(grade(card, card.prompt)).toBe("incorrect");
+  });
+});
+
+describe("mc-quickselect-kth-largest", () => {
+  const card = micro("mc-quickselect-kth-largest");
+  const average = "Quickselect: average O(n)";
+
+  it.each([
+    "Heap is O(n log k); quickselect is O(n) average and O(n^2) worst case, avoided by picking a random pivot.",
+    "Heap is O(n log k); quickselect is average O(n) but O(n^2) worst case, avoided by a random pivot.",
+    "Heap is O(n log k); quickselect is expected O(n) and O(n^2) worst, fixed by a random pivot.",
+    "Heap is O(n log k); quickselect is O(n) avg, O(n^2) worst; random pivot.",
+  ])("credits every point of a correct answer: %s", (answer) => {
+    expect(missed(card, answer)).toEqual([]);
+  });
+
+  it.each([
+    "A min heap of size k is O(n log k); quickselect is O(n log n) on average and O(n^2) in the worst case, which a random pivot avoids.",
+    "Heap O(n log k); quickselect average O(n log n) and O(n^2) worst, random pivot.",
+    "Heap O(n log k); quickselect expected O(n log n) and O(n^2) worst, random pivot.",
+  ])("names the wrong average as the gap: %s", (answer) => {
+    expect(missed(card, answer)).toContain(average);
+  });
+});
+
+describe("mc-kahn-cycle-detection", () => {
+  const card = micro("mc-kahn-cycle-detection");
+
+  it.each([
+    "Compute in-degrees and push the in-degree 0 courses into a queue, decrement neighbors as you pop; if there is a cycle then it's impossible.",
+    "Compute each node's in-degree, queue the in-degree 0 ones and decrement neighbors; if there is a cycle you never reach the end, so it is impossible.",
+  ])("does not credit an answer that never says how the cycle is detected: %s", (answer) => {
+    expect(grade(card, answer)).not.toBe("correct");
+  });
+
+  it.each([
+    "BFS from the zero in-degree nodes, decrementing neighbors; if the topological order doesn't include all nodes, there's a cycle.",
+    "Queue the courses with in-degree 0 and decrement neighbors as you pop; if not every course gets processed, it's impossible.",
+    "Queue in-degree 0 courses, decrement neighbors; if the count of popped nodes != numCourses it's impossible.",
+    "Queue in-degree 0 nodes and decrement; some courses never reach in-degree 0, so it's impossible.",
+  ])("credits a count-based detection: %s", (answer) => {
+    expect(grade(card, answer)).toBe("correct");
+  });
+});
+
+describe("mc-fast-power", () => {
+  const card = micro("mc-fast-power");
+
+  it.each([
+    "Square the base and divide the exponent, n / 2, each step; for negative n take 1/x.",
+    // "res *= x" / "ans *= x" written with symbols would match "squares x" / "means x" through the compact form.
+    "It squares x and halves n each step; for negative n take 1/x.",
+    "Square the base and halve n each time, which means x^n takes log n steps; negative n: 1/x.",
+  ])("does not credit halving without the odd-step multiply: %s", (answer) => {
+    expect(grade(card, answer)).not.toBe("correct");
+  });
+
+  it.each([
+    "If n % 2 == 1 multiply ans by x, then x *= x and n //= 2; for negative n invert x and negate n, using a long to avoid overflow.",
+    "while n: if n & 1: res *= x; x *= x; n >>= 1. For negative n use 1/x and a long.",
+    "If n is odd, ans = ans * x; then x = x * x and n = n // 2. Negative n: use 1/x and a long.",
+    "Square x and halve n; if the low bit is set multiply res by x. Negative n: 1/x, careful of overflow.",
+  ])("credits a code-style odd step: %s", (answer) => {
+    expect(grade(card, answer)).toBe("correct");
+  });
+});
+
+describe("mc-knapsack-01-reverse-loop", () => {
+  const card = micro("mc-knapsack-01-reverse-loop");
+
+  it("does not credit the reversed directions", () => {
+    const answer =
+      "Looping upward keeps the previous item's old values so each item is used once; looping downward lets you reuse items, the unbounded knapsack.";
+    expect(grade(card, answer)).not.toBe("correct");
+  });
+
+  it.each([
+    "Looping from W down means dp[w - wt] is still the previous item's value so each item is used at most once; looping up lets you reuse the same item, which is the unbounded knapsack.",
+    "Going down reads values from before item i so each item is picked at most once; iterating forward would let an item be reused, the unbounded knapsack.",
+  ])("credits a correct answer: %s", (answer) => {
+    expect(grade(card, answer)).toBe("correct");
+  });
+});
+
+describe("mc-knapsack-combinations-vs-permutations", () => {
+  const card = micro("mc-knapsack-combinations-vs-permutations");
+
+  it.each([
+    "Coins in the outer loop counts permutations because order matters and 2 + 1 differs from 1 + 2; amounts outer counts combinations in a fixed coin order.",
+    "Amounts outer gives combinations since coins are used in a fixed order; coins outer counts permutations since 1 + 2 and 2 + 1 are different orders.",
+  ])("does not credit swapped loop orders: %s", (answer) => {
+    expect(grade(card, answer)).not.toBe("correct");
+  });
+
+  it.each([
+    "Coins in the outer loop means each coin is processed once in a fixed order so 1+2 and 2+1 are the same combination; amounts outer lets any coin be last at each amount, so different orders count separately as permutations.",
+    "With coins outside, coins are added in a fixed order, so 1 + 2 and 2 + 1 are counted once; with amounts outside, every coin is tried at each amount, so each ordering is counted: permutations.",
+  ])("credits a correct mechanism: %s", (answer) => {
+    expect(grade(card, answer)).toBe("correct");
+  });
+});
+
+describe("mc-two-pointers-sorted-two-sum", () => {
+  const card = micro("mc-two-pointers-sorted-two-sum");
+
+  it("credits the 'can't be in any pair' argument", () => {
+    const answer =
+      "Move the left pointer right; since the left number plus the largest number is still too small, the left number can't be in any valid pair.";
+    expect(grade(card, answer)).toBe("correct");
+  });
+
+  it("does not credit restating that the sum is too small", () => {
+    expect(grade(card, "Move the left pointer right because the sum is still too small.")).not.toBe("correct");
   });
 });

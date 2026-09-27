@@ -89,6 +89,18 @@ describe("stem & matchKeyPoints", () => {
     expect(matchKeyPoints("skip when nums[i] == nums[i+1]", prev).nailed).toEqual([]);
   });
 
+  it("does not read an '=' phrase as the prefix of a longer + or - expression", () => {
+    const hiMid: KeyPoint[] = [{ label: "hi = mid", anyOf: ["hi = mid"] }];
+    for (const answer of ["else hi = mid.", "otherwise hi=mid", "hi = mid, not mid - 1", "hi = mid (mid could be the answer)"]) {
+      expect(matchKeyPoints(answer, hiMid).missed, answer).toEqual([]);
+    }
+    for (const answer of ["else hi = mid - 1", "hi = mid + 1", "else hi=mid-1", "hi = mid minus 1"]) {
+      expect(matchKeyPoints(answer, hiMid).nailed, answer).toEqual([]);
+    }
+    // Phrases without "=" still match as a prefix: "mid" names the variable in "mid - 1" too.
+    expect(matchKeyPoints("hi = mid - 1", [{ label: "mid", anyOf: ["mid"] }]).missed).toEqual([]);
+  });
+
   it("keeps hyphenated words and lets a hyphen stand in for a spaced minus", () => {
     const diagonals: KeyPoint[] = [{ label: "Diagonals", anyOf: ["row - col and row + col"] }];
     expect(matchKeyPoints("keys row-col and row+col", diagonals).missed).toEqual([]);

@@ -186,6 +186,8 @@ export interface Stats {
   dueNow: number;
   reviewedToday: number;
   streakDays: number;
+  /** Today is one of the streak's active days (a review, IDE attempt or spar session today). */
+  activeToday: boolean;
   /** Pass rate (grade >= 3) over the last 30 days; null without reviews. */
   retention30d: number | null;
   cardsLearned: number;

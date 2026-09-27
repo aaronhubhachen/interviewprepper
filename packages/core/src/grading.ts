@@ -212,12 +212,20 @@ function groupedSpans(answer: NormalizedText, target: NormalizedText): Span[] {
   return spans;
 }
 
+/**
+ * An assignment or comparison phrase ("hi = mid") is a prefix of the answer's longer expression
+ * ("hi = mid - 1", "hi = mid + 1"), which means something else, so it is not a mention.
+ */
+function continuesExpression(answer: NormalizedText, phrase: string, end: number): boolean {
+  return phrase.includes("=") && (answer.tokens[end] === "plus" || answer.tokens[end] === "minus");
+}
+
 function looseSpans(answer: NormalizedText, target: NormalizedText, phrase: string): Span[] {
   const spans: Span[] = [];
   if (target.stems.length > 0) {
     for (let i = 0; i < answer.stems.length && spans.length < MAX_SPANS_PER_PHRASE; i++) {
       const end = matchAt(answer, target, i);
-      if (end !== null) spans.push({ start: i, end });
+      if (end !== null && !continuesExpression(answer, phrase, end)) spans.push({ start: i, end });
     }
   }
   const symbolic = /[^a-z0-9\s'’-]/i.test(phrase);
@@ -227,7 +235,9 @@ function looseSpans(answer: NormalizedText, target: NormalizedText, phrase: stri
       const covered = answer.offsets.flatMap((offset, index) =>
         offset < endChar && offset + answer.tokens[index]!.length > at ? [index] : [],
       );
-      if (covered.length > 0) spans.push({ start: covered[0]!, end: covered[covered.length - 1]! + 1 });
+      if (covered.length > 0 && !continuesExpression(answer, phrase, covered[covered.length - 1]! + 1)) {
+        spans.push({ start: covered[0]!, end: covered[covered.length - 1]! + 1 });
+      }
       at = answer.compact.indexOf(target.compact, at + 1);
     }
   }

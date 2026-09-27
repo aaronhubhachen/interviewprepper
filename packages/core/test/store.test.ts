@@ -752,6 +752,7 @@ describe("forecast & stats", () => {
       userId: "me",
       reviewedToday: 1,
       streakDays: 3,
+      activeToday: true,
       cardsLearned: 2,
       totalCards: allCards().length,
       demoScale: false,
@@ -772,7 +773,7 @@ describe("forecast & stats", () => {
 
   it("returns empty-state stats for a brand-new user", () => {
     const stats = store.stats("fresh", T0);
-    expect(stats).toMatchObject({ dueNow: 0, reviewedToday: 0, streakDays: 0, retention30d: null, cardsLearned: 0 });
+    expect(stats).toMatchObject({ dueNow: 0, reviewedToday: 0, streakDays: 0, activeToday: false, retention30d: null, cardsLearned: 0 });
     expect(stats.masteryByTag.every((mastery) => mastery.progress === 0)).toBe(true);
   });
 });
@@ -788,6 +789,15 @@ describe("spar sessions", () => {
     expect(session).toMatchObject({ questionId: "bq-x", overall: feedback.overall, scores: feedback.scores });
     expect(store.listSparSessions("me")).toHaveLength(1);
     expect(store.stats("me", T0).streakDays).toBe(1);
+    // A spar alone makes today active, so the dashboard must not ask for a review to keep the streak.
+    expect(store.stats("me", T0)).toMatchObject({ reviewedToday: 0, streakDays: 1, activeToday: true });
+  });
+
+  it("counts an IDE attempt as today's activity, and the next day is not active until something happens", () => {
+    const problem = allCards().find((card) => card.kind === "problem")!;
+    store.recordIdeAttempt({ userId: "me", problemId: problem.id, stage: "invariant", passed: true, now: T0 });
+    expect(store.stats("me", T0 + MINUTE)).toMatchObject({ reviewedToday: 0, streakDays: 1, activeToday: true });
+    expect(store.stats("me", T0 + DAY)).toMatchObject({ reviewedToday: 0, streakDays: 1, activeToday: false });
   });
 });
 

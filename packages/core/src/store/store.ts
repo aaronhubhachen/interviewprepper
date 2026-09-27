@@ -1374,13 +1374,16 @@ export class SynapseStore {
       (sum, day) => ({ reviews: sum.reviews + day.reviews, passed: sum.passed + day.passed }),
       { reviews: 0, passed: 0 },
     );
+    const activeDays = this.activeDayKeys(userId, now);
+    const todayKey = this.localDay(now);
 
     return {
       userId,
       generatedAt: now,
       dueNow: progress.filter((entry) => entry.dueAt <= now).length,
       reviewedToday: reviewsByDay[reviewsByDay.length - 1]!.reviews,
-      streakDays: computeStreak(this.activeDayKeys(userId, now), this.localDay(now)),
+      streakDays: computeStreak(activeDays, todayKey),
+      activeToday: activeDays.has(todayKey),
       retention30d: totals.reviews > 0 ? Math.round((totals.passed / totals.reviews) * 1000) / 1000 : null,
       cardsLearned: progress.filter((entry) => entry.phase === "review").length,
       totalCards: allCards().length,

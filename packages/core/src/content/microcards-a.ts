@@ -145,7 +145,16 @@ export const MICROCARDS_A: MicroCard[] = [
           "ruled out",
           "largest remaining",
           "already too small",
-          "still too small",
+          // Not a bare "still too small": "the sum is still too small" only restates the prompt's condition.
+          "largest is still too small",
+          "biggest is still too small",
+          "max is still too small",
+          "largest number",
+          "largest value",
+          "biggest number",
+          "biggest value",
+          "even with the largest",
+          "even paired with the largest",
           "even the largest",
           "no solution",
           "no valid pair",
@@ -676,10 +685,19 @@ export const MICROCARDS_A: MicroCard[] = [
         anyOf: ["lo = mid + 1", "lo = mid+1", "l = mid + 1", "left = mid + 1", "lo becomes mid + 1", "lo to mid + 1", "lo past mid"],
       },
       {
-        // The heuristic grader drops operators, so a bare "hi = mid" would also match the buggy "hi = mid - 1".
-        // Accept it only when a word follows mid, or when the answer explains why mid must stay in range.
+        // A bare "hi = mid" is safe: the grader doesn't match a phrase with "=" when the answer carries on with
+        // + or -, so it rejects the buggy "hi = mid - 1" (and "hi = mid + 1") but still credits "else hi = mid.".
+        // "r = mid" needs a word before it: bare, its compact form "rmid" also matches "after mid" or "lower mid".
         label: "Otherwise hi = mid, keeping mid in range (not mid - 1)",
         anyOf: [
+          "hi = mid",
+          "right = mid",
+          "high = mid",
+          "else r = mid",
+          "otherwise r = mid",
+          "set r = mid",
+          "then r = mid",
+          "r = mid otherwise",
           "not mid - 1",
           "keep mid",
           "keeps mid",
@@ -921,8 +939,30 @@ export const MICROCARDS_A: MicroCard[] = [
       },
       {
         label: "Quickselect: average O(n)",
-        // No "average o(n)" / "o(n) average": operators are dropped, so they match "average O(n log n)" and "on average".
-        anyOf: ["o(n) on average", "o(n) expected", "o(n) in expectation", "linear on average", "average linear", "expected linear", "linear expected"],
+        // No "average o(n)", "o(n) average" or bare "average o n". With parentheses the compact fallback finds "onaverage"
+        // in "O(n log n) on average" and "averageon" in "average O(n log n)", and a phrase ending in "o n" is a prefix of
+        // "O(n log n)". Word-only phrases skip the compact match, and a word after "o n" rules out "O(n log n)".
+        anyOf: [
+          "o(n) on average",
+          "o(n) expected",
+          "o(n) in expectation",
+          "linear on average",
+          "average linear",
+          "expected linear",
+          "linear expected",
+          "o n average",
+          "o n avg",
+          "o n expected",
+          "average o n worst",
+          "average o n but",
+          "average o n and",
+          "average case o n worst",
+          "average case o n and",
+          "average case o n but",
+          "expected o n worst",
+          "expected o n but",
+          "expected o n and",
+        ],
       },
       {
         label: "Worst case O(n^2)",
@@ -1177,7 +1217,7 @@ export const MICROCARDS_A: MicroCard[] = [
       {
         label: "2n - 1 centers",
         // Not a bare "2n" (the classic wrong count), and not "every char and every gap", which belongs to the next point.
-        anyOf: ["2n - 1", "2n-1", "n and n - 1", "n + n - 1", "n - 1 gaps", "n - 1 even"],
+        anyOf: ["2n - 1", "2n-1", "2 * n - 1", "n and n - 1", "n + n - 1", "n - 1 gaps", "n - 1 even"],
       },
       {
         label: "Odd and even lengths need different centers",
@@ -1439,6 +1479,20 @@ export const MICROCARDS_A: MicroCard[] = [
           "multiply in x",
           "multiply in the base",
           "result *= x",
+          "for odd n",
+          // "res x" / "ans x" match "res *= x" and "ans = ans * x" as words. Written with "*=", the compact
+          // fallback would find "resx" in "squares x" and "ansx" in "means x" from a halving-only answer.
+          "res x",
+          "ans x",
+          "multiply ans",
+          "multiply res",
+          "multiply the answer",
+          "multiply the ans",
+          "multiply by x once more",
+          "low bit is set",
+          "low bit is 1",
+          "lowest bit is set",
+          "bit is set",
         ],
       },
       {

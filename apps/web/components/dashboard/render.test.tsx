@@ -18,7 +18,7 @@ import { ForecastCard } from "./ForecastCard";
 import { LinkCard } from "./LinkCard";
 import { MasteryCard } from "./MasteryCard";
 import { RecentActivityCard } from "./RecentActivityCard";
-import { StatsRow } from "./StatsRow";
+import { StatsRow, streakHint } from "./StatsRow";
 import { WeakSpotsCard } from "./WeakSpotsCard";
 
 vi.mock("next/navigation", () => ({
@@ -118,6 +118,30 @@ describe("dashboard panels", () => {
     expect(linked).toContain("+15551234567");
     // The owner can undo a wrong link (behind a confirm step).
     expect(linked).toContain("Wrong chat? Unlink");
+  });
+});
+
+describe("streak hint", () => {
+  it("does not ask for a review when an IDE stage already counts for today", () => {
+    const local = openStore(":memory:", { timezone: CHI, dayMs: 86_400_000, morningHour: 9, newPerDay: 8 });
+    try {
+      const problem = allCards().find((card) => card.kind === "problem")!;
+      local.recordIdeAttempt({ userId: "me", problemId: problem.id, stage: "invariant", passed: true, now: T0 - 60_000 });
+      const today = statsPayload(local, "me", T0);
+      expect(today).toMatchObject({ reviewedToday: 0, streakDays: 1, activeToday: true });
+      expect(streakHint(today)).toBe("✓ Practiced today");
+      expect(render(<StatsRow stats={today} now={T0} />)).toContain("Practiced today");
+      // The next day nothing counts yet, so the hint asks for any practice, not specifically a review.
+      expect(streakHint(statsPayload(local, "me", T0 + 86_400_000))).toBe("Practice today to keep it alive");
+      expect(streakHint(statsPayload(local, "fresh", T0))).toBe("Practice today to start one");
+    } finally {
+      local.close();
+    }
+  });
+
+  it("names today's reviews first and stays neutral for a payload without activeToday", () => {
+    expect(streakHint({ reviewedToday: 2, streakDays: 4, activeToday: true })).toBe("✓ 2 reviews today");
+    expect(streakHint({ reviewedToday: 0, streakDays: 4 })).toBe("Reviews, IDE stages and spars all count");
   });
 });
 
