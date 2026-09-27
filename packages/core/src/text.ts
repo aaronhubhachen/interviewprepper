@@ -24,7 +24,8 @@ export function toPlainText(text: string): string {
     .replace(/\\(log|cdot|times|le|ge|in|to)\b/g, (_, command: string) => LATEX_WORDS[command] ?? command)
     .replace(/\*\*([^*]+)\*\*/g, "$1")
     .replace(/__([^_]+)__/g, "$1")
-    .replace(/(^|\s)\*([^*\n]+)\*(?=\s|$|[.,!?])/g, "$1$2")
+    // *italic* only when the asterisks hug the text, so "O(n * 2^n) ... O(n^2 * 2^n)" keeps its multiplications.
+    .replace(/(^|\s)\*(\S(?:[^*\n]*\S)?)\*(?=\s|$|[.,!?])/g, "$1$2")
     .replace(/^#{1,6}\s+/gm, "")
     .replace(/^\s*[-*]\s+/gm, "• ")
     .replace(/[ \t]+/g, " ")
@@ -45,9 +46,14 @@ export function clampSentences(text: string, maxSentences: number, maxChars = 32
   return `${(lastSpace > maxChars * 0.6 ? cut.slice(0, lastSpace) : cut).trimEnd()}…`;
 }
 
-/** Wraps untrusted user text in labeled delimiters for LLM prompts, truncating and neutralizing fake closing tags. */
+/**
+ * Wraps untrusted user text in labeled delimiters for LLM prompts, truncating it.
+ * Every angle bracket inside becomes a look-alike (‹ ›), so no tag in the text
+ * (nested "</candi</candidate_answer>date_answer>", "</candidate_answer >", attributes)
+ * can close the fence early and pose as trusted prompt text.
+ */
 export function fenceUntrusted(label: string, text: string, maxChars = 4000): string {
   const clipped = text.length > maxChars ? `${text.slice(0, maxChars)} [truncated]` : text;
-  const safe = clipped.replace(new RegExp(`</?${label}>`, "gi"), "");
+  const safe = clipped.replace(/</g, "‹").replace(/>/g, "›");
   return `<${label}>\n${safe}\n</${label}>`;
 }

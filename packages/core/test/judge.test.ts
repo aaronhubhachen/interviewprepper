@@ -1,6 +1,6 @@
 import { beforeAll, describe, expect, it } from "vitest";
 import type { CodeStage } from "../src/content/types";
-import { buildJsHarness, buildJsRunner, compareOutput, judgeResults, runJsTests } from "../src/judge";
+import { buildJsHarness, buildJsRunner, compareOutput, judgeResults, PYTHON_MAX_RECURSION, runJsTests } from "../src/judge";
 import { loadPythonRunner, type PythonRunner } from "./support/pyodide";
 
 const TWO_SUM: Pick<CodeStage, "functionName" | "tests" | "compare"> = {
@@ -77,6 +77,58 @@ describe("JS harness", () => {
     expect(ok).toMatchObject({ ok: true, output: "4", logs: ['x is 2 {"k":1}'] });
     expect(failed).toMatchObject({ ok: false, error: "RangeError: negative", logs: ["x is -1 {\"k\":1}"] });
   });
+
+  it("supports every console method and prints values as themselves", () => {
+    const code = `console.log("loaded");
+function f(x) {
+  console.table([[1, 2]]); console.dir({ a: 1 }); console.trace("t"); console.count(); console.time("x"); console.timeEnd("x");
+  console.group(); console.groupEnd(); console.assert(x > 5, "small", x);
+  console.log(new Map([[1, 2]]), new Set([1]), undefined, NaN, -Infinity, -0, 10n, [undefined, "s"], function named() {});
+  return x;
+}`;
+    const run = new Function(buildJsRunner(code, "f"))() as (argsJson: string) => string;
+    const [first, second] = JSON.parse(run(JSON.stringify([[1], [2]])));
+    expect(first.ok).toBe(true);
+    expect(first.logs).toEqual([
+      "loaded",
+      "[[1,2]]",
+      '{"a":1}',
+      "t",
+      "Assertion failed: small 1",
+      'Map(1) {1 => 2} Set(1) {1} undefined NaN -Infinity -0 10n [undefined,"s"] [Function: named]',
+    ]);
+    expect(second.logs[0]).toBe("[[1,2]]");
+  });
+
+  it("reports non-JSON return values per test instead of null or a broken run", () => {
+    const stage = {
+      functionName: "f",
+      compare: "exact" as const,
+      tests: [
+        { args: [0], expected: -1 },
+        { args: [1], expected: 1 },
+        { args: [2], expected: [1] },
+        { args: [3], expected: [1] },
+        { args: [4], expected: 1 },
+      ],
+    };
+    const code = `function f(n) {
+  if (n === 0) return Infinity;
+  if (n === 1) return 1;
+  if (n === 2) return new Set([1]);
+  if (n === 3) return [1, NaN];
+  return () => n;
+}`;
+    const report = runJsTests(code, stage);
+    expect(report.status).toBe("runtime_error");
+    expect(report.cases.map((testCase) => testCase.error ?? "passed")).toEqual([
+      "Returned Infinity, which is not valid JSON.",
+      "passed",
+      "Returned a Set, which is not valid JSON.",
+      "Returned NaN at [1], which is not valid JSON.",
+      "Returned a function, which is not valid JSON.",
+    ]);
+  });
 });
 
 describe("runJsTests & judgeResults", () => {
@@ -138,5 +190,52 @@ describe("PYTHON_HARNESS (Pyodide)", () => {
     const missing = python.runTests("x = 1", TWO_SUM);
     expect(missing.status).toBe("runtime_error");
     expect(missing.message).toMatch(/NameError: Define a function named twoSum/);
+  });
+
+  it("names the line of a syntax error once", (ctx) => {
+    if (!python) return ctx.skip();
+    expect(python.runTests("def twoSum(nums, target):\n    return nums +\n", TWO_SUM).message).toBe("SyntaxError: invalid syntax (line 2)");
+    expect(python.runTests("def twoSum(nums, target):\nreturn 1\n", TWO_SUM).message).toBe(
+      "IndentationError: expected an indented block after function definition on line 1 (line 2)",
+    );
+  });
+
+  it("reports sys.exit() per test instead of failing the whole run", (ctx) => {
+    if (!python) return ctx.skip();
+    const report = python.runTests("import sys\ndef twoSum(nums, target):\n    if target == 6:\n        sys.exit(1)\n    return [0, 1]\n", TWO_SUM);
+    expect(report.cases.map((testCase) => testCase.error ?? "passed")).toEqual(["passed", "SystemExit: 1 (line 4)", "SystemExit: 1 (line 4)"]);
+    const topLevel = python.runTests("import sys\nsys.exit(0)\n", TWO_SUM);
+    expect(topLevel).toMatchObject({ status: "runtime_error", message: "SystemExit: 0 (line 2)" });
+    expect(python.runTests("def twoSum(nums, target):\n    exit()\n", TWO_SUM).cases[0]!.error).toBe("SystemExit (line 2)");
+  });
+
+  it("reports inf and nan returns as a per-test error that names the value", (ctx) => {
+    if (!python) return ctx.skip();
+    const stage = { functionName: "f", compare: "exact" as const, tests: [{ args: [0], expected: -1 }, { args: [1], expected: [1] }] };
+    const report = python.runTests("def f(n):\n    return float('inf') if n == 0 else [1, float('nan')]\n", stage);
+    expect(report.cases.map((testCase) => testCase.error)).toEqual([
+      "Returned inf, which is not valid JSON.",
+      "Returned nan, which is not valid JSON.",
+    ]);
+  });
+
+  it("starts every run from a clean interpreter and caps the recursion limit", (ctx) => {
+    if (!python) return ctx.skip();
+    const stage = { functionName: "f", compare: "exact" as const, tests: [{ args: [1], expected: 1000 }] };
+    // A LeetCode habit that used to stick to the warm worker...
+    expect(python.runTests("import sys\nsys.setrecursionlimit(10**6)\ndef f(n):\n    return sys.getrecursionlimit()\n", stage).cases[0]!.actual).toBe(
+      PYTHON_MAX_RECURSION,
+    );
+    expect(python.runTests("import sys\ndef f(n):\n    return sys.getrecursionlimit()\n", stage).status).toBe("accepted");
+    // ...and turned infinite recursion into a fatal Pyodide crash. Now it is an ordinary RecursionError.
+    const runaway = python.runTests("import sys\nsys.setrecursionlimit(10**6)\ndef f(n):\n    return f(n + 1)\n", stage);
+    expect(runaway.cases[0]!.error).toMatch(/^RecursionError: .*caps recursion at 1500 levels.*\(line 4\)$/);
+    // A hijacked sys.stdout does not leak into the next run.
+    python.runTests("import sys, io\nsys.stdout = io.StringIO()\ndef f(n):\n    return 1\n", stage);
+    const next = python.runTests("import sys, io\nHIJACKED = isinstance(sys.stdout, io.StringIO)\ndef f(n):\n    print('hi')\n    return HIJACKED\n", {
+      ...stage,
+      tests: [{ args: [1], expected: false }],
+    });
+    expect(next.cases[0]).toMatchObject({ passed: true, logs: ["hi"] });
   });
 });

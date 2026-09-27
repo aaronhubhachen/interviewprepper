@@ -32,10 +32,13 @@ Next.js needs `transpilePackages: ["@synapse/core"]` and `serverExternalPackages
 
 - `newReviewState(now)`, `gradeReview(state, grade 0-5, now, opts?) → ReviewState`.
   First pass: 1 d (grade 5: 4 d); second: 6 d (grade 5: 8 d); then `round(interval × EF)` (grade 5: ×1.3).
-  Fail: `relearning` (or `learning` if never learned), due in `relearnMs`, lapse counted for review cards.
-- `schedulerOptions(dayMs?)`, `relearnMs(dayMs)` (10 min real, ≥ 15 s), `isDemoScale(dayMs)`, `isDue`.
+  A pass before the interval has elapsed (a drill, a re-solve) earns the step in proportion to the time elapsed
+  (min 1 d), never more than an on-time review. Fail: `relearning` (or `learning` if never learned), due in
+  `relearnMs`, lapse counted for review cards.
+- `schedulerOptions(dayMs?)`, `relearnMs(dayMs)` (10 min real, ≥ 15 s, ≤ dayMs / 4), `isDemoScale(dayMs)`, `isDue`.
 - `previewIntervals(state, now, opts) → { love, like, dislike }` each `{ grade, next, delayMs, label }`.
-- `formatInterval(days)` → "10m" | "6h" | "4d" | "1.5mo" | "1.1y" (SRS units at any scale), `formatDuration(ms, dayMs)`.
+- `formatInterval(days)` → "10m" | "6h" | "4d" | "1.5mo" | "1.1y" (SRS units at any scale; rounds before picking
+  the unit, so 23h50m is "1d"), `formatDuration(ms, dayMs)`.
 - `RATING_GRADES` = { love: 5, like: 3, dislike: 1 }.
 
 ## Tapbacks (`tapback.ts`)
@@ -50,7 +53,7 @@ Next.js needs `transpilePackages: ["@synapse/core"]` and `serverExternalPackages
 ## Time (`time.ts`, Intl only)
 
 `localParts`, `localHour`, `localDayKey` ("YYYY-MM-DD"), `shiftDayKey`, `zonedTimeToEpoch`, `startOfLocalDay`,
-`dayKeyStart`, `nextLocalTime(now, tz, hour, minute?)`, `parseActiveHours("8-22")`, `isWithinActiveHours`,
+`dayKeyStart` (wall times in a DST gap resolve forward, so a day never starts on the previous one), `nextLocalTime(now, tz, hour, minute?)`, `parseActiveHours("8-22")`, `isWithinActiveHours`,
 `computeStreak(dayKeys, todayKey)`, `formatLocalClock` ("9:00 AM"), `describeLocalTime(now, target, tz)`
 ("tomorrow at 9:00 AM"), `humanizeDuration(ms)`, `isValidTimeZone`.
 
@@ -79,14 +82,22 @@ Data lives in four files whose arrays may be replaced wholesale: `microcards-a.t
 ## Store (`store/`)
 
 `openStore(path?, policy?) → SynapseStore` (defaults from `getConfig()`; pass a full
-`{ timezone, dayMs, morningHour, newPerDay }` plus a path to skip env loading). `getSharedStore()`
+`{ timezone, dayMs, morningHour, newPerDay }` plus a path to skip env loading; optional `ownerHandle` and
+`activeHours` then apply only when passed). `getSharedStore()`
 caches one instance on `globalThis` (survives Next dev reloads). WAL + `busy_timeout = 5000`, so the
 web server and agent share the file. Synchronous; every time-dependent method takes `now` (epoch ms).
 
 - Users: `ensureUser(id, now, defaults?)`, `getUser`, `findUserBySpace`, `findUserByHandle` (normalized),
-  `listUsers`, `ensureUserForSpace(identity, now) → { user, created }`, `createOrGetLinkCode(userId)`,
-  `linkByCode(code, identity, now)` (merges a placeholder texter's history), `autoLinkSoleUser(identity, now)`,
-  `setPaused(userId, paused, now)`. Helpers: `parseLinkCode("link 1234")`, `normalizeHandle`.
+  `listUsers`, `findUserForIdentity(identity)`, `ensureUserForSpace(identity, now) → { user, created }`,
+  `createOrGetLinkCode(userId)`, `linkByCode(code, identity, now)` (merges a placeholder texter's history),
+  `isLinkLocked(identity, now)`, `autoLinkSoleUser(identity, now)`, `unlinkUser(userId, now)` (clears the link,
+  drops the open probe, issues a fresh code), `setPaused(userId, paused, now)`. Helpers: `parseLinkCode("link 1234")`,
+  `normalizeHandle` (a bare 10-digit number is US; a number written with "+" keeps its country code), `isGroupSpace`.
+  Group chats (`spaceType: "group"`, or an iMessage ";+;" GUID) never become a home space, never link, and their
+  senders resolve by handle only. After `MAX_LINK_FAILURES_PER_SENDER` (5) wrong codes in `LINK_FAILURE_WINDOW_MS`
+  (1 h) a chat or handle is locked out of linking; past `LINK_CODE_ROTATE_AFTER_FAILURES` (20) misses across all
+  chats, every further miss rotates all outstanding codes. `autoLinkSoleUser` links only a DM whose handle is the
+  configured `ownerHandle` (or the handle already on the web user); anyone else needs the code.
 - Progress: `getProgress`, `listProgress`, `cardState(userId, cardId, now)`, `previewCard(userId, cardId, now)`,
   `gradeCard({ userId, cardId, grade, source, now, answer?, verdict? }) → { card, before, after, wasNew, reviewId, nextLabel }`
   (writes review_log + event, flags weak tags on fail, relieves on ❤️, clears pending for that card).
@@ -94,14 +105,17 @@ web server and agent share the file. Synchronous; every time-dependent method ta
   `newCardsIntroduced`, `dueCount`, `forecast(userId, now, days)`, `scheduleCardsAt(userId, cardIds, dueAt, now, reason?)`.
 - Pending probe (one per user): `getPending`, `setPending(userId, { cardId, phase, questionMessageId?, feedbackMessageId?, answer?, verdict? }, now)`,
   `updatePending(userId, patch, now)`, `clearPending`, `expireStalePending(now, ttlMs)`.
-- Pushes: `recordPush(userId, "probe" | "morning" | "nudge", now, cardId?)`, `pushesToday`, `morningSentToday`, `lastPushAt`.
+- Pushes: `recordPush(userId, "probe" | "morning" | "nudge", now, cardId?)`, `pushesToday` (local calendar day; the
+  last SRS day at demo scale), `morningSentToday`, `lastPushAt`.
 - Weakness: `flagWeakness(userId, tags, source, weight, now)` (decays with a 3-SRS-day half-life), `weakTags(userId, now)`;
   constants `WEAKNESS_WEIGHTS` (ideStruggle 1, emphasize 1, failedReview 0.5), `WEAK_THRESHOLD`.
 - IDE → iMessage sync: `recordIdeAttempt({ userId, problemId, stage, passed, now, hintsUsed?, attemptNumber?, gaveUp?, … })
   → { struggled, flaggedTags, drills, drillAt, drillLabel, graded }`. A struggle (failed, gave up, ≥ 2 hints, or ≥ 3 tries;
   overridable with `struggled`) flags `problem.weakTags` and schedules up to 2 related micro-cards at the next local
-  `SYNAPSE_MORNING_HOUR` (one SRS day ahead at demo scale), once per problem per day. Finishing the code stage grades the problem card.
-  `nextDrillTime(now)`, `listIdeAttempts`.
+  `SYNAPSE_MORNING_HOUR` (moved to the next active-window start when that hour is outside `activeHours`; one SRS day
+  ahead at demo scale), once per problem per day; its weak tags keep source "ide". Finishing the code stage grades the
+  problem card, at most once per day while it is not due. `drillAt`/`drillLabel` give when the first drill will really
+  be texted ("shortly" when a drill card is already overdue). `nextDrillTime(now)`, `listIdeAttempts`.
 - Sparring: `recordSparSession({ userId, questionId, transcript, durationMs, feedback, now })`, `listSparSessions`.
 - Activity & dashboard: `logEvent(userId, kind, title, detail, now)`, `recentEvents`, `stats(userId, now) → Stats`
   (dueNow, reviewedToday, streakDays, retention30d, cardsLearned, totalCards, forecast14, reviewsByDay (30),
@@ -110,19 +124,26 @@ web server and agent share the file. Synchronous; every time-dependent method ta
 ## LLM & evaluators
 
 - `resolveLlmProfiles(env)`: META_MODEL_API_KEY → GROQ_API_KEY → OPENAI_API_KEY, MODEL_NAME / MODEL_FALLBACK,
-  disabled by `SYNAPSE_DISABLE_LLM`. `isLlmConfigured()`, `llmStatus()` (no key), `extractJson(reply)`.
+  disabled by `SYNAPSE_DISABLE_LLM`. `isLlmConfigured()`, `llmStatus()` (no key), `extractJson(reply)`
+  (skips prose braces and `<think>` blocks, tolerates trailing commas), `completionParams(profile, options)` (OpenAI
+  o-series / gpt-5 get `max_completion_tokens` and no temperature).
 - `completeJson(system, user, zodSchema, { timeoutMs?, temperature?, maxTokens?, reasoningEffort? }) → T | null`.
   Never throws; total time budget across fallbacks. Muse is a reasoning model: hidden reasoning counts toward
-  `maxTokens` (default 2500) and `reasoning_effort` (default "low") is sent only to Muse models.
+  `maxTokens` (default 2500) and `reasoning_effort` (default "low") is sent only to Muse and OpenAI reasoning models.
 - `evaluateAnswer({ question, answerKey, keyPoints, answer }, { useLlm?, timeoutMs? }) → Evaluation`
   `{ verdict, nailed, missed, feedback (≤ 2 plain sentences), suggestedGrade 1|3|5, source }`.
   Non-answers ("idk") skip the model and reveal the key. Browser-safe heuristic: `heuristicEvaluation`,
-  `matchKeyPoints`, `isNonAnswer`, `VERDICT_EMOJI`, `VERDICT_GRADE` (`grading.ts`).
+  `matchKeyPoints`, `isNonAnswer`, `VERDICT_EMOJI`, `VERDICT_GRADE` (`grading.ts`). Each mention in the answer credits
+  at most one key point, and a mention right after a negator ("not use a hash map", "never finalized") does not count.
 - `evaluateBehavioral({ question, transcript, durationMs }, { useLlm?, timeoutMs? = 25 s }) → BehavioralFeedback`
   `{ scores, overall, strengths, improvements, starBreakdown, rewrittenOpening, followUp, analysis, source }`.
+  An axis the model leaves null or non-numeric keeps the heuristic score (`mergeSparScores`).
 - Transcript (browser-safe): `analyzeTranscript(text, durationMs)`, `heuristicSparScores(analysis)`,
-  `overallScore(scores)`, `SPAR_AXES` (radar axes + labels). `fillerRate` is fillers per 100 words.
-- Text: `toPlainText` (strip markdown/LaTeX for iMessage), `clampSentences`, `fenceUntrusted`.
+  `overallScore(scores)`, `SPAR_AXES` (radar axes + labels). `fillerRate` is fillers per 100 words. Ownership counts
+  first-person subjects ("my team" counts as we); `metrics` are impact numbers only (in or after the Action/Result, or
+  next to a change phrase), not headcounts and durations from the setup.
+- Text: `toPlainText` (strip markdown/LaTeX for iMessage; `a * b` stays), `clampSentences`, `fenceUntrusted` (angle
+  brackets inside become ‹ ›, so no tag variant can close the fence).
 
 ## Judge (`judge/`)
 
@@ -130,10 +151,14 @@ The browser worker only executes code; the main thread compares and enforces tim
 
 - JavaScript: `buildJsRunner(code, functionName)` → source; `new Function(source)()` returns
   `run(argsListJson) → resultsJson` (`RawTestResult[]` with per-test `logs`). Constructing it throws on syntax
-  errors; report those as `{ kind: "compile", message }`. `buildJsHarness` returns just the callable.
+  errors; report those as `{ kind: "compile", message }`. `buildJsHarness` returns just the callable. Every console
+  method works (unknown ones no-op), Map/Set/undefined/NaN/-0/bigint log as themselves, top-level output is prepended
+  to the first test's logs, and a return JSON can't carry (Infinity, NaN, a function, a Map or Set) is a per-test error.
 - Python: `PYTHON_HARNESS`; after `pyodide.runPython(PYTHON_HARNESS)`, call
   `pyodide.globals.get("synapse_run_tests")(code, functionName, argsListJson)` → JSON of `RawTestResult[]`
-  or a `RunFailure` (`{ kind, message }`). Top-level functions and LeetCode `class Solution` both work.
+  or a `RunFailure` (`{ kind, message }`). Top-level functions and LeetCode `class Solution` both work. Each run starts
+  from clean sys.stdout/stderr and recursion limit (capped at `PYTHON_MAX_RECURSION` = 1500: deeper recursion kills
+  Pyodide outright); sys.exit() is a per-test error; an inf/nan return is a per-test error naming the value.
   Load Pyodide from `${PYODIDE_INDEX_URL}pyodide.js` (`PYODIDE_VERSION` = the pinned devDependency).
 - `testArgsJson(stage)`, `judgeResults(stage, raw | RunFailure) → JudgeReport`
   `{ status: accepted | wrong_answer | runtime_error | compile_error | timeout, passed, total, cases, message? }`.

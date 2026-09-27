@@ -34,13 +34,14 @@ import {
   dayKeyStart,
   describeLocalTime,
   humanizeDuration,
+  isWithinActiveHours,
   localDayKey,
   localParts,
   nextLocalTime,
   shiftDayKey,
   startOfLocalDay,
 } from "../time";
-import { LINK_CODE_PATTERN, normalizeHandle } from "./identity";
+import { isGroupSpace, LINK_CODE_PATTERN, normalizeHandle } from "./identity";
 import { pickDue, pickNew, type DueCandidate } from "./selection";
 import type {
   ActivityEvent,
@@ -163,6 +164,17 @@ interface SparRow {
 const MASTERED_INTERVAL_DAYS = 21;
 const MAX_DRILLS_PER_STRUGGLE = 2;
 const STREAK_LOOKBACK_MS = 400 * 86_400_000;
+
+/** Wrong "link <code>" guesses are remembered this long (wall clock, at any SRS scale). */
+export const LINK_FAILURE_WINDOW_MS = 60 * 60_000;
+/** A chat (or handle) with this many wrong codes inside the window is locked out of linking until they age out. */
+export const MAX_LINK_FAILURES_PER_SENDER = 5;
+/**
+ * Once this many wrong codes arrive inside the window across all chats, every further
+ * miss rotates every outstanding link code, so a spray of guesses from many chats can
+ * never walk the 4-digit space. Nobody is locked out: the dashboard shows the new code.
+ */
+export const LINK_CODE_ROTATE_AFTER_FAILURES = 20;
 
 function toUser(row: UserRow): User {
   return {
@@ -340,13 +352,24 @@ export class SynapseStore {
     return (this.stmt("SELECT * FROM users ORDER BY created_at, id").all() as UserRow[]).map(toUser);
   }
 
-  /** Resolves the texter's user by space, then handle (re-binding the space); otherwise creates one. */
+  /**
+   * The texter's user without creating one. In a DM: by space, then by handle
+   * (re-binding the user's home space to this DM). In a group chat: by handle
+   * only, never re-binding, so other members can't act as a linked user and
+   * probes never move to the group.
+   */
+  findUserForIdentity(identity: SpaceIdentity): User | null {
+    return this.transaction(() => this.resolveIdentity(identity));
+  }
+
+  /** Resolves the texter's user as findUserForIdentity does; otherwise creates one. */
   ensureUserForSpace(identity: SpaceIdentity, now: number): { user: User; created: boolean } {
     return this.transaction(() => {
-      const bySpace = this.findUserBySpace(identity.spaceId);
-      if (bySpace) return { user: bySpace, created: false };
-      const byHandle = identity.handle ? this.findUserByHandle(identity.handle) : null;
-      if (byHandle) return { user: this.bindSpace(byHandle.id, identity), created: false };
+      const existing = this.resolveIdentity(identity);
+      if (existing) return { user: existing, created: false };
+      // A group sender with a handle gets an account with no home space (a later DM binds one).
+      // Without a handle the members can't be told apart, so the chat gets one placeholder.
+      const homeSpace = isGroupSpace(identity) && identity.handle ? null : identity.spaceId;
       const id = `u-${randomUUID().slice(0, 8)}`;
       this.stmt(
         `INSERT INTO users (id, display_name, handle, space_id, platform, created_at) VALUES (?, ?, ?, ?, ?, ?)`,
@@ -354,12 +377,22 @@ export class SynapseStore {
         id,
         identity.displayName ?? null,
         identity.handle ? normalizeHandle(identity.handle) : null,
-        identity.spaceId,
+        homeSpace,
         identity.platform ?? null,
         now,
       );
       return { user: this.getUser(id)!, created: true };
     });
+  }
+
+  private resolveIdentity(identity: SpaceIdentity): User | null {
+    if (isGroupSpace(identity)) {
+      return identity.handle ? this.findUserByHandle(identity.handle) : this.findUserBySpace(identity.spaceId);
+    }
+    const bySpace = this.findUserBySpace(identity.spaceId);
+    if (bySpace) return bySpace;
+    const byHandle = identity.handle ? this.findUserByHandle(identity.handle) : null;
+    return byHandle ? this.bindSpace(byHandle.id, identity) : null;
   }
 
   /** The 4-digit code the dashboard shows; texting "link <code>" binds that iMessage space. */
@@ -377,26 +410,91 @@ export class SynapseStore {
     });
   }
 
-  /** Binds the space to the user holding `code` (merging any placeholder user for that space). Null if no match. */
+  /**
+   * Binds the DM space to the user holding `code` (merging any placeholder user
+   * for that space). Null if no match, if the chat is a group, or while the
+   * sender is locked out after too many wrong codes (see isLinkLocked). Wrong
+   * codes are recorded; enough of them across all senders rotates every
+   * outstanding code, so the 4-digit space can't be enumerated.
+   */
   linkByCode(code: string, identity: SpaceIdentity, now: number): User | null {
     const normalized = code.trim();
-    if (!LINK_CODE_PATTERN.test(normalized)) return null;
+    if (!LINK_CODE_PATTERN.test(normalized) || isGroupSpace(identity)) return null;
     return this.transaction(() => {
+      if (this.isLinkLocked(identity, now)) return null;
       const row = this.stmt("SELECT * FROM users WHERE link_code = ?").get(normalized) as UserRow | undefined;
-      return row ? this.linkUser(row.id, identity, now) : null;
+      if (row) return this.linkUser(row.id, identity, now);
+      this.recordLinkFailure(identity, now);
+      return null;
     });
   }
 
   /**
-   * "start" from a new texter: links them when exactly one other user exists and
-   * it is unlinked (the single-tenant web user). Null otherwise.
+   * True after MAX_LINK_FAILURES_PER_SENDER wrong codes from this chat or handle
+   * in the last LINK_FAILURE_WINDOW_MS. linkByCode already refuses while locked;
+   * callers use this to explain why.
+   */
+  isLinkLocked(identity: SpaceIdentity, now: number): boolean {
+    const since = now - LINK_FAILURE_WINDOW_MS;
+    const handle = identity.handle ? normalizeHandle(identity.handle) : null;
+    const row = this.stmt(
+      `SELECT COUNT(*) AS n FROM link_failures
+       WHERE failed_at > ? AND failed_at <= ? AND (space_id = ? OR (? IS NOT NULL AND handle = ?))`,
+    ).get(since, now, identity.spaceId, handle, handle) as { n: number };
+    return row.n >= MAX_LINK_FAILURES_PER_SENDER;
+  }
+
+  private recordLinkFailure(identity: SpaceIdentity, now: number): void {
+    const handle = identity.handle ? normalizeHandle(identity.handle) : null;
+    const since = now - LINK_FAILURE_WINDOW_MS;
+    this.stmt("DELETE FROM link_failures WHERE failed_at <= ?").run(since);
+    this.stmt("INSERT INTO link_failures (space_id, handle, failed_at) VALUES (?, ?, ?)").run(identity.spaceId, handle, now);
+    const recent = this.stmt("SELECT COUNT(*) AS n FROM link_failures WHERE failed_at > ? AND failed_at <= ?").get(since, now) as {
+      n: number;
+    };
+    // Under a spray of guesses from many chats, every further miss invalidates the codes (new ones are issued lazily).
+    if (recent.n >= LINK_CODE_ROTATE_AFTER_FAILURES) {
+      this.stmt("UPDATE users SET link_code = NULL WHERE link_code IS NOT NULL").run();
+    }
+  }
+
+  /**
+   * "start" from a new DM: links it to the sole other user when that user is
+   * unlinked (the single-tenant web user), but only when the sender's handle
+   * proves who they are: it equals the configured owner handle, or (with no
+   * owner configured) the handle already on record for that user. Anyone else
+   * gets null and must use the link code, so a stranger who texts "start"
+   * first cannot claim the dashboard.
    */
   autoLinkSoleUser(identity: SpaceIdentity, now: number): User | null {
+    if (isGroupSpace(identity) || !identity.handle?.trim()) return null;
+    const sender = normalizeHandle(identity.handle);
+    const owner = this.policy.ownerHandle?.trim() ? normalizeHandle(this.policy.ownerHandle) : null;
+    if (owner && sender !== owner) return null;
     return this.transaction(() => {
       const others = this.listUsers().filter((user) => user.spaceId !== identity.spaceId);
       const [only] = others;
       if (others.length !== 1 || !only || only.spaceId) return null;
+      if (only.handle ? only.handle !== sender : !owner) return null;
       return this.linkUser(only.id, identity, now);
+    });
+  }
+
+  /**
+   * Undoes a link (e.g. the wrong chat claimed the dashboard): clears the home
+   * space and handle, drops the open probe, and issues a fresh link code so the
+   * right chat can link again. Returns the updated user.
+   */
+  unlinkUser(userId: string, now: number): User {
+    return this.transaction(() => {
+      const user = this.getUser(userId);
+      if (!user) throw new Error(`Unknown user: ${userId}`);
+      if (!user.spaceId && !user.handle) return user;
+      this.stmt("UPDATE users SET space_id = NULL, handle = NULL, link_code = NULL WHERE id = ?").run(userId);
+      this.clearPending(userId);
+      this.logEvent(userId, "unlinked", "🔌 iMessage unlinked", null, now);
+      this.createOrGetLinkCode(userId);
+      return this.getUser(userId)!;
     });
   }
 
@@ -500,6 +598,15 @@ export class SynapseStore {
    * if it was for this card.
    */
   gradeCard(input: GradeInput): GradeOutcome {
+    return this.applyGrade(input, true);
+  }
+
+  /**
+   * gradeCard's body. `flagFailure: false` skips the failed-review weakness flag
+   * when the caller has already flagged this miss (an IDE struggle), so the
+   * weak spot keeps its IDE provenance and is not counted twice.
+   */
+  private applyGrade(input: GradeInput, flagFailure: boolean): GradeOutcome {
     const card = getCard(input.cardId);
     if (!card) throw new Error(`Unknown card: ${input.cardId}`);
     const { userId, grade, now } = input;
@@ -528,8 +635,11 @@ export class SynapseStore {
         now,
       );
 
-      if (!isPassingGrade(grade)) this.flagWeakness(userId, card.tags, "review", WEAKNESS_WEIGHTS.failedReview, now);
-      else if (grade === 5) this.relieveWeakness(userId, card.tags);
+      if (!isPassingGrade(grade)) {
+        if (flagFailure) this.flagWeakness(userId, card.tags, "review", WEAKNESS_WEIGHTS.failedReview, now);
+      } else if (grade === 5) {
+        this.relieveWeakness(userId, card.tags);
+      }
 
       this.stmt("DELETE FROM pending WHERE user_id = ? AND card_id = ?").run(userId, card.id);
 
@@ -735,12 +845,22 @@ export class SynapseStore {
     this.logEvent(userId, `push_${kind}`, title, cardId ? { cardId } : null, now);
   }
 
-  /** Proactive texts sent during the user's current local day. */
+  /**
+   * Proactive texts sent during the user's current day, the window the daily
+   * push cap applies to: the local calendar day, or (at demo scale) the last SRS
+   * day, like the new-card window. Otherwise a one-minute demo day would hit the
+   * cap after a dozen texts and stay silent until midnight.
+   */
   pushesToday(userId: string, now: number): number {
-    const row = this.stmt("SELECT COUNT(*) AS n FROM push_log WHERE user_id = ? AND local_day = ?").get(
-      userId,
-      this.localDay(now),
-    ) as { n: number };
+    const row = this.demoScale
+      ? (this.stmt("SELECT COUNT(*) AS n FROM push_log WHERE user_id = ? AND sent_at > ? AND sent_at <= ?").get(
+          userId,
+          now - this.policy.dayMs,
+          now,
+        ) as { n: number })
+      : (this.stmt("SELECT COUNT(*) AS n FROM push_log WHERE user_id = ? AND local_day = ?").get(userId, this.localDay(now)) as {
+          n: number;
+        });
     return row.n;
   }
 
@@ -810,20 +930,47 @@ export class SynapseStore {
 
   // ── IDE (sync to iMessage) ───────────────────────────────────────────────
 
-  /** When a struggle's drills arrive: next local morning, or one SRS day later at demo scale. */
+  /**
+   * When a struggle's drills arrive: the next local SYNAPSE_MORNING_HOUR, moved
+   * to the start of the next active window when that hour is outside
+   * SYNAPSE_ACTIVE_HOURS (the agent can't text then), or one SRS day later at demo scale.
+   */
   nextDrillTime(now: number): number {
-    return this.demoScale ? now + this.policy.dayMs : nextLocalTime(now, this.policy.timezone, this.policy.morningHour);
+    if (this.demoScale) return now + this.policy.dayMs;
+    return this.deliverableAt(nextLocalTime(now, this.policy.timezone, this.policy.morningHour));
+  }
+
+  /** The first moment at or after `at` when the agent may text: `at` unless it falls in quiet hours (real scale only). */
+  private deliverableAt(at: number): number {
+    const hours = this.policy.activeHours;
+    if (this.demoScale || !hours || isWithinActiveHours(at, this.policy.timezone, hours)) return at;
+    return nextLocalTime(at, this.policy.timezone, hours.startHour);
   }
 
   private describeDrillTime(now: number, at: number): string {
+    if (at <= now) return "shortly";
     return this.demoScale ? `in ${humanizeDuration(at - now)}` : describeLocalTime(now, at, this.policy.timezone);
+  }
+
+  /** True when the card has a review_log row at or after `since`. */
+  private gradedSince(userId: string, cardId: string, since: number): boolean {
+    const row = this.stmt("SELECT 1 FROM review_log WHERE user_id = ? AND card_id = ? AND reviewed_at >= ? LIMIT 1").get(
+      userId,
+      cardId,
+      since,
+    );
+    return Boolean(row);
   }
 
   /**
    * Records a stage submission. A struggle (see isIdeStruggle) flags the
    * problem's weakTags and schedules up to 2 related micro-cards for the next
    * morning — once per problem per SRS day; repeats report the existing drills.
-   * Finishing the code stage (pass or give up) also grades the problem card.
+   * Finishing the code stage (pass or give up) also grades the problem card,
+   * at most once per SRS day while it is not due: re-solving a problem minutes
+   * later is not fresh evidence of recall and must not push it out 4d → 8d → 28d.
+   * drillAt/drillLabel describe when the first drill will actually be texted
+   * ("shortly" when a drill card is already overdue).
    */
   recordIdeAttempt(input: IdeAttemptInput): IdeAttemptResult {
     const problem = getProblem(input.problemId);
@@ -886,9 +1033,13 @@ export class SynapseStore {
 
       const finishedCode = input.stage === "code" && (input.passed || Boolean(input.gaveUp));
       const grade: Grade = input.passed ? (struggled ? 3 : 5) : 1;
-      const graded = finishedCode
-        ? this.gradeCard({ userId, cardId: problem.id, grade, source: "ide", now, answer: input.code ?? null })
-        : null;
+      const problemDueAt = this.getProgress(userId, problem.id)?.dueAt ?? now;
+      const alreadyGraded = problemDueAt > now && this.gradedSince(userId, problem.id, this.newCardWindowStart(now));
+      // A struggle already flagged problem.weakTags as an IDE weak spot above (or earlier today).
+      const graded =
+        finishedCode && !alreadyGraded
+          ? this.applyGrade({ userId, cardId: problem.id, grade, source: "ide", now, answer: input.code ?? null }, !struggled)
+          : null;
 
       this.logEvent(
         userId,
@@ -898,7 +1049,9 @@ export class SynapseStore {
         now,
       );
 
-      const drillAt = drills.length > 0 ? Math.min(...drills.map((drill) => drill.dueAt)) : null;
+      // An overdue drill card keeps its past due date; report when it will really be texted.
+      const earliestDrill = drills.length > 0 ? Math.min(...drills.map((drill) => drill.dueAt)) : null;
+      const drillAt = earliestDrill === null ? null : this.deliverableAt(Math.max(now, earliestDrill));
       return {
         attemptId: Number(inserted.lastInsertRowid),
         struggled,

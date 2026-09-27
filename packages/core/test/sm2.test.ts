@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   DEFAULT_DAY_MS,
+  formatDuration,
   formatInterval,
   gradeReview,
   isDemoScale,
@@ -108,6 +109,33 @@ describe("gradeReview", () => {
     expect(state).toEqual(snapshot);
   });
 
+  it("grows an early review in proportion to the time actually elapsed", () => {
+    const [, , third] = run([3, 3, 3]);
+    expect(third).toMatchObject({ intervalDays: 13, easeFactor: 2.08 });
+    const reviewedAt = third!.lastReviewedAt!;
+    // On time: the full step (13 × 2.08 = 27d).
+    expect(gradeReview(third!, 3, third!.dueAt, REAL).intervalDays).toBe(27);
+    // A drill 1.9 days in: ~4d, sooner than the 11 days the card had left.
+    const drilled = gradeReview(third!, 3, reviewedAt + 1.9 * DAY, REAL);
+    expect(drilled.intervalDays).toBe(4);
+    expect(drilled.dueAt).toBeLessThan(third!.dueAt);
+    // A same-minute repeat is floored at one day, and never beats an on-time review.
+    expect(gradeReview(third!, 5, reviewedAt + 60_000, REAL).intervalDays).toBe(1);
+    expect(gradeReview(third!, 5, reviewedAt + 12 * DAY, REAL).intervalDays).toBeLessThanOrEqual(
+      gradeReview(third!, 5, third!.dueAt, REAL).intervalDays,
+    );
+    // Previews show the early values.
+    expect(previewIntervals(third!, reviewedAt + 1.9 * DAY, REAL).like.label).toBe("4d");
+  });
+
+  it("scales the second step for an early review too", () => {
+    const [first] = run([5]);
+    expect(first!.intervalDays).toBe(4);
+    const early = gradeReview(first!, 5, first!.lastReviewedAt! + DAY, REAL);
+    expect(early.intervalDays).toBe(Math.round(8 / 4));
+    expect(gradeReview(first!, 5, first!.dueAt, REAL).intervalDays).toBe(8);
+  });
+
   it("scales every interval with SYNAPSE_DAY_MS for demos", () => {
     const demo = schedulerOptions(60_000);
     const passed = gradeReview(newReviewState(T0), 5, T0, demo);
@@ -122,6 +150,16 @@ describe("relearnMs & demo scale", () => {
     expect(relearnMs(DAY)).toBe(600_000);
     expect(relearnMs(60_000)).toBe(15_000);
     expect(relearnMs(10 * DAY)).toBe(6_000_000);
+  });
+
+  it("never lets 👎 come back later than 👍, even with a tiny SRS day", () => {
+    for (const dayMs of [1_000, 5_000, 14_000, 60_000, DAY]) {
+      expect(relearnMs(dayMs)).toBeLessThanOrEqual(dayMs / 4);
+      const preview = previewIntervals(newReviewState(T0), T0, schedulerOptions(dayMs));
+      expect(preview.dislike.delayMs).toBeLessThan(preview.like.delayMs);
+      expect(preview.like.delayMs).toBeLessThan(preview.love.delayMs);
+    }
+    expect(previewIntervals(newReviewState(T0), T0, schedulerOptions(1_000)).dislike.label).toBe("6h");
   });
 
   it("detects demo scale below one hour per SRS day", () => {
@@ -153,5 +191,16 @@ describe("previewIntervals & formatInterval", () => {
     expect(formatInterval(6)).toBe("6d");
     expect(formatInterval(45)).toBe("1.5mo");
     expect(formatInterval(400)).toBe("1.1y");
+  });
+
+  it("switches units when rounding reaches the next one", () => {
+    expect(formatInterval(59.6 / 1440)).toBe("1h");
+    expect(formatInterval(59.4 / 1440)).toBe("59m");
+    expect(formatInterval(1439 / 1440)).toBe("1d");
+    expect(formatInterval(1410 / 1440)).toBe("1d");
+    expect(formatInterval(29.6)).toBe("1mo");
+    expect(formatInterval(362)).toBe("1y");
+    expect(formatDuration(23 * 3_600_000 + 50 * 60_000, DAY)).toBe("1d");
+    expect(formatInterval(0)).toBe("1m");
   });
 });

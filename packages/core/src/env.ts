@@ -46,8 +46,12 @@ const text = (fallback: string) => z.preprocess(blankToUndefined, z.string().def
 const integer = (fallback: number, min: number, max: number) =>
   z.preprocess(blankToUndefined, z.coerce.number().int().min(min).max(max).default(fallback));
 
+/** Case-insensitive like llm.ts's check, so SYNAPSE_DISABLE_LLM=True disables the model instead of failing validation. */
 const flag = z.preprocess(
-  blankToUndefined,
+  (value) => {
+    const text = blankToUndefined(value);
+    return typeof text === "string" ? text.toLowerCase() : text;
+  },
   z
     .enum(["1", "0", "true", "false", "yes", "no", "on", "off"])
     .optional()

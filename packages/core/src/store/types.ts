@@ -2,6 +2,7 @@ import type { CardKind, JudgeLanguage, ReviewCard, Tag } from "../content/types"
 import type { Evaluation } from "../grading";
 import type { Grade, ReviewState } from "../sm2";
 import type { BehavioralFeedback } from "../spar";
+import type { ActiveHours } from "../time";
 import type { SparScores } from "../transcript";
 
 export type ReviewSource = "imessage" | "web" | "ide" | "voice";
@@ -16,6 +17,17 @@ export interface StorePolicy {
   /** Local hour at which IDE-struggle drills are scheduled. */
   morningHour: number;
   newPerDay: number;
+  /**
+   * SYNAPSE_OWNER_HANDLE. When set, "start" auto-links the web user only for a
+   * texter with this handle; everyone else must use the link code.
+   */
+  ownerHandle?: string | null;
+  /**
+   * SYNAPSE_ACTIVE_HOURS. When set (and not at demo scale), drill times that fall
+   * in quiet hours move to the start of the next active window, so the promised
+   * time is when the agent can actually text.
+   */
+  activeHours?: ActiveHours | null;
 }
 
 export interface User {
@@ -32,6 +44,12 @@ export interface User {
 /** Who is texting: the iMessage space plus the sender's handle when known. */
 export interface SpaceIdentity {
   spaceId: string;
+  /**
+   * The platform's space type (spectrum-ts iMessage spaces are "dm" | "group").
+   * Group chats never become a user's home space; their senders resolve by handle.
+   * When omitted, the iMessage chat GUID is used to tell ("iMessage;+;…" is a group).
+   */
+  spaceType?: "dm" | "group" | null;
   handle?: string | null;
   platform?: string | null;
   displayName?: string | null;

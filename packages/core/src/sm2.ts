@@ -36,9 +36,13 @@ export const PASSING_GRADE = 3;
 
 const MIN_RELEARN_MS = 15_000;
 
-/** 10 minutes at real scale (dayMs / 144), never below 15 s so demo-scale cards stay answerable. */
+/**
+ * 10 minutes at real scale (dayMs / 144), never below 15 s so demo-scale cards
+ * stay answerable, and never above a quarter SRS day, so a failed card always
+ * comes back before a passed one even at a very short SYNAPSE_DAY_MS.
+ */
 export function relearnMs(dayMs: number): number {
-  return Math.max(Math.round(dayMs / 144), MIN_RELEARN_MS);
+  return Math.min(Math.max(Math.round(dayMs / 144), MIN_RELEARN_MS), Math.round(dayMs / 4));
 }
 
 export function schedulerOptions(dayMs: number = DEFAULT_DAY_MS): SchedulerOptions {
@@ -77,15 +81,35 @@ function nextEase(easeFactor: number, grade: Grade): number {
   return Math.max(MIN_EASE, Math.round(ease * 100) / 100);
 }
 
-function passingInterval(state: ReviewState, grade: Grade): number {
-  const effortless = grade === 5;
-  if (state.repetition === 0) return effortless ? EASY_GRADUATING_DAYS : 1;
-  if (state.repetition === 1) return effortless ? Math.round(6 * EASY_BONUS) : 6;
-  const scaled = state.intervalDays * state.easeFactor;
-  return Math.round(effortless ? scaled * EASY_BONUS : scaled);
+/** SRS days since the last review when the card is being reviewed before its interval ran out; null otherwise. */
+function earlyElapsedDays(state: ReviewState, now: number, dayMs: number): number | null {
+  if (state.phase !== "review" || state.lastReviewedAt === null || state.intervalDays <= 0) return null;
+  const elapsedDays = Math.max(0, now - state.lastReviewedAt) / dayMs;
+  return elapsedDays < state.intervalDays ? elapsedDays : null;
 }
 
-/** Pure SM-2 step: the same (state, grade, now, opts) always yields the same result. */
+function passingInterval(state: ReviewState, grade: Grade, now: number, dayMs: number): number {
+  const effortless = grade === 5;
+  if (state.repetition === 0) return effortless ? EASY_GRADUATING_DAYS : 1;
+  const full =
+    state.repetition === 1
+      ? effortless
+        ? Math.round(6 * EASY_BONUS)
+        : 6
+      : Math.round(state.intervalDays * state.easeFactor * (effortless ? EASY_BONUS : 1));
+  // Reviewed early (an IDE drill pulled it forward, a re-solve, review-ahead): the recall only
+  // proves the time actually elapsed, so the step grows in proportion to it instead of in full.
+  // A drill the morning after a 13-day review gives ~4d, not 27d, so the weak card comes back sooner.
+  const elapsedDays = earlyElapsedDays(state, now, dayMs);
+  if (elapsedDays === null) return full;
+  return Math.max(1, Math.min(full, Math.round((full * elapsedDays) / state.intervalDays)));
+}
+
+/**
+ * Pure SM-2 step: the same (state, grade, now, opts) always yields the same result.
+ * A pass before the card's interval has elapsed (see passingInterval) earns a
+ * proportionally shorter step, never more than an on-time review.
+ */
 export function gradeReview(
   state: ReviewState,
   grade: Grade,
@@ -95,7 +119,7 @@ export function gradeReview(
   const easeFactor = nextEase(state.easeFactor, grade);
 
   if (isPassingGrade(grade)) {
-    const intervalDays = passingInterval(state, grade);
+    const intervalDays = passingInterval(state, grade, now, opts.dayMs);
     return {
       repetition: state.repetition + 1,
       intervalDays,
@@ -127,11 +151,15 @@ const MINUTES_PER_DAY = 1440;
  * "10m", "6h", "4d", "1.5mo", "1.2y". Scale-independent by design.
  */
 export function formatInterval(days: number): string {
-  const minutes = days * MINUTES_PER_DAY;
-  if (minutes < 60) return `${Math.max(1, Math.round(minutes))}m`;
-  if (minutes < MINUTES_PER_DAY) return `${Math.round(minutes / 60)}h`;
-  if (days < 30) return `${Math.round(days)}d`;
-  if (days < 365) return `${trimDecimal(days / 30)}mo`;
+  // Round before picking the unit, so 59.6 minutes reads "1h" (not "60m") and 23h50m reads "1d".
+  const minutes = Math.round(days * MINUTES_PER_DAY);
+  if (minutes < 60) return `${Math.max(1, minutes)}m`;
+  const hours = Math.round(minutes / 60);
+  if (hours < 24) return `${hours}h`;
+  const wholeDays = Math.round(days);
+  if (wholeDays < 30) return `${Math.max(1, wholeDays)}d`;
+  const months = Math.round((days / 30) * 10) / 10;
+  if (days < 365 && months < 12) return `${months}mo`;
   return `${trimDecimal(days / 365)}y`;
 }
 

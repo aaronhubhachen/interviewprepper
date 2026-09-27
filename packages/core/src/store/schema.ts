@@ -124,6 +124,18 @@ const MIGRATIONS: readonly string[] = [
   );
   CREATE INDEX IF NOT EXISTS events_user_time ON events(user_id, created_at);
   `,
+  // 2: failed "link <code>" attempts, for per-sender lockout and code rotation.
+  `
+  CREATE TABLE IF NOT EXISTS link_failures (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    space_id TEXT NOT NULL,
+    handle TEXT,
+    failed_at INTEGER NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS link_failures_space ON link_failures(space_id, failed_at);
+  CREATE INDEX IF NOT EXISTS link_failures_handle ON link_failures(handle, failed_at);
+  CREATE INDEX IF NOT EXISTS link_failures_time ON link_failures(failed_at);
+  `,
 ];
 
 export const SCHEMA_VERSION = MIGRATIONS.length;
