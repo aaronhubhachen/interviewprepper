@@ -37,7 +37,7 @@ const FOLLOW_UP_SCAN = 200;
 
 /**
  * The round-2 follow-up goes into the trusted part of the grading prompt, so
- * it must be one Synapse asked: a scripted follow-up of the question, or the
+ * it must be one Prepr asked: a scripted follow-up of the question, or the
  * follow-up stored with one of this user's recent sessions of it. Returns the
  * server's copy of the text.
  */
@@ -81,8 +81,8 @@ export async function evaluateSpar(
   if (round === 2 && input.followUpOf) {
     followUpOf = knownFollowUp(store, userId, base, input.followUpOf);
     if (followUpOf === undefined) {
-      throw badRequest("followUpOf must be a follow-up question Synapse asked for this question.", {
-        followUpOf: "is not a follow-up Synapse asked",
+      throw badRequest("followUpOf must be a follow-up question Prepr asked for this question.", {
+        followUpOf: "is not a follow-up Prepr asked",
       });
     }
   }

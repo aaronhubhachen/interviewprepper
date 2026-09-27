@@ -1015,7 +1015,7 @@ export class SynapseStore {
       now,
     );
     const card = cardId ? getCard(cardId) : undefined;
-    const title = kind === "morning" ? "☕ Morning Synapse sent" : card ? `📲 Texted: ${card.title}` : "📲 Nudge sent";
+    const title = kind === "morning" ? "☕ Morning Prepr sent" : card ? `📲 Texted: ${card.title}` : "📲 Nudge sent";
     this.logEvent(userId, `push_${kind}`, title, cardId ? { cardId } : null, now);
   }
 

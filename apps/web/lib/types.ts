@@ -209,7 +209,7 @@ export interface LinkResponse {
   paused: boolean;
   /** The Prepr iMessage number/email if configured (SYNAPSE_AGENT_HANDLE), for an sms: link. */
   agentHandle: string | null;
-  /** Human instructions, e.g. "Text “link 482193” to Synapse on iMessage." */
+  /** Human instructions, e.g. "Text “link 482193” to Prepr on iMessage." */
   instructions: string;
 }
 

@@ -3,6 +3,7 @@ import { MICROCARDS_A } from "./microcards-a";
 import { MICROCARDS_B } from "./microcards-b";
 import { PROBLEMS as PROBLEMS_A } from "./problems";
 import { PROBLEMS_B } from "./problems-b";
+import { PROBLEMS_C } from "./problems-c";
 import { TAG_IDS } from "./types";
 import type {
   BehavioralQuestion,
@@ -17,7 +18,7 @@ import type {
 export * from "./types";
 
 const MICROCARDS: readonly MicroCard[] = [...MICROCARDS_A, ...MICROCARDS_B];
-const PROBLEMS: readonly Problem[] = [...PROBLEMS_A, ...PROBLEMS_B];
+const PROBLEMS: readonly Problem[] = [...PROBLEMS_A, ...PROBLEMS_B, ...PROBLEMS_C];
 
 const PROBLEM_DIFFICULTY: Record<ProblemDifficulty, CardDifficulty> = { easy: 1, medium: 2, hard: 3 };
 

@@ -70,7 +70,7 @@ export function hostRejection(request: Request, webUrl: WebUrlSource): RequestRe
   return {
     status: 403,
     code: "forbidden_host",
-    message: "Synapse only answers on localhost. Set SYNAPSE_WEB_URL to open it from another address.",
+    message: "Prepr only answers on localhost. Set SYNAPSE_WEB_URL to open it from another address.",
   };
 }
 
@@ -79,7 +79,7 @@ export function crossSiteRejection(request: Request, webUrl: WebUrlSource): Requ
   const rejection: RequestRejection = {
     status: 403,
     code: "cross_site",
-    message: "Cross-site requests to the Synapse API are not allowed.",
+    message: "Cross-site requests to the Prepr API are not allowed.",
   };
 
   const fetchSite = request.headers.get("sec-fetch-site")?.trim().toLowerCase();

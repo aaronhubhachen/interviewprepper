@@ -261,9 +261,17 @@ export async function completeJson<T>(
   }
   const deadline = Date.now() + (options.timeoutMs ?? configuredTimeoutMs());
 
-  for (const profile of profiles) {
+  // One retry per provider for transient failures (dropped connection, 429, 5xx) when time allows.
+  const attempts = profiles.flatMap((profile) => [profile, profile]);
+  const failedOnce = new Set<LlmProfile>();
+  for (const [index, profile] of attempts.entries()) {
+    const isRetry = index % 2 === 1;
+    if (isRetry && !failedOnce.has(profile)) continue;
     const remaining = deadline - Date.now();
-    if (remaining < 250) break;
+    if (remaining < (isRetry ? 3_000 : 250)) {
+      if (isRetry) continue;
+      break;
+    }
     try {
       const body: OpenAI.ChatCompletionCreateParamsNonStreaming = {
         model: profile.model,
@@ -282,8 +290,17 @@ export async function completeJson<T>(
       );
     } catch (error) {
       const reason = error instanceof Error ? error.message : String(error);
-      console.warn(`[synapse/llm] ${profile.provider}/${profile.model} failed: ${reason}`);
+      console.warn(`[synapse/llm] ${profile.provider}/${profile.model} failed${isRetry ? " (retry)" : ""}: ${reason}`);
+      if (!isRetry && isTransient(error)) failedOnce.add(profile);
     }
   }
   return null;
+}
+
+/** Worth one more try: the connection dropped, or the provider was rate limited or briefly down. Timeouts are not. */
+function isTransient(error: unknown): boolean {
+  if (error instanceof OpenAI.APIConnectionTimeoutError) return false;
+  if (error instanceof OpenAI.APIConnectionError) return true;
+  if (error instanceof OpenAI.APIError) return error.status === 429 || (typeof error.status === "number" && error.status >= 500);
+  return false;
 }

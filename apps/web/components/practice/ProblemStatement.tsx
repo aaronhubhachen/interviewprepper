@@ -1,3 +1,4 @@
+import { LANGUAGE_LABELS } from "@synapse/core/judge";
 import type { Tag } from "@synapse/core/content";
 import { ButtonLink } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -87,7 +88,7 @@ export function ProblemStatement({
           <div className="min-w-0 text-sm">
             <p className="font-medium text-fg">Struggle sync</p>
             <p className="mt-0.5 text-fg-muted">
-              Fail a stage, lean on hints, or give up, and Synapse flags{" "}
+              Fail a stage, lean on hints, or give up, and Prepr flags{" "}
               {problem.weakTags.map((ref, index) => (
                 <span key={ref.tag}>
                   <span className={cn("font-medium", weak.has(ref.tag) ? "text-warning" : "text-fg")}>{ref.label}</span>
@@ -126,7 +127,7 @@ export function ProblemStatement({
                     <span className="truncate text-fg-muted">
                       {STAGE_META[attempt.stage].title}
                       {attempt.stage === "code" && attempt.testsTotal ? ` · ${attempt.testsPassed ?? 0}/${attempt.testsTotal}` : ""}
-                      {attempt.language ? ` · ${attempt.language === "python" ? "Py" : "JS"}` : ""}
+                      {attempt.language ? ` · ${LANGUAGE_LABELS[attempt.language]}` : ""}
                       <span className="sr-only">{attempt.gaveUp ? " (gave up)" : attempt.passed ? " (passed)" : " (not passed)"}</span>
                     </span>
                   </span>

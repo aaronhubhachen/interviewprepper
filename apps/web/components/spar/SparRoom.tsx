@@ -533,7 +533,7 @@ export function SparRoom({
           <p className="mt-4 flex items-start gap-2 border-t border-line pt-3 text-xs text-fg-subtle">
             <span aria-hidden="true">🔒</span>
             <span>
-              Synapse never records or uploads audio. {mode === "voice" ? "Your browser transcribes your speech, and only " : "Only "}
+              Prepr never records or uploads audio. {mode === "voice" ? "Your browser transcribes your speech, and only " : "Only "}
               the text is sent for feedback.
               {words > 0 && words < SHORT_ANSWER_WORDS ? " Short answers get lighter feedback." : ""}
             </span>

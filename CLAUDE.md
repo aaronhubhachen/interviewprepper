@@ -1,4 +1,4 @@
-# Synapse: notes for coding sessions
+# Prepr: notes for coding sessions
 
 A spaced-repetition SWE interview engine: an iMessage agent (Photon spectrum-ts) and a Next.js web app share one
 SM-2 schedule in SQLite. See README.md for the product, demo script and env reference.

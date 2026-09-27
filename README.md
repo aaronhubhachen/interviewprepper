@@ -1,22 +1,32 @@
-# 🧠 Synapse
+# 🧠 Prepr
 
-**Anki for LeetCode, delivered by iMessage.** Synapse texts you bite-size DSA flashcards right before you would
+**Anki for LeetCode, delivered by iMessage.** Prepr texts you bite-size DSA flashcards right before you would
 forget them. It grades your one-sentence answer Socratically with an LLM, and your ❤️ / 👍 / 👎 tapback drives SM-2
-scheduling. When you want to go deeper, the web app adds a card-flip LeetCode IDE and voice behavioral sparring.
-If you struggle in the IDE, your phone drills that exact pattern the next morning.
+scheduling. When you want to go deeper, the web app adds a card-flip LeetCode IDE, voice behavioral sparring, and a
+resume grill. If you struggle in the IDE, your phone drills that exact pattern the next morning.
+
+- **Card-flip IDE:** 30 LeetCode problems, each in three flips (name the invariant, dodge the edge-case trap, code it
+  against hidden tests) in **Python, JavaScript, TypeScript, Java, C++, or Go**.
+- **Prepr Bot:** a Cursor-style AI assistant docked inside every problem (**Show AI**, or ⌘L / Ctrl+L) to practice
+  **AI-assisted coding interviews**. It can plant a subtle bug in code it writes, and **Review** scores how you used
+  it: framing, prompting, verification, catching its mistakes, and ownership.
+- **Resume grill:** upload your resume (PDF) and defend every line against a skeptical interviewer, then get a
+  held-up / shaky / cracked verdict per claim.
+- **Voice sparring:** answer behavioral questions out loud with live STAR, filler, and pace metrics.
+- **Mobile app** (Expo): review, practice stages, spar, and grill from your phone against the same data.
 
 Built for the HackWashU 2026 Photon track.
 
 ```
-            📱 iPhone / iMessage                              💻 Browser
-   🧠 probe → answer → ✅ feedback → ❤️ 👍 👎          Dashboard · Review · IDE · Spar
+            📱 iPhone / iMessage                              💻 Browser  ·  📱 Expo app (apps/mobile)
+   🧠 probe → answer → ✅ feedback → ❤️ 👍 👎          Dashboard · Review · IDE + Prepr Bot · Spar · Grill
                     ▲    │                                     ▲    │
       Photon        │    │ spectrum-ts                   fetch │    │ Web Speech, Monaco,
       spectrum-ts   │    ▼                                     │    ▼ Pyodide judge (worker)
    ┌────────────────┴──────────────────┐        ┌──────────────┴──────────────────────┐
    │ apps/agent  (tsx)                 │        │ apps/web  (Next.js 16, App Router)  │
    │ dispatch → StudyController        │        │ /api/* route handlers               │
-   │ scheduler tick · morning briefing │        │ card-flip IDE · voice sparring      │
+   │ scheduler tick · morning briefing │        │ IDE · Prepr Bot · spar · grill      │
    └────────────────┬──────────────────┘        └──────────────┬──────────────────────┘
                     │        @synapse/core (TypeScript source)  │
                     │  SM-2 · tapbacks · content · grading ·    │
@@ -43,11 +53,16 @@ cp .env.example .env        # then fill in what you have (every value is optiona
 - **Photon (iMessage):** set `PHOTON_PROJECT_ID` and `PHOTON_PROJECT_SECRET` from <https://app.photon.codes>.
   These are needed only for the live iMessage agent. The web app, `agent:simulate` and `agent:terminal` run without them.
   ⚠️ **One Photon project feeds one running agent.** Two agents on the same project (for example thirdwheel and
-  Synapse) compete for the same message stream. Stop the other agent, or use a separate project.
+  Prepr) compete for the same message stream. Stop the other agent, or use a separate project.
 - **LLM (optional):** `META_MODEL_API_KEY` (Meta Muse) is preferred, then `GROQ_API_KEY`, then `OPENAI_API_KEY`.
   With no key, or on any timeout or error, grading and sparring feedback fall back to deterministic heuristics.
-  The product still works end to end.
-- **Link your phone:** open the dashboard, text `link 482193` (your 6-digit code) to the Synapse number, and this chat
+  The product still works end to end, but Prepr Bot can only give hints without a model. **For a live demo, set
+  two providers** (for example Muse plus a free Groq key): each call retries a dropped connection once, then moves
+  to the next provider.
+- **Compiled languages (optional):** Java, C++, and Go run through the server judge, which uses the machine's own
+  toolchains: a JDK 17+ (`javac`/`java`), `clang++` or `g++`, and `go`. TypeScript needs only Node 22. Missing
+  toolchains show as "not installed" in the language picker; Python and JavaScript always run in the browser.
+- **Link your phone:** open the dashboard, text `link 482193` (your 6-digit code) to the Prepr number, and this chat
   now syncs with the web app. Codes expire after 10 minutes (the dashboard always shows the current one), and a chat
   gets 5 wrong tries per hour. Only `SYNAPSE_OWNER_HANDLE` can skip the code: texting `start` from that number (in a
   DM) links it. If the wrong chat linked, press **Wrong chat? Unlink** on the dashboard's iMessage card; **New code**
@@ -61,6 +76,7 @@ cp .env.example .env        # then fill in what you have (every value is optiona
 | `npm run dev:web` | Web app only (Next dev server, bound to 127.0.0.1) |
 | `npm run dev:lan -w @synapse/web` | Web app on every interface (0.0.0.0) for a phone on the same Wi-Fi; see [LAN access](#lan-access) first. `start:lan` does the same for a production build |
 | `npm run dev:agent` | iMessage agent only (needs Photon credentials) |
+| `npm run ios -w @synapse/mobile` | Mobile app in the iOS simulator via Expo Go (`npm start -w @synapse/mobile` prints a QR code for a real phone). Needs [LAN access](#lan-access) |
 | `npm run agent:terminal` | The agent in a local tuichat window instead of iMessage (downloads tuichat on first run) |
 | `npm run agent:simulate` | Scripted, deterministic iMessage demo with a virtual clock. Uses the LLM if a key is set. `npm run simulate:offline -w @synapse/agent` forces the heuristic grader |
 | `npm test` | Every workspace's Vitest suite (no network: the LLM is hard-disabled under Vitest) |
@@ -81,37 +97,45 @@ explicitly: set `SYNAPSE_WEB_URL` in `.env` to the LAN URL (for example `http://
 `npm run dev:lan -w @synapse/web` (or `npx next dev -H 0.0.0.0` from `apps/web`). ⚠️ This exposes the unauthenticated
 API, the link code and your transcripts to everyone on that network, so only do it on a network you trust.
 
+The mobile app uses the same opt-in: it finds the Mac through Expo (`http://<lan-ip>:3000`), so set `SYNAPSE_WEB_URL`
+to that address and run `dev:lan`. The app's ⚙︎ screen shows and tests the address.
+
 ## 3-minute demo script (judges)
 
-**Before you start:** put the demo time scale in `.env` so that one SRS day equals one minute:
+**Before you start (5 min):**
 
-```ini
-SYNAPSE_DAY_MS=60000    # 1 SRS day = 1 min; active hours are ignored below 1 h
-SYNAPSE_TICK_MS=5000    # scheduler checks every 5 s
-```
+- Put the demo time scale in `.env` so that one SRS day equals one minute, and add a second LLM key:
 
-Then run `npm run dev`, and open <http://localhost:3000> next to your phone. For a fresh demo, delete `data/synapse.db`
-before starting.
+  ```ini
+  SYNAPSE_DAY_MS=60000    # 1 SRS day = 1 min; active hours are ignored below 1 h
+  SYNAPSE_TICK_MS=5000    # scheduler checks every 5 s
+  GROQ_API_KEY=...        # fallback if Muse is slow or drops a connection
+  ```
 
-1. **Link (0:00).** The dashboard's iMessage card shows `link 482193`. Text it to the Synapse number. You get
-   `🔗 Linked!`, a `☕ Morning Synapse` briefing, and the first card. The dashboard flips to "Linked" by itself.
-2. **Tapback loop (0:30).** Answer in one sentence. A typing bubble appears while Muse grades it, then Socratic
-   feedback arrives with the legend `Tap this message: ❤️ Effortless → 4d · 👍 Hesitant → 1d · 👎 Guessed → 6h`.
-   Tap ❤️ to get `🧠 Locked in… returns in 4d (ease 2.6)`. Text `more`, tap ❓ for a hint, then reply `idk`. The
-   answer is revealed, the card is logged as a blank, and about 15 s later it comes back with `🔁 Back for round two`.
-   (At demo scale 👎 shows `6h`, because the 15 s relearn floor is 6 SRS hours. Labels are always in SRS units.)
-3. **IDE struggle (1:15).** Go to **Practice → Partition to K Equal Sum Subsets**. In Stage 1 click
-   *I'm stuck* and rate 👎. A toast and banner say Bitmask DP is flagged as a weak spot and Synapse will text you
-   a drill in 1 min. Flip to Stage 3: write code in Monaco, then Run and Submit against hidden tests in the
-   browser. The JS judge runs in a Web Worker and Python runs in Pyodide.
-4. **Next-morning drill (2:00).** One SRS day (1 minute) later the phone buzzes:
-   `☕ Morning Synapse — … Weak spot: Bitmask DP (you struggled on Partition to K Equal Sum Subsets last night)`,
-   followed by a `🎯 Drill: Bitmask DP` card. The dashboard's weak spots and forecast update live.
-5. **Voice sparring (2:20).** Go to **Spar**, pick a question, press record (Chrome or Edge), and answer out loud.
-   Filler words highlight live, the STAR checklist lights up with quoted evidence, and a pace ring tracks you
-   against 2:00. Press stop to get Engineering-Manager feedback, a six-axis radar and a follow-up question for round 2.
+- Delete `data/synapse.db*` for a fresh demo, run `npm run dev`, and open <http://localhost:3000> next to your phone.
+- Have a resume PDF on the desktop, and open Two Sum once so Monaco and the judge are warm.
 
-No phone handy? `npm run agent:simulate` plays the same story in the terminal in a few seconds.
+1. **Hook + link (0:00).** Open the landing page: the topic tree is live progress, and every node opens Practice
+   filtered to that topic. On the dashboard's iMessage card, text `link 482193` to the Prepr number. You get
+   `🔗 Linked!`, a `☕ Morning Prepr` briefing, and the first card.
+2. **Tapback loop (0:20).** Answer in one sentence. Socratic feedback arrives with the legend
+   `❤️ Effortless → 4d · 👍 Hesitant → 1d · 👎 Guessed → 6h`. Tap ❤️ to get `🧠 Locked in… returns in 4d`.
+3. **IDE struggle (0:45).** **Practice → Partition to K Equal Sum Subsets.** In Stage 1 click *I'm stuck* and rate 👎.
+   A banner says Bitmask DP is flagged and Prepr will text you a drill in 1 min.
+4. **AI-assisted round (1:05).** Open **Two Sum**, pass Stages 1 and 2, and land on the code stage with Prepr Bot
+   docked beside the editor (⌘L toggles it). Ask *"Write a complete solution"*, click **Use in editor**, then **Run**.
+   Ask a pointed follow-up (*"Are you sure this handles [3,3]?"*), then press **Review**: a score for framing,
+   prompting, verification, catching AI mistakes, and ownership, with any bug the bot planted revealed.
+   Switch the language to **Java** and Submit: it compiles and runs on the server against the same hidden tests.
+5. **Next-morning drill (1:50).** One SRS day after step 3 the phone buzzes:
+   `☕ Morning Prepr — … Weak spot: Bitmask DP (you struggled on Partition to K Equal Sum Subsets last night)`.
+6. **Resume grill (2:05).** **Grill → upload the PDF → Start.** The first question goes straight at your boldest
+   claim ("as an intern, what did *you* ship versus the team?"). Give one vague answer to show it pressing, then
+   **End & get verdict** for the per-claim held-up / shaky / cracked report.
+7. **Close (2:40).** Show the phone app's Review tab on the same queue, and mention voice sparring (**Spar**:
+   live STAR checklist, filler highlighting, EM follow-up).
+
+No phone handy? `npm run agent:simulate` plays the iMessage part in the terminal in a few seconds.
 
 ## How SM-2 + tapbacks work
 
@@ -142,7 +166,7 @@ fallbacks) map to SM-2 grades:
   follow, up to `SYNAPSE_NEW_PER_DAY`, preferring weak tags. The agent keeps at most one open probe per user, texts
   only during active hours, and stops at the daily push cap. An open card times out after a quarter SRS day (6 h, at
   least 3 min), and only active hours count toward that, so an evening card can still be answered at breakfast.
-  An unanswered card expires without a grade; an answered but unrated card keeps Synapse's suggested grade.
+  An unanswered card expires without a grade; an answered but unrated card keeps Prepr's suggested grade.
 
 ## Environment variables
 
@@ -157,11 +181,12 @@ All variables live in `.env` at the repo root, which is gitignored. Both apps lo
 | `MODEL_NAME`, `MODEL_FALLBACK` | provider default | Override the model or add a comma-separated fallback chain |
 | `SYNAPSE_LLM_TIMEOUT_MS` | `12000` | Budget per grading call (sparring feedback allows 25 s) |
 | `SYNAPSE_DISABLE_LLM` | `0` | `1` forces the heuristic evaluators |
+| `SYNAPSE_NATIVE_JUDGE` | on in dev, off in production | `1` / `0` forces the server judge (Java, C++, Go, TypeScript) on or off. It runs submitted code on this machine without a sandbox, so keep it off on any shared deployment |
 | `SYNAPSE_DB_PATH` | `data/synapse.db` | SQLite file shared by web and agent (relative to the repo root) |
 | `SYNAPSE_WEB_USER_ID` | `me` | The single web user |
 | `SYNAPSE_WEB_URL` | `http://localhost:3000` | Link used in texts, and the one non-loopback host the web app answers ([LAN access](#lan-access)) |
 | `SYNAPSE_OWNER_HANDLE` | none | Phone or email the agent DMs and links at startup; the only handle that can link by texting `start` |
-| `SYNAPSE_AGENT_HANDLE` | none | The Synapse iMessage number: shown on the dashboard with an sms: button, and (as E.164) the line the agent opens the owner DM on |
+| `SYNAPSE_AGENT_HANDLE` | none | The Prepr iMessage number: shown on the dashboard with an sms: button, and (as E.164) the line the agent opens the owner DM on |
 | `SYNAPSE_VERBOSE` | `0` | `1` also logs message text (answers). Off by default; phone numbers and emails are masked either way |
 | `SYNAPSE_AGENT_PROVIDER` | `imessage` | `terminal` behaves like `npm run agent:terminal` |
 | `SYNAPSE_DAY_MS` | `86400000` | Real ms per SRS day (`60000` = demo scale) |
@@ -175,7 +200,7 @@ All variables live in `.env` at the repo root, which is gitignored. Both apps lo
 ## Troubleshooting
 
 - **Voice sparring says speech isn't supported.** The Web Speech API needs Chrome or Edge. Firefox and blocked
-  microphones get a typed-answer mode with the same live metrics. Synapse never uploads audio. Chrome's recognizer
+  microphones get a typed-answer mode with the same live metrics. Prepr never uploads audio. Chrome's recognizer
   does send audio to Google to transcribe it.
 - **The editor is a plain textarea, or Python says "runtime unavailable".** Monaco and Pyodide load from
   `cdn.jsdelivr.net`. Offline, the editor falls back after 15 s and JavaScript still judges, but Python needs the CDN.
@@ -192,15 +217,26 @@ All variables live in `.env` at the repo root, which is gitignored. Both apps lo
   codes in an hour lock that chat out of linking for the rest of the hour (`🔒 Too many wrong codes`).
 - **The dashboard won't open from my phone.** The web app only listens on 127.0.0.1 unless you opt in; see
   [LAN access](#lan-access).
+- **Java / C++ / Go say "not installed".** Install the toolchain (`javac`, `clang++`/`g++`, `go`) and restart the web
+  app. In production the server judge is off unless `SYNAPSE_NATIVE_JUDGE=1`.
+- **Prepr Bot only gives hints.** No model answered (no key, a timeout, or the per-minute LLM budget). Add a second
+  provider key; the status dot in the panel turns amber while it is offline.
+- **The mobile app can't reach the server.** It needs [LAN access](#lan-access): `SYNAPSE_WEB_URL` set to the Mac's LAN
+  address and `npm run dev:lan -w @synapse/web`, with the phone on the same Wi-Fi.
+- **New problems or cards missing after pulling.** Restart the web dev server: it keeps one SQLite store per process,
+  created with the content that existed at startup.
 - **Start over.** Stop both processes and delete `data/synapse.db*`.
 - **Windows.** npm scripts run under cmd.exe, so put settings in `.env` rather than in inline `FOO=1 npm run …`.
 
 ## Repo layout
 
 ```
-packages/core   @synapse/core: SM-2, tapbacks, content registry (77 micro-cards, 13 IDE problems, 16 behavioral
-                questions), SQLite store, LLM + heuristic grading, judge, transcript metrics. TS source, no build.
+packages/core   @synapse/core: SM-2, tapbacks, content registry (77 micro-cards, 30 IDE problems, 16 behavioral
+                questions), SQLite store, LLM + heuristic grading, judge (browser + server-compiled languages),
+                resume grill, Prepr Bot, transcript metrics. TS source, no build.
 apps/agent      @synapse/agent: Photon iMessage agent (dispatch.ts → controller.ts), scheduler, simulator
-apps/web        @synapse/web: Next.js 16 app (dashboard, review, card-flip IDE, voice sparring) + API routes
+apps/web        @synapse/web: Next.js 16 app (landing, dashboard, review, card-flip IDE + Prepr Bot, voice sparring,
+                resume grill) + API routes
+apps/mobile     @synapse/mobile: Expo (React Native) app for review, practice stages, spar, and grill
 data/           SQLite database (gitignored)
 ```

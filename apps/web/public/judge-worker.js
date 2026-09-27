@@ -1,5 +1,5 @@
 /*
- * Synapse judge worker: a classic Web Worker served at /judge-worker.js.
+ * Prepr judge worker: a classic Web Worker served at /judge-worker.js.
  *
  * It ONLY executes code and posts raw JSON results. The main thread
  * (apps/web/lib/judge) compares outputs with @synapse/core's compareOutput and

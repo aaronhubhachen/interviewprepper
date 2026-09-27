@@ -1,5 +1,7 @@
 "use client";
 
+import { LANGUAGE_LABELS, type CodeLanguage } from "@synapse/core/judge";
+
 import { useId, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import type { JudgeStatus, TestCaseResult } from "@synapse/core/judge";
 import { Pill, type PillTone } from "@/components/ui/Pill";
@@ -31,6 +33,15 @@ export interface JudgeResultsProps {
 }
 
 type Tab = "tests" | "console";
+
+const PRINT_HINT: Record<CodeLanguage, string> = {
+  javascript: "console.log(…)",
+  typescript: "console.log(…)",
+  python: "print(…)",
+  java: "System.out.println(…)",
+  cpp: "cout << …",
+  go: "fmt.Println(…)",
+};
 
 export function JudgeResults({ outcome, running, loadingRuntime, params, visibleCount, totalCount, recordedNote, runsOnServer = false }: JudgeResultsProps) {
   const [tab, setTab] = useState<Tab>("tests");
@@ -98,7 +109,7 @@ export function JudgeResults({ outcome, running, loadingRuntime, params, visible
         </div>
         {outcome?.ok ? (
           <span className="hidden text-xs text-fg-subtle sm:inline">
-            {outcome.mode === "run" ? "Run · visible tests" : "Submit · all tests"} · {outcome.language === "python" ? "Python" : "JavaScript"}
+            {outcome.mode === "run" ? "Run · visible tests" : "Submit · all tests"} · {LANGUAGE_LABELS[outcome.language]}
           </span>
         ) : null}
       </div>
@@ -308,7 +319,7 @@ function ConsoleView({ outcome }: { outcome: JudgeOutcome | null }) {
   if (groups.length === 0) {
     return (
       <div className="flex min-h-[12rem] items-center justify-center p-6 text-center text-sm text-fg-subtle">
-        No console output this run. Add <code className="mx-1 font-mono text-fg-muted">{outcome.language === "python" ? "print(…)" : "console.log(…)"}</code> to debug.
+        No console output this run. Add <code className="mx-1 font-mono text-fg-muted">{PRINT_HINT[outcome.language]}</code> to debug.
       </div>
     );
   }

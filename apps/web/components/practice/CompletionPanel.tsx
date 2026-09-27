@@ -1,5 +1,7 @@
 "use client";
 
+import { LANGUAGE_LABELS } from "@synapse/core/judge";
+
 import { useEffect, useRef, type ReactNode } from "react";
 import type { TextGrade } from "@synapse/core/tapback";
 import { Banner } from "@/components/ui/Banner";
@@ -136,7 +138,7 @@ export function CompletionPanel({
         <StageTile stage="code" onReview={() => onReview("code")}>
           <p className="font-medium text-fg">
             {code.gaveUp ? "🏳️ Gave up" : "✅ Accepted"}
-            <span className="font-normal text-fg-muted"> · {code.language === "python" ? "Python" : "JavaScript"}</span>
+            <span className="font-normal text-fg-muted"> · {LANGUAGE_LABELS[code.language]}</span>
           </p>
           <p className="text-fg-subtle">
             {formatClock(code.activeMs)}

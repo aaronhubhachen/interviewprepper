@@ -8,7 +8,7 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 <!-- END:nextjs-agent-rules -->
 
-## Synapse web conventions
+## Prepr web conventions
 
 - The block above is managed by `next dev` (Next 16.3 `agentRules`); leave it as generated. npm workspaces hoist
   `next`, so its docs are at the repo root: `../../node_modules/next/dist/docs/` from this folder. This app is on

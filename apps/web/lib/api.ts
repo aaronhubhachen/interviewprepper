@@ -1,5 +1,5 @@
 /**
- * Typed browser fetchers for every Synapse API route. Safe in client components.
+ * Typed browser fetchers for every Prepr API route. Safe in client components.
  * All functions reject with ApiError on non-2xx responses or network failures,
  * and accept an optional AbortSignal.
  */
@@ -80,7 +80,7 @@ async function request<T>(method: "GET" | "POST", path: string, body?: unknown, 
     });
   } catch (error) {
     if (error instanceof DOMException && error.name === "AbortError") throw new ApiError(0, "aborted", "Request was cancelled.");
-    throw new ApiError(0, "network", "Could not reach the Synapse server. Is it running?");
+    throw new ApiError(0, "network", "Could not reach the Prepr server. Is it running?");
   }
 
   let payload: unknown = null;

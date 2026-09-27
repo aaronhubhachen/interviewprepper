@@ -112,7 +112,7 @@ export function parseConfig(env: Record<string, string | undefined>, repoRoot: s
   const parsed = envSchema.safeParse(env);
   if (!parsed.success) {
     const issues = parsed.error.issues.map((issue) => `  ${issue.path.join(".")}: ${issue.message}`);
-    throw new Error(`Invalid Synapse environment:\n${issues.join("\n")}`);
+    throw new Error(`Invalid Prepr environment:\n${issues.join("\n")}`);
   }
   const e = parsed.data;
   const dbPath = e.SYNAPSE_DB_PATH

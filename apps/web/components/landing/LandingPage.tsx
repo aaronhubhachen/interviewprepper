@@ -1,6 +1,10 @@
-import type { Tag } from "@synapse/core/content";
+"use client";
+
+import type { Tag } from "@synapse/core/tags";
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import { ButtonLink } from "@/components/ui/Button";
+import { fetchStats } from "@/lib/api";
 import { cn } from "@/lib/cn";
 
 export function LandingPage() {
@@ -46,20 +50,26 @@ interface Topic {
   label: string;
   x: number;
   y: number;
-  progress: number;
+}
+
+interface TopicProgress {
+  /** Share of the topic's cards learned (seen and passed at least once). */
+  learned: number;
+  cards: number;
+  mastered: number;
 }
 
 const TOPICS: Topic[] = [
-  { id: "arrays", label: "Arrays", x: 300, y: 36, progress: 1 },
-  { id: "two_pointers", label: "Two Pointers", x: 167, y: 146, progress: 0.8 },
-  { id: "stack", label: "Stack", x: 433, y: 146, progress: 0.85 },
-  { id: "linked_list", label: "Linked List", x: 100, y: 256, progress: 0.8 },
-  { id: "binary_search", label: "Binary Search", x: 300, y: 256, progress: 0.9 },
-  { id: "sliding_window", label: "Sliding Window", x: 500, y: 256, progress: 0.65 },
-  { id: "tree_traversal", label: "Trees", x: 300, y: 366, progress: 0.85 },
-  { id: "trie", label: "Tries", x: 100, y: 476, progress: 0.3 },
-  { id: "heap", label: "Heap", x: 300, y: 476, progress: 0.55 },
-  { id: "backtracking", label: "Backtracking", x: 500, y: 476, progress: 0.08 },
+  { id: "arrays", label: "Arrays", x: 300, y: 36 },
+  { id: "two_pointers", label: "Two Pointers", x: 167, y: 146 },
+  { id: "stack", label: "Stack", x: 433, y: 146 },
+  { id: "linked_list", label: "Linked List", x: 100, y: 256 },
+  { id: "binary_search", label: "Binary Search", x: 300, y: 256 },
+  { id: "sliding_window", label: "Sliding Window", x: 500, y: 256 },
+  { id: "tree_traversal", label: "Trees", x: 300, y: 366 },
+  { id: "trie", label: "Tries", x: 100, y: 476 },
+  { id: "heap", label: "Heap", x: 300, y: 476 },
+  { id: "backtracking", label: "Backtracking", x: 500, y: 476 },
 ];
 
 const EDGES: [Tag, Tag][] = [
@@ -86,7 +96,25 @@ function edgePath(from: Topic, to: Topic): string {
 
 const pct = (value: number, total: number) => `${(value / total) * 100}%`;
 
+/** Real per-topic progress from /api/stats; null until loaded (bars stay empty rather than faked). */
+function useTopicProgress(): Map<Tag, TopicProgress> | null {
+  const [progress, setProgress] = useState<Map<Tag, TopicProgress> | null>(null);
+  useEffect(() => {
+    const controller = new AbortController();
+    fetchStats({ signal: controller.signal })
+      .then((stats) =>
+        setProgress(new Map(stats.masteryByTag.map((tag) => [tag.tag, { learned: tag.learned, cards: tag.cards, mastered: tag.mastered }]))),
+      )
+      .catch(() => {
+        if (!controller.signal.aborted) setProgress(new Map());
+      });
+    return () => controller.abort();
+  }, []);
+  return progress;
+}
+
 function TopicTree() {
+  const progress = useTopicProgress();
   return (
     <nav aria-label="Practice by topic" className="relative mx-auto aspect-[600/520] w-full max-w-xl">
       <svg viewBox={`0 0 ${W} ${H}`} className="absolute inset-0 h-full w-full text-line-strong" fill="none" aria-hidden="true">
@@ -102,12 +130,16 @@ function TopicTree() {
       </svg>
 
       {TOPICS.map((topic) => {
-        const done = topic.progress >= 1;
+        const stat = progress?.get(topic.id);
+        const ratio = stat && stat.cards > 0 ? stat.learned / stat.cards : 0;
+        const done = Boolean(stat && stat.cards > 0 && stat.mastered === stat.cards);
+        const detail = stat && stat.cards > 0 ? `${stat.learned} of ${stat.cards} cards learned` : "Not started";
         return (
           <Link
             key={topic.id}
             href={`/practice?tag=${topic.id}`}
-            aria-label={`Practice ${topic.label} problems`}
+            aria-label={`Practice ${topic.label} problems. ${detail}.`}
+            title={detail}
             className={cn(
               "absolute flex flex-col justify-center gap-2 rounded-xl border px-2.5 shadow-card transition-[border-color,box-shadow,transform] duration-150 hover:border-synapse hover:shadow-glow motion-safe:hover:-translate-y-0.5 sm:px-3.5",
               done ? "border-synapse bg-ink-800 shadow-glow" : "border-line-strong bg-ink-850",
@@ -121,7 +153,7 @@ function TopicTree() {
           >
             <span className="truncate text-center text-[0.7rem] font-semibold text-fg sm:text-sm">{topic.label}</span>
             <span className="h-1 overflow-hidden rounded-full bg-ink-600 sm:h-1.5">
-              <span className="block h-full rounded-full bg-synapse" style={{ width: `${topic.progress * 100}%` }} />
+              <span className="block h-full rounded-full bg-synapse" style={{ width: `${ratio * 100}%` }} />
             </span>
           </Link>
         );

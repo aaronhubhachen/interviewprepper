@@ -1,6 +1,7 @@
 import { beforeAll, describe, expect, it } from "vitest";
 import { getProblem, listProblems } from "../src/content";
 import { judgeResults, nativeStarter, testArgsJson, type NativeLanguage } from "../src/judge";
+import { NODE_REFERENCES } from "../src/content/problems-c";
 import { nativeToolchains, runNativeTests } from "../src/judge/native-runner";
 
 const TIMEOUT = 120_000;
@@ -629,6 +630,10 @@ func (t *Trie) StartsWith(prefix string) bool {
 };
 
 const LANGUAGES: NativeLanguage[] = ["java", "cpp", "go", "typescript"];
+
+for (const [problemId, byLanguage] of Object.entries(NODE_REFERENCES)) {
+  for (const language of LANGUAGES) REFERENCES[language][problemId] = () => byLanguage[language];
+}
 
 for (const language of LANGUAGES) {
   describe.concurrent(`native judge: ${language}`, () => {
