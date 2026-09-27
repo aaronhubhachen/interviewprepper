@@ -339,6 +339,9 @@ describe("problem filters", () => {
     expect(parseFilters({ tag: "not_a_tag", difficulty: "brutal" })).toEqual({ tag: null, difficulty: null, weakOnly: false, query: "" });
     expect(filtersToQuery(filters)).toBe("tag=dp_1d&difficulty=hard&weak=1&q=coin");
     expect(filtersToQuery({ tag: null, difficulty: null, weakOnly: false, query: "" })).toBe("");
+    expect(parseFilters({ plan: "blind75" }).plan).toBe("blind75");
+    expect(parseFilters({ plan: "nope" }).plan).toBeUndefined();
+    expect(filtersToQuery({ tag: null, difficulty: null, weakOnly: false, query: "", plan: "neetcode150" })).toBe("plan=neetcode150");
   });
 
   it("filters by tag, difficulty, weak spots and text", () => {

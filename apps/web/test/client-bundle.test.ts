@@ -16,6 +16,7 @@ const SOURCE_DIRS = ["app", "components", "lib"];
 /** Core subpaths without Node code or answer keys. */
 const ALLOWED_CORE = new Set([
   "@synapse/core/tags",
+  "@synapse/core/plans",
   "@synapse/core/grading",
   "@synapse/core/judge",
   "@synapse/core/sm2",

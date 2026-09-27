@@ -10,6 +10,7 @@
     "./content": "./src/content/index.ts",
     "./grading": "./src/grading.ts",
     "./judge": "./src/judge/index.ts",
+    "./plans": "./src/plans.ts",
     "./sm2": "./src/sm2.ts",
     "./tags": "./src/content/types.ts",
     "./tapback": "./src/tapback.ts",

@@ -1,4 +1,5 @@
 /** Problem-list filtering, URL sync, and the "Up next" pick (pure). */
+import { getStudyPlan, type StudyPlanId } from "@synapse/core/plans";
 import { isTag, tagLabel, type ProblemDifficulty, type Tag } from "@synapse/core/tags";
 import type { ProblemSummary } from "@/lib/types";
 
@@ -8,6 +9,8 @@ export interface ProblemFilters {
   /** Only problems touching one of the user's current weak tags. */
   weakOnly: boolean;
   query: string;
+  /** Group the list by a study plan (Blind 75 / NeetCode 150) instead of one flat list. */
+  plan?: StudyPlanId | null;
 }
 
 export const EMPTY_FILTERS: ProblemFilters = { tag: null, difficulty: null, weakOnly: false, query: "" };
@@ -26,16 +29,20 @@ export function parseFilters(params: SearchParamRecord): ProblemFilters {
   const tag = first(params.tag);
   const difficulty = first(params.difficulty);
   const weak = first(params.weak);
-  return {
+  const plan = first(params.plan);
+  const filters: ProblemFilters = {
     tag: tag && isTag(tag) ? tag : null,
     difficulty: difficulty && DIFFICULTY_SET.has(difficulty) ? (difficulty as ProblemDifficulty) : null,
     weakOnly: weak === "1" || weak === "true",
     query: (first(params.q) ?? "").trim().slice(0, 80),
   };
+  if (plan && getStudyPlan(plan)) filters.plan = plan as StudyPlanId;
+  return filters;
 }
 
 export function filtersToQuery(filters: ProblemFilters): string {
   const params = new URLSearchParams();
+  if (filters.plan) params.set("plan", filters.plan);
   if (filters.tag) params.set("tag", filters.tag);
   if (filters.difficulty) params.set("difficulty", filters.difficulty);
   if (filters.weakOnly) params.set("weak", "1");

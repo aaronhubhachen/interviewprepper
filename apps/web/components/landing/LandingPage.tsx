@@ -1,10 +1,11 @@
 "use client";
 
+import { planProgress, STUDY_PLANS, type PlanProgress, type StudyPlanId } from "@synapse/core/plans";
 import type { Tag } from "@synapse/core/tags";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { ButtonLink } from "@/components/ui/Button";
-import { fetchStats } from "@/lib/api";
+import { fetchProblems, fetchStats } from "@/lib/api";
 import { cn } from "@/lib/cn";
 
 export function LandingPage() {
@@ -32,6 +33,7 @@ export function LandingPage() {
             Practice
           </ButtonLink>
         </div>
+        <PlanStrip />
       </div>
 
       <TopicTree />
@@ -159,5 +161,49 @@ function TopicTree() {
         );
       })}
     </nav>
+  );
+}
+
+/** Blind 75 / NeetCode 150 progress; bars stay empty until the problem list loads. */
+function PlanStrip() {
+  const [progress, setProgress] = useState<Map<StudyPlanId, PlanProgress> | null>(null);
+  useEffect(() => {
+    const controller = new AbortController();
+    fetchProblems({ signal: controller.signal })
+      .then(({ problems }) => {
+        const catalog = new Set(problems.map((problem) => problem.leetcodeSlug));
+        const solved = new Set(problems.filter((problem) => problem.progress.solved).map((problem) => problem.leetcodeSlug));
+        setProgress(new Map(STUDY_PLANS.map((plan) => [plan.id, planProgress(plan, catalog, solved)])));
+      })
+      .catch(() => undefined);
+    return () => controller.abort();
+  }, []);
+
+  return (
+    <div className="mt-10 grid max-w-md grid-cols-2 gap-3">
+      {STUDY_PLANS.map((plan) => {
+        const stat = progress?.get(plan.id);
+        const total = stat?.total ?? plan.categories.reduce((sum, category) => sum + category.slugs.length, 0);
+        return (
+          <Link
+            key={plan.id}
+            href={`/practice?plan=${plan.id}`}
+            className="rounded-xl border border-line-strong bg-ink-850 px-3.5 py-3 transition-colors hover:border-synapse"
+          >
+            <span className="flex items-baseline justify-between gap-2">
+              <span className="text-sm font-semibold text-fg">{plan.title}</span>
+              <span className="font-mono text-xs tabular-nums text-fg-subtle">
+                {stat?.solved ?? 0}/{total}
+              </span>
+            </span>
+            <span className="relative mt-2 block h-1.5 overflow-hidden rounded-full bg-ink-600" aria-hidden="true">
+              <span className="absolute inset-y-0 left-0 rounded-full bg-synapse/25" style={{ width: `${((stat?.available ?? 0) / total) * 100}%` }} />
+              <span className="absolute inset-y-0 left-0 rounded-full bg-synapse" style={{ width: `${((stat?.solved ?? 0) / total) * 100}%` }} />
+            </span>
+            <span className="mt-1.5 block text-[0.7rem] text-fg-subtle">{stat ? `${stat.available} in Prepr` : "\u00a0"}</span>
+          </Link>
+        );
+      })}
+    </div>
   );
 }

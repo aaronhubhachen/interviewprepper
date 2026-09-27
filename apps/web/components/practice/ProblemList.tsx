@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useId, useMemo, useState } from "react";
+import { getStudyPlan, STUDY_PLANS, type StudyPlanId } from "@synapse/core/plans";
 import { TAG_IDS, tagLabel, type ProblemDifficulty, type Tag } from "@synapse/core/tags";
 import { Button, ButtonLink } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -15,6 +16,7 @@ import { cn } from "@/lib/cn";
 import { formatRelative, plural } from "@/lib/format";
 import type { ProblemSummary } from "@/lib/types";
 import { DifficultyPill, Segmented, StageDots } from "./bits";
+import { StudyPlanView } from "./StudyPlanView";
 import {
   DIFFICULTIES,
   EMPTY_FILTERS,
@@ -145,6 +147,8 @@ function ProblemBrowser({
   const due = problems.filter((problem) => problem.progress.card.due).length;
   const weakCount = problems.filter((problem) => weakHits(problem, weak).length > 0).length;
   const set = (patch: Partial<ProblemFilters>) => onFilters({ ...filters, ...patch });
+  const clear = () => onFilters({ ...EMPTY_FILTERS, plan: filters.plan ?? null });
+  const plan = filters.plan ? getStudyPlan(filters.plan) : undefined;
 
   if (problems.length === 0) {
     return <EmptyState icon="🧩" title="No problems yet" description="The content deck is empty. Add problems in packages/core/src/content/problems.ts." />;
@@ -162,9 +166,18 @@ function ProblemBrowser({
 
       <section aria-labelledby="all-problems-heading" className="space-y-4">
         <div className="flex flex-wrap items-end justify-between gap-3">
-          <h2 id="all-problems-heading" className="text-xl font-semibold text-fg">
-            All problems
-          </h2>
+          <div className="flex flex-wrap items-center gap-3">
+            <h2 id="all-problems-heading" className="text-xl font-semibold text-fg">
+              {plan ? "Study plan" : "All problems"}
+            </h2>
+            <Segmented<"all" | StudyPlanId>
+              label="Study plan"
+              size="md"
+              value={filters.plan ?? "all"}
+              options={[{ value: "all", label: "All" }, ...STUDY_PLANS.map((option) => ({ value: option.id, label: option.title }))]}
+              onChange={(value) => set({ plan: value === "all" ? null : value })}
+            />
+          </div>
           <p className="text-sm text-fg-muted" aria-live="polite">
             {visible.length === problems.length ? plural(problems.length, "problem") : `${visible.length} of ${problems.length} shown`}
           </p>
@@ -226,21 +239,23 @@ function ProblemBrowser({
               <span aria-hidden="true">‼️</span> Weak spots
             </button>
             {hasActiveFilters(filters) ? (
-              <Button variant="ghost" size="md" onClick={() => onFilters(EMPTY_FILTERS)}>
+              <Button variant="ghost" size="md" onClick={clear}>
                 Clear
               </Button>
             ) : null}
           </div>
         </Card>
 
-        {visible.length === 0 ? (
+        {plan ? (
+          <StudyPlanView plan={plan} problems={problems} filters={filters} weak={weak} />
+        ) : visible.length === 0 ? (
           <EmptyState
             icon="🔍"
             level={3}
             title="No problems match"
             description={filters.tag ? `Nothing tagged ${tagLabel(filters.tag)} with these filters.` : "Try a different search or clear the filters."}
             action={
-              <Button variant="secondary" onClick={() => onFilters(EMPTY_FILTERS)}>
+              <Button variant="secondary" onClick={clear}>
                 Clear filters
               </Button>
             }
