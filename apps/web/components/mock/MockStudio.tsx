@@ -1,7 +1,7 @@
 "use client";
 
 import { LANGUAGE_LABELS, isNativeLanguage, type CodeLanguage, type NativeLanguage } from "@synapse/core/judge";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { MIN_RESUME_CHARS } from "@/components/grill/ResumeSetup";
 import { Banner, Button, Card, PageHeader, Spinner } from "@/components/ui";
 import { errorMessage, fetchJudgeLanguages, fetchMockPacket, fetchProblem } from "@/lib/api";
@@ -79,6 +79,9 @@ export function MockStudio({ problems, questions }: { problems: MockProblemRef[]
   const [problem, setProblem] = useState<ClientProblem | null>(null);
   const [question, setQuestion] = useState<BehavioralQuestion | null>(null);
   const [scope, setScope] = useState("");
+  /** The live loop's id and results. Rounds that finish after a quit (or for an older loop) are dropped. */
+  const loopRef = useRef("");
+  const resultsRef = useRef<MockLoopInput>({ coding: null, behavioral: null, grill: null });
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [results, setResults] = useState<MockLoopInput>({ coding: null, behavioral: null, grill: null });
@@ -124,7 +127,10 @@ export function MockStudio({ problems, questions }: { problems: MockProblemRef[]
       const loaded = await fetchProblem(ref.id);
       setProblem(loaded.problem);
       setQuestion(nextQuestion);
-      setScope(`mock-${Date.now()}`);
+      const id = `mock-${Date.now()}`;
+      loopRef.current = id;
+      resultsRef.current = { coding: null, behavioral: null, grill: null };
+      setScope(id);
       setResults({ coding: null, behavioral: null, grill: null });
       setPacket(null);
       setStage("coding");
@@ -136,43 +142,60 @@ export function MockStudio({ problems, questions }: { problems: MockProblemRef[]
     }
   };
 
-  const finishLoop = useCallback(async (input: MockLoopInput) => {
+  const finishLoop = useCallback(async (input: MockLoopInput, loop: string) => {
+    if (loop !== loopRef.current) return;
     setStage("packet");
     setError(null);
     window.scrollTo({ top: 0, behavior: "smooth" });
     try {
-      setPacket(await fetchMockPacket(input));
+      const result = await fetchMockPacket(input);
+      if (loop === loopRef.current) setPacket(result);
     } catch (failure) {
-      setError(errorMessage(failure));
+      if (loop === loopRef.current) setError(errorMessage(failure));
     }
   }, []);
 
-  const onCoding = useCallback((coding: CodingResult) => {
-    setResults((current) => ({ ...current, coding }));
-    setStage("behavioral");
-    window.scrollTo({ top: 0, behavior: "smooth" });
+  /** Records a finished round for `loop` and returns the loop's results, or null if that loop is gone. */
+  const record = useCallback((loop: string, patch: Partial<MockLoopInput>): MockLoopInput | null => {
+    if (loop !== loopRef.current) return null;
+    resultsRef.current = { ...resultsRef.current, ...patch };
+    setResults(resultsRef.current);
+    return resultsRef.current;
   }, []);
 
+  const onCoding = useCallback(
+    (loop: string, coding: CodingResult) => {
+      if (!record(loop, { coding })) return;
+      setStage("behavioral");
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    },
+    [record],
+  );
+
   const onBehavioral = useCallback(
-    (behavioral: BehavioralResult) => {
-      const next = { ...results, behavioral };
-      setResults(next);
+    (loop: string, behavioral: BehavioralResult) => {
+      const next = record(loop, { behavioral });
+      if (!next) return;
       if (withGrill) {
         setStage("grill");
         window.scrollTo({ top: 0, behavior: "smooth" });
-      } else void finishLoop(next);
+      } else void finishLoop(next, loop);
     },
-    [finishLoop, results, withGrill],
+    [finishLoop, record, withGrill],
   );
 
   const onGrill = useCallback(
-    (grill: GrillResult) => {
-      const next = { ...results, grill };
-      setResults(next);
-      void finishLoop(next);
+    (loop: string, grill: GrillResult) => {
+      const next = record(loop, { grill });
+      if (next) void finishLoop(next, loop);
     },
-    [finishLoop, results],
+    [finishLoop, record],
   );
+
+  const quit = () => {
+    loopRef.current = "";
+    setStage("setup");
+  };
 
   const totalMinutes = CODING_MINUTES + BEHAVIORAL_MINUTES + (withGrill ? 8 : 0);
 
@@ -187,7 +210,7 @@ export function MockStudio({ problems, questions }: { problems: MockProblemRef[]
             <button
               type="button"
               onClick={() => {
-                if (window.confirm("Quit this loop? Nothing is saved until the packet.")) setStage("setup");
+                if (window.confirm("Quit this loop? Nothing is saved until the packet.")) quit();
               }}
               className="text-sm font-medium text-fg-subtle hover:text-fg"
             >
@@ -311,15 +334,15 @@ export function MockStudio({ problems, questions }: { problems: MockProblemRef[]
         </div>
       ) : null}
 
-      {stage === "coding" && problem ? <MockCodingRound problem={problem} language={effectiveLanguage} aiAllowed={aiAllowed} scope={scope} onDone={onCoding} /> : null}
-      {stage === "behavioral" && question ? <MockBehavioralRound question={question} onDone={onBehavioral} /> : null}
-      {stage === "grill" ? <MockGrillRound resume={resume} onDone={onGrill} /> : null}
+      {stage === "coding" && problem ? <MockCodingRound problem={problem} language={effectiveLanguage} aiAllowed={aiAllowed} scope={scope} onDone={(result) => onCoding(scope, result)} /> : null}
+      {stage === "behavioral" && question ? <MockBehavioralRound question={question} onDone={(result) => onBehavioral(scope, result)} /> : null}
+      {stage === "grill" ? <MockGrillRound resume={resume} onDone={(result) => onGrill(scope, result)} /> : null}
 
       {stage === "packet" ? (
         packet ? (
           <MockPacketView packet={packet} input={results} onAgain={() => setStage("setup")} />
         ) : error ? (
-          <Banner tone="danger" action={<Button size="sm" onClick={() => void finishLoop(results)}>Retry</Button>}>
+          <Banner tone="danger" action={<Button size="sm" onClick={() => void finishLoop(results, loopRef.current)}>Retry</Button>}>
             {error}
           </Banner>
         ) : (

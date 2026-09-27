@@ -28,7 +28,7 @@ function stats(overrides: Partial<Stats> = {}): Stats {
 
 describe("weekly report card", () => {
   it("compares this week with last week", () => {
-    const card = buildReportCard(stats(), NOW, DAY);
+    const card = buildReportCard(stats(), NOW);
     expect(card).toMatchObject({ streakDays: 9, activeDays: 7, reviews: 70, reviewsDelta: 42, accuracy: 0.8, weakSpots: ["1D DP"] });
     expect(card.aiUse).toEqual({ average: 75, delta: 25, rounds: 2 });
     expect(card.rounds.map((round) => round.kind)).toEqual(["bot", "grill"]);
@@ -37,13 +37,13 @@ describe("weekly report card", () => {
 
   it("handles a quiet week", () => {
     const quiet = stats({ reviewsByDay: Array.from({ length: 30 }, (_, i) => ({ dayKey: `d${i}`, reviews: 0, passed: 0 })), trends: { bot: [], grill: [], spar: [], mock: [], design: [] }, weakTags: [] });
-    const card = buildReportCard(quiet, NOW, DAY);
+    const card = buildReportCard(quiet, NOW);
     expect(card).toMatchObject({ activeDays: 0, accuracy: null, aiUse: null, grade: "D" });
     expect(formatReportCardText(card)).toContain("No weak spots flagged");
   });
 
   it("renders plain text for iMessage", () => {
-    const text = formatReportCardText(buildReportCard(stats(), NOW, DAY), "http://x/report");
+    const text = formatReportCardText(buildReportCard(stats(), NOW), "http://x/report");
     expect(text).toMatch(/^📊 Weekly report card: A/);
     expect(text).toContain("🤖 AI-use score: 75/100 (↑25) over 2 rounds");
     expect(text).not.toMatch(/[*_`#]/);

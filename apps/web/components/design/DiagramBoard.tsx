@@ -8,6 +8,9 @@ export const BOARD_W = 1000;
 export const BOARD_H = 640;
 const NODE_W = 150;
 const NODE_H = 56;
+/** Same caps as the server's validator (lib/server/design.ts). */
+export const MAX_NODES = 40;
+export const MAX_EDGES = 80;
 
 export const COMPONENT_ICONS: Record<DesignComponentKind, string> = {
   client: "💻",
@@ -73,6 +76,7 @@ export function DiagramBoard({
   };
 
   const addNode = (kind: DesignComponentKind, label: string) => {
+    if (diagram.nodes.length >= MAX_NODES) return;
     const offset = (diagram.nodes.length % 6) * 28;
     const node = { id: newId(kind), kind, label, x: clampX(160 + offset + (diagram.nodes.length % 3) * 260), y: clampY(110 + offset + Math.floor(diagram.nodes.length / 3) * 110) };
     update({ ...diagram, nodes: [...diagram.nodes, node] });
@@ -113,6 +117,10 @@ export function DiagramBoard({
     event.stopPropagation();
     if (connectFrom && connectFrom !== id) {
       const exists = diagram.edges.some((edge) => edge.from === connectFrom && edge.to === id);
+      if (!exists && diagram.edges.length >= MAX_EDGES) {
+        setConnectFrom(null);
+        return;
+      }
       if (!exists) update({ ...diagram, edges: [...diagram.edges, { from: connectFrom, to: id, label: "" }] });
       setSelected({ type: "edge", index: exists ? diagram.edges.findIndex((edge) => edge.from === connectFrom && edge.to === id) : diagram.edges.length });
       setConnectFrom(null);
@@ -146,7 +154,9 @@ export function DiagramBoard({
               key={component.kind}
               type="button"
               onClick={() => addNode(component.kind, component.label)}
-              className="inline-flex items-center gap-1 rounded-lg border border-line bg-ink-900/60 px-2 py-1 text-xs font-medium text-fg-muted transition-colors hover:border-synapse/60 hover:text-fg"
+              disabled={diagram.nodes.length >= MAX_NODES}
+              title={diagram.nodes.length >= MAX_NODES ? `The board holds up to ${MAX_NODES} components` : undefined}
+              className="inline-flex items-center gap-1 rounded-lg border border-line bg-ink-900/60 px-2 py-1 text-xs font-medium text-fg-muted transition-colors hover:border-synapse/60 hover:text-fg disabled:cursor-not-allowed disabled:opacity-40"
             >
               <span aria-hidden="true">{COMPONENT_ICONS[component.kind]}</span>
               {component.label}

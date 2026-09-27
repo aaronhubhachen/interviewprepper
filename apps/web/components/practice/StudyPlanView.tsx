@@ -4,7 +4,9 @@ import { planProgress, titleFromSlug, type StudyPlan } from "@synapse/core/plans
 import type { Tag } from "@synapse/core/tags";
 import Link from "next/link";
 import { useMemo } from "react";
+import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { EmptyState } from "@/components/ui/EmptyState";
 import { cn } from "@/lib/cn";
 import type { ProblemSummary } from "@/lib/types";
 import { DifficultyPill } from "./bits";
@@ -32,11 +34,13 @@ export function StudyPlanView({
   problems,
   filters,
   weak,
+  onClear,
 }: {
   plan: StudyPlan;
   problems: ProblemSummary[];
   filters: ProblemFilters;
   weak: ReadonlySet<Tag>;
+  onClear: () => void;
 }) {
   const bySlug = useMemo(() => new Map(problems.map((problem) => [problem.leetcodeSlug, problem])), [problems]);
   const visible = useMemo(() => new Set(filterProblems(problems, filters, weak).map((problem) => problem.leetcodeSlug)), [problems, filters, weak]);
@@ -44,6 +48,7 @@ export function StudyPlanView({
   const solved = useMemo(() => new Set(problems.filter((problem) => problem.progress.solved).map((problem) => problem.leetcodeSlug)), [problems]);
   const overall = planProgress(plan, catalog, solved);
   const filtering = hasActiveFilters(filters);
+  const anyVisible = !filtering || plan.categories.some((category) => category.slugs.some((slug) => visible.has(slug)));
 
   return (
     <section aria-labelledby="plan-heading" className="space-y-4">
@@ -64,10 +69,25 @@ export function StudyPlanView({
           <Bar {...overall} />
         </div>
         <p className="mt-2 text-xs text-fg-subtle">
-          {overall.available} of {overall.total} are in Prepr with the full invariant → trap → code flow; the rest link out to LeetCode.
+          {overall.available === overall.total
+            ? `All ${overall.total} are playable in Prepr with the full invariant → trap → code flow.`
+            : `${overall.available} of ${overall.total} are in Prepr with the full invariant → trap → code flow; the rest link out to LeetCode.`}
         </p>
       </Card>
 
+      {!anyVisible ? (
+        <EmptyState
+          icon="🔍"
+          level={3}
+          title="No plan problems match"
+          description="Try a different search or clear the filters."
+          action={
+            <Button variant="secondary" onClick={onClear}>
+              Clear filters
+            </Button>
+          }
+        />
+      ) : null}
       <div className="grid gap-4 lg:grid-cols-2">
         {plan.categories.map((category) => {
           const items = category.slugs.filter((slug) => (filtering ? visible.has(slug) : true));

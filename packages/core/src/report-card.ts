@@ -56,8 +56,10 @@ function gradeFor(activeDays: number, accuracy: number | null, rounds: number): 
   return "D";
 }
 
-/** `dayMs` is the store's day length (86 400 000, or shorter at demo scale). */
-export function buildReportCard(stats: Stats, now: number, dayMs: number): ReportCard {
+/** Calendar days, even at demo scale: Stats.reviewsByDay buckets reviews by local calendar day. */
+const DAY_MS = 86_400_000;
+
+export function buildReportCard(stats: Stats, now: number): ReportCard {
   const days = stats.reviewsByDay;
   const thisWeek = days.slice(-7);
   const lastWeek = days.slice(-14, -7);
@@ -67,8 +69,8 @@ export function buildReportCard(stats: Stats, now: number, dayMs: number): Repor
   const activeDays = thisWeek.filter((day) => day.reviews > 0).length;
   const accuracy = reviews > 0 ? Math.round((passed / reviews) * 100) / 100 : null;
 
-  const weekStart = now - 7 * dayMs;
-  const prevStart = now - 14 * dayMs;
+  const weekStart = now - 7 * DAY_MS;
+  const prevStart = now - 14 * DAY_MS;
   const rounds = (Object.keys(ROUND_LABELS) as Array<keyof InterviewTrends>)
     .map((kind) => {
       const points = inWindow(stats.trends[kind] ?? [], weekStart, now);

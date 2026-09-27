@@ -182,9 +182,11 @@ function ProblemBrowser({
               onChange={(value) => set({ plan: value === "all" ? null : value })}
             />
           </div>
-          <p className="text-sm text-fg-muted" aria-live="polite">
+          {plan ? null : (
+            <p className="text-sm text-fg-muted" aria-live="polite">
             {visible.length === problems.length ? plural(problems.length, "problem") : `${visible.length} of ${problems.length} shown`}
           </p>
+          )}
         </div>
 
         <Card padded={false} className="flex flex-col gap-3 p-3 sm:p-4 lg:flex-row lg:items-center">
@@ -251,7 +253,7 @@ function ProblemBrowser({
         </Card>
 
         {plan ? (
-          <StudyPlanView plan={plan} problems={problems} filters={filters} weak={weak} />
+          <StudyPlanView plan={plan} problems={problems} filters={filters} weak={weak} onClear={clear} />
         ) : visible.length === 0 ? (
           <EmptyState
             icon="🔍"

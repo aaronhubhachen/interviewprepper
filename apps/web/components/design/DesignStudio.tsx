@@ -42,6 +42,11 @@ export function DesignStudio({
   const abortRef = useRef<AbortController | null>(null);
   const retryRef = useRef<(() => void) | null>(null);
   const threadRef = useRef<HTMLDivElement>(null);
+  /** Latest board and notes, so Retry sends what is on screen now rather than what failed. */
+  const boardRef = useRef({ diagram, notes });
+  useEffect(() => {
+    boardRef.current = { diagram, notes };
+  }, [diagram, notes]);
 
   useEffect(() => {
     if (stage !== "interview") return;
@@ -60,7 +65,7 @@ export function DesignStudio({
       abortRef.current?.abort();
       const controller = new AbortController();
       abortRef.current = controller;
-      retryRef.current = () => void request(current, history, board, text, kind);
+      retryRef.current = () => void request(current, history, boardRef.current.diagram, boardRef.current.notes, kind);
       setError(null);
       setThinking(kind);
       const body = { promptId: current.id, diagram: board, notes: text, turns: history };
@@ -136,7 +141,16 @@ export function DesignStudio({
               <span className={cn("rounded-full border px-3 py-1 font-mono text-sm tabular-nums", remaining < 5 * 60_000 ? "border-danger/50 text-danger" : "border-line text-fg-muted")}>
                 {remaining > 0 ? `${clock(remaining)} left` : "Over time"}
               </span>
-              <button type="button" onClick={() => setStage("pick")} className="text-sm font-medium text-fg-subtle hover:text-fg">
+              <button
+                type="button"
+                onClick={() => {
+                  abortRef.current?.abort();
+                  setThinking(null);
+                  setError(null);
+                  setStage("pick");
+                }}
+                className="text-sm font-medium text-fg-subtle hover:text-fg"
+              >
                 ← Quit
               </button>
             </div>

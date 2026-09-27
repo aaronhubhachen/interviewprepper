@@ -70,9 +70,17 @@ export function MockCodingRound({
     setCode(next);
   };
 
+  const inflight = useRef<Promise<JudgeOutcome> | null>(null);
+
   const execute = async (mode: JudgeMode): Promise<JudgeOutcome> => {
+    // One judge run at a time: a second call would come back "busy" and clobber the first.
+    if (inflight.current) return inflight.current;
     setRunning(mode);
-    const result = await judge({ stage, mode, language, code: codeRef.current, problemId: problem.id });
+    const run = judge({ stage, mode, language, code: codeRef.current, problemId: problem.id });
+    inflight.current = run;
+    const result = await run.finally(() => {
+      inflight.current = null;
+    });
     setRunning(null);
     setOutcome(result);
     if (result.ok) {
@@ -86,6 +94,8 @@ export function MockCodingRound({
     if (finished.current) return;
     finished.current = true;
     setFinishing(true);
+    // A submit still running when time runs out (or Finish is pressed) is the one that counts.
+    if (inflight.current) await inflight.current;
     if (!lastSubmit.current) await execute("submit");
     const submit = lastSubmit.current ?? { passed: 0, total: stage.tests.length, status: "not_submitted" };
     const minutesUsed = Math.round(((performance.now() - startedAt.current) / 60_000) * 10) / 10;
@@ -133,7 +143,7 @@ export function MockCodingRound({
           <span className={cn("rounded-full border px-3 py-1 font-mono text-sm tabular-nums", remaining < 5 * 60_000 ? "border-danger/50 text-danger" : "border-line text-fg-muted")}>
             {formatClock(remaining)} left
           </span>
-          <Button onClick={() => void finish()} loading={finishing} loadingLabel="Wrapping up">
+          <Button onClick={() => void finish()} loading={finishing} loadingLabel="Wrapping up" disabled={running !== null && !finishing}>
             Finish coding round
           </Button>
         </div>

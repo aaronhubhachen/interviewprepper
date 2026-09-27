@@ -912,7 +912,7 @@ export class StudyController<S extends ChatSpace = ChatSpace> {
   // ── Weekly report card ───────────────────────────────────────────────────
 
   private reportCard(userId: string, now: number): ReportCard {
-    return buildReportCard(this.store.stats(userId, now), now, this.store.policy.dayMs);
+    return buildReportCard(this.store.stats(userId, now), now);
   }
 
   /**
@@ -938,7 +938,7 @@ export class StudyController<S extends ChatSpace = ChatSpace> {
       if (last !== undefined && now - last < 6 * dayMs) return false;
     }
     const stats = this.store.stats(userId, now);
-    const card = buildReportCard(stats, now, dayMs);
+    const card = buildReportCard(stats, now);
     const lastTwoWeeks = stats.reviewsByDay.slice(-14).reduce((sum, day) => sum + day.reviews, 0);
     this.state.set(scope, "lastReportAt", now, now);
     if (lastTwoWeeks === 0 && card.rounds.length === 0) return false;
