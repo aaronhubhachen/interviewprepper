@@ -118,7 +118,12 @@ function configuredTimeoutMs(): number {
 
 /** Pulls the first JSON object out of a model reply that may include code fences or prose. */
 export function extractJson(reply: string): unknown {
-  const unfenced = reply.replace(/```(?:json)?/gi, "").trim();
+  // Only strip a fence wrapping the whole reply: string values may contain Markdown code fences.
+  const unfenced = reply
+    .trim()
+    .replace(/^```(?:json)?\s*/i, "")
+    .replace(/\s*```$/, "")
+    .trim();
   try {
     return JSON.parse(unfenced);
   } catch {

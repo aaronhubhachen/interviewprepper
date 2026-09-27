@@ -1,62 +1,65 @@
 @import "tailwindcss";
 
 /*
- * Synapse design tokens (Tailwind v4). Every token below becomes a utility:
+ * Prepr design tokens (Tailwind v4). Every token below becomes a utility:
  *   --color-ink-900   → bg-ink-900 / text-ink-900 / border-ink-900
  *   --color-fg-muted  → text-fg-muted
  *   --shadow-glow     → shadow-glow
  *   --radius-card     → rounded-card
  *   --font-display    → font-display
- * Contrast (WCAG): fg 17:1, fg-muted 8:1, fg-subtle >= 4.9:1 on every ink surface;
- * synapse (violet-400) 6.5:1+, axon (cyan-400) 9.8:1+. fg-faint is decorative only.
+ * Core palette: orange, black, and white. Semantic tokens stay distinct by shade.
  */
 @theme {
-  /* Surfaces: deep ink, from page background up to raised panels. */
-  --color-ink-950: #07070f;
-  --color-ink-900: #0b0b17;
-  --color-ink-850: #0f0f1c;
-  --color-ink-800: #161629;
-  --color-ink-700: #1f1f38;
-  --color-ink-600: #2a2a4a;
-  --color-line: #242443;
-  --color-line-strong: #36365e;
+  /* Black surfaces, from page background up to raised panels. */
+  --color-ink-950: #080808;
+  --color-ink-900: #101010;
+  --color-ink-850: #171717;
+  --color-ink-800: #202020;
+  --color-ink-700: #2a2a2a;
+  --color-ink-600: #383838;
+  --color-line: #333333;
+  --color-line-strong: #4a4a4a;
 
   /* Text. */
-  --color-fg: #eeedff;
-  --color-fg-muted: #a6a4c8;
-  --color-fg-subtle: #8583a8;
-  --color-fg-faint: #6e6c92;
+  --color-fg: #ffffff;
+  --color-fg-muted: #c4c4c4;
+  --color-fg-subtle: #a0a0a0;
+  --color-fg-faint: #7a7a7a;
 
-  /* Brand: electric violet ("synapse") + cyan ("axon"). */
-  --color-synapse-soft: #c4b5fd;
-  --color-synapse: #a78bfa;
-  --color-synapse-500: #8b5cf6;
-  --color-synapse-strong: #7c3aed;
-  --color-synapse-deep: #5b21b6;
-  --color-axon-soft: #67e8f9;
-  --color-axon: #22d3ee;
-  --color-axon-strong: #0891b2;
+  /* Brand accents. */
+  --color-synapse-soft: #ffbd8a;
+  --color-synapse: #ff8a3d;
+  --color-synapse-500: #f97316;
+  --color-synapse-strong: #ea580c;
+  --color-synapse-deep: #c2410c;
+  --color-axon-soft: #ffbd8a;
+  --color-axon: #f97316;
+  --color-axon-strong: #c2410c;
 
   /* Status. */
-  --color-success: #34d399;
-  --color-warning: #fbbf24;
-  --color-danger: #fb7185;
-  --color-info: #60a5fa;
+  --color-success: #ffbd8a;
+  --color-warning: #ff8a3d;
+  --color-danger: #ffffff;
+  --color-info: #f97316;
 
   /* Tapback ratings. */
-  --color-love: #f472b6;
-  --color-like: #fbbf24;
-  --color-dislike: #94a3b8;
+  --color-love: #ff8a3d;
+  --color-like: #ffbd8a;
+  --color-dislike: #a0a0a0;
 
-  /* iMessage bubbles (white text on bubble-you is 5.2:1). */
-  --color-bubble-you: #2563eb;
-  --color-bubble-agent: #1f1f38;
+  /* iMessage bubbles. */
+  --color-bubble-you: #c2410c;
+  --color-bubble-agent: #2a2a2a;
+  --color-chart-orange: #f97316;
+  --color-chart-neutral: #ffffff;
+  --color-chart-deep: #c2410c;
+  --color-chart-soft: #ffbd8a;
 
   --radius-card: 1.25rem;
   --radius-bubble: 1.25rem;
 
-  --shadow-glow: 0 0 0 1px rgb(167 139 250 / 0.22), 0 10px 40px -12px rgb(139 92 246 / 0.55);
-  --shadow-glow-cyan: 0 0 0 1px rgb(34 211 238 / 0.22), 0 10px 40px -12px rgb(34 211 238 / 0.45);
+  --shadow-glow: 0 0 0 1px rgb(249 115 22 / 0.22), 0 10px 40px -12px rgb(194 65 12 / 0.4);
+  --shadow-glow-cyan: 0 0 0 1px rgb(249 115 22 / 0.18), 0 10px 40px -12px rgb(249 115 22 / 0.3);
   --shadow-card: 0 1px 0 0 rgb(255 255 255 / 0.04) inset, 0 20px 50px -30px rgb(0 0 0 / 0.8);
 
   --animate-pulse-glow: pulse-glow 2.4s ease-in-out infinite;
@@ -115,11 +118,50 @@
   }
 }
 
-/* Fonts come from next/font/local CSS variables set on <html> (see app/layout.tsx). */
 @theme inline {
-  --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  --font-display: var(--font-space-grotesk), var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --font-display: "Helvetica Neue", Helvetica, Arial, sans-serif;
   --font-mono: var(--font-jetbrains-mono), ui-monospace, "Cascadia Code", "SFMono-Regular", Menlo, Consolas, monospace;
+}
+
+html[data-theme="light"] {
+  color-scheme: light;
+  --color-ink-950: #ffffff;
+  --color-ink-900: #fcfcfc;
+  --color-ink-850: #f6f6f6;
+  --color-ink-800: #ededed;
+  --color-ink-700: #e4e4e4;
+  --color-ink-600: #d0d0d0;
+  --color-line: #d7d7d7;
+  --color-line-strong: #b5b5b5;
+  --color-fg: #111111;
+  --color-fg-muted: #3a3a3a;
+  --color-fg-subtle: #5c5c5c;
+  --color-fg-faint: #767676;
+  --color-synapse-soft: #b54708;
+  --color-synapse: #c2410c;
+  --color-synapse-500: #c2410c;
+  --color-synapse-strong: #c2410c;
+  --color-synapse-deep: #9a3412;
+  --color-axon-soft: #b54708;
+  --color-axon: #c2410c;
+  --color-axon-strong: #9a3412;
+  --color-success: #9a3412;
+  --color-warning: #c2410c;
+  --color-danger: #9a3412;
+  --color-info: #c2410c;
+  --color-love: #c2410c;
+  --color-like: #b54708;
+  --color-dislike: #595959;
+  --color-bubble-you: #c2410c;
+  --color-bubble-agent: #f1f1f1;
+  --color-chart-orange: #c2410c;
+  --color-chart-neutral: #171717;
+  --color-chart-deep: #9a3412;
+  --color-chart-soft: #b54708;
+  --shadow-glow: 0 0 0 1px rgb(194 65 12 / 0.16), 0 10px 40px -12px rgb(194 65 12 / 0.2);
+  --shadow-glow-cyan: 0 0 0 1px rgb(194 65 12 / 0.14), 0 10px 40px -12px rgb(194 65 12 / 0.18);
+  --shadow-card: 0 1px 0 0 rgb(0 0 0 / 0.04) inset, 0 20px 50px -30px rgb(0 0 0 / 0.18);
 }
 
 @layer base {
@@ -129,18 +171,22 @@
     -webkit-tap-highlight-color: transparent;
   }
 
+  html[data-theme="light"] body {
+    background-image:
+      radial-gradient(60rem 36rem at 12% -8%, rgb(249 115 22 / 0.07), transparent 60%),
+      radial-gradient(rgb(17 17 17 / 0.035) 1px, transparent 1px);
+  }
+
   body {
     min-height: 100dvh;
     background-color: var(--color-ink-950);
     color: var(--color-fg);
     font-family: var(--font-sans);
-    /* Neural glow: two soft nebulae and a faint synaptic dot grid. */
+    /* A restrained orange glow and fine dot grid on black. */
     background-image:
-      radial-gradient(60rem 36rem at 12% -8%, rgb(124 58 237 / 0.16), transparent 60%),
-      radial-gradient(48rem 30rem at 100% 0%, rgb(34 211 238 / 0.09), transparent 60%),
-      radial-gradient(rgb(167 139 250 / 0.07) 1px, transparent 1px);
+      radial-gradient(60rem 36rem at 12% -8%, rgb(249 115 22 / 0.12), transparent 60%),
+      radial-gradient(rgb(255 255 255 / 0.035) 1px, transparent 1px);
     background-size:
-      auto,
       auto,
       28px 28px;
     background-attachment: fixed;
@@ -152,12 +198,12 @@
   h2,
   h3 {
     font-family: var(--font-display);
-    letter-spacing: -0.02em;
+    letter-spacing: 0;
   }
 
   ::selection {
-    background: rgb(139 92 246 / 0.45);
-    color: #fff;
+    background: var(--color-synapse-strong);
+    color: var(--color-fg);
   }
 
   /* Visible, consistent keyboard focus everywhere. */
@@ -200,7 +246,7 @@
 
   /* Gradient wordmark / accent text. */
   .text-gradient {
-    background-image: linear-gradient(100deg, var(--color-synapse-soft), var(--color-synapse) 40%, var(--color-axon));
+    background-image: linear-gradient(100deg, var(--color-synapse-soft), var(--color-synapse) 55%, var(--color-synapse-strong));
     -webkit-background-clip: text;
     background-clip: text;
     color: transparent;
@@ -211,7 +257,7 @@
     border: 1px solid transparent;
     background:
       linear-gradient(var(--color-ink-850), var(--color-ink-850)) padding-box,
-      linear-gradient(120deg, rgb(167 139 250 / 0.55), rgb(34 211 238 / 0.35), rgb(167 139 250 / 0.1)) border-box;
+      linear-gradient(120deg, rgb(249 115 22 / 0.55), rgb(255 255 255 / 0.3), rgb(249 115 22 / 0.15)) border-box;
   }
 
   /* Rendered markdown-ish prose (problem statements, explanations). */
@@ -228,8 +274,8 @@
   }
   .prose-synapse :where(code) {
     color: var(--color-axon-soft);
-    background: rgb(34 211 238 / 0.08);
-    border: 1px solid rgb(34 211 238 / 0.15);
+    background: rgb(249 115 22 / 0.08);
+    border: 1px solid rgb(249 115 22 / 0.2);
     padding: 0.05rem 0.35rem;
     border-radius: 0.375rem;
     font-size: 0.875em;

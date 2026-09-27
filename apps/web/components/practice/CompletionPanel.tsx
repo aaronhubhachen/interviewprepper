@@ -98,8 +98,8 @@ export function CompletionPanel({
   const headline = code.gaveUp
     ? { emoji: "📖", title: "Solution unlocked", sub: "No shame in it: the drills are queued so this pattern sticks next time." }
     : struggled
-      ? { emoji: "🧩", title: "Solved, with a fight", sub: "Synapse will keep this one close and drill the weak spots over iMessage." }
-      : { emoji: "🎉", title: "Clean solve", sub: "Invariant, trap and code all landed. Synapse will space this one out." };
+      ? { emoji: "🧩", title: "Solved, with a fight", sub: "Prepr will keep this one close and drill the weak spots over iMessage." }
+      : { emoji: "🎉", title: "Clean solve", sub: "Invariant, trap and code all landed. Prepr will space this one out." };
   const acceptedOn = code.submits > 0 && !code.gaveUp ? code.submits : null;
 
   return (

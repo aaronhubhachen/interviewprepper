@@ -68,7 +68,7 @@ export class FakeSpace implements ChatSpace {
 }
 
 export function isProbe(text: string): boolean {
-  return /'idk' to reveal\)$/.test(text) && /^(🧠 Synapse|☕ Morning Synapse) · /.test(text);
+  return /'idk' to reveal\)$/.test(text) && /^(🧠 Prepr|☕ Morning Prepr) · /.test(text);
 }
 
 export interface Clock {

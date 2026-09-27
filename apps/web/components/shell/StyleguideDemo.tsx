@@ -48,14 +48,14 @@ export function StyleguideDemo() {
         </div>
         {banner ? (
           <Banner tone="synapse" title="Drill queued" onDismiss={() => setBanner(false)}>
-            Synapse will text you a Bitmask DP micro-card tomorrow at 9:00 AM.
+            Prepr will text you a Bitmask DP micro-card tomorrow at 9:00 AM.
           </Banner>
         ) : null}
       </div>
       <div className="rounded-card border border-line bg-ink-900/70 p-4">
         <ChatThread label="Example iMessage thread" className="max-h-96">
-          <ChatBubble from="agent" name="Synapse" tail={false}>
-            ☕ Morning Synapse: 3 cards due. Weak spot: Bitmask DP.
+          <ChatBubble from="agent" name="Prepr" tail={false}>
+            ☕ Morning Prepr: 3 cards due. Weak spot: Bitmask DP.
           </ChatBubble>
           <ChatBubble from="agent" tapback="👍">
             🧠 Sliding window: when exactly do you shrink the left pointer in Longest Substring Without Repeating Characters?

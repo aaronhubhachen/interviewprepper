@@ -1,9 +1,8 @@
 import type { Metadata } from "next";
-import { Dashboard } from "@/components/dashboard/Dashboard";
+import { LandingPage } from "@/components/landing/LandingPage";
 
-export const metadata: Metadata = { title: "Dashboard" };
+export const metadata: Metadata = { title: "Interview Prepper" };
 
-/** "/" — retention, forecast, weak spots, activity, and the iMessage link (data loads client-side and live-refreshes). */
-export default function DashboardPage() {
-  return <Dashboard />;
+export default function HomePage() {
+  return <LandingPage />;
 }

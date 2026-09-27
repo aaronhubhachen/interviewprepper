@@ -18,16 +18,14 @@ export interface ActivitySeriesMeta {
 }
 
 /**
- * Categorical slots 1-4 of the validated dataviz palette, dark-mode steps, in
- * fixed stacking order (bottom → top). Validated on the card surface #0f0f1c:
- * lightness band, chroma floor, adjacent CVD ΔE ≥ 8.4, normal-vision ΔE ≥ 19.8,
- * contrast ≥ 4.9:1. Colour follows the source, never its rank.
+ * Orange and neutral categorical marks in fixed stacking order (bottom → top).
+ * Colour follows the source, never its rank.
  */
 export const ACTIVITY_SERIES: readonly ActivitySeriesMeta[] = [
-  { key: "imessage", label: "iMessage", color: "#3987e5", icon: "💬" },
-  { key: "web", label: "Web", color: "#d95926", icon: "🖥️" },
-  { key: "ide", label: "IDE", color: "#199e70", icon: "🧩" },
-  { key: "voice", label: "Voice", color: "#c98500", icon: "🎙️" },
+  { key: "imessage", label: "iMessage", color: "var(--color-chart-orange)", icon: "💬" },
+  { key: "web", label: "Web", color: "var(--color-chart-neutral)", icon: "🖥️" },
+  { key: "ide", label: "IDE", color: "var(--color-chart-deep)", icon: "🧩" },
+  { key: "voice", label: "Voice", color: "var(--color-chart-soft)", icon: "🎙️" },
 ];
 
 export function isActivitySource(value: unknown): value is ActivitySource {

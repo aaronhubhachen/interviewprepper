@@ -2,7 +2,7 @@
   "name": "@synapse/agent",
   "version": "0.1.0",
   "private": true,
-  "description": "Synapse iMessage agent (Photon spectrum-ts).",
+  "description": "Prepr iMessage agent (Photon spectrum-ts).",
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/index.ts",

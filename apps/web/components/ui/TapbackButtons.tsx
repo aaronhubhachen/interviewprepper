@@ -28,17 +28,17 @@ const TONES: Record<Rating, { idle: string; active: string; ring: string }> = {
   love: {
     idle: "hover:border-love/60 hover:bg-love/10",
     active: "border-love/70 bg-love/15",
-    ring: "shadow-[0_0_0_1px_rgb(244_114_182/0.5),0_10px_30px_-12px_rgb(244_114_182/0.6)]",
+    ring: "shadow-[0_0_0_1px_rgb(249_115_22/0.5),0_10px_30px_-12px_rgb(249_115_22/0.6)]",
   },
   like: {
     idle: "hover:border-like/60 hover:bg-like/10",
     active: "border-like/70 bg-like/15",
-    ring: "shadow-[0_0_0_1px_rgb(251_191_36/0.5),0_10px_30px_-12px_rgb(251_191_36/0.5)]",
+    ring: "shadow-[0_0_0_1px_rgb(255_189_138/0.5),0_10px_30px_-12px_rgb(255_189_138/0.5)]",
   },
   dislike: {
     idle: "hover:border-dislike/60 hover:bg-dislike/10",
     active: "border-dislike/70 bg-dislike/15",
-    ring: "shadow-[0_0_0_1px_rgb(148_163_184/0.5),0_10px_30px_-12px_rgb(148_163_184/0.5)]",
+    ring: "shadow-[0_0_0_1px_rgb(160_160_160/0.5),0_10px_30px_-12px_rgb(160_160_160/0.5)]",
   },
 };
 

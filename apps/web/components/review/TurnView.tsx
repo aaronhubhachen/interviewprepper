@@ -53,7 +53,7 @@ export function TurnView({ turn, isCurrent, phase }: TurnViewProps) {
         </div>
       </header>
 
-      <ChatBubble from="agent" name="Synapse" tail={!turn.hintShown}>
+      <ChatBubble from="agent" name="Prepr" tail={!turn.hintShown}>
         {card.prompt}
       </ChatBubble>
 
@@ -84,7 +84,7 @@ export function TurnView({ turn, isCurrent, phase }: TurnViewProps) {
           <ChatBubble
             from="agent"
             tapback={turn.result ? TAPBACK_EMOJI[turn.result.rating] : undefined}
-            meta={turn.result ? undefined : `Synapse suggests ${TAPBACK_EMOJI[turn.evaluation.suggestedRating]}`}
+            meta={turn.result ? undefined : `Prepr suggests ${TAPBACK_EMOJI[turn.evaluation.suggestedRating]}`}
           >
             {`Rate your recall with a tapback:\n${compactLegend(turn.evaluation.preview)}`}
           </ChatBubble>
@@ -149,7 +149,7 @@ function AnswerKey({ evaluation }: { evaluation: ReviewEvaluateResponse }) {
     <div className="flex w-full justify-start motion-safe:animate-fade-up">
       <section
         aria-label="Answer key"
-        className="relative max-w-[85%] rounded-bubble rounded-bl-md border border-synapse/35 bg-[linear-gradient(160deg,rgb(124_58_237/0.16),rgb(15_15_28/0.9)_55%)] px-4 py-3 shadow-glow sm:max-w-[75%]"
+        className="relative max-w-[85%] rounded-bubble rounded-bl-md border border-synapse/35 bg-[linear-gradient(160deg,rgb(249_115_22/0.16),rgb(23_23_23/0.9)_55%)] px-4 py-3 shadow-glow sm:max-w-[75%]"
       >
         <p className="text-[0.7rem] font-semibold uppercase tracking-[0.14em] text-synapse-soft">
           <span aria-hidden="true">🔑 </span>Answer key

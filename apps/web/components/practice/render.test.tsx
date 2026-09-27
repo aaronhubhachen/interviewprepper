@@ -180,11 +180,15 @@ describe("practice components render", () => {
         onGiveUp={noop}
         onRetrySave={noop}
         onSkipSave={noop}
+        aiOpen
+        onToggleAi={() => undefined}
       />,
     );
     expect(code).toContain(`${problem.stages.code.functionName}(`);
-    expect(code).toContain('role="radiogroup"');
+    expect(code).toContain('<option value="java">Java</option>');
     expect(code).toContain("Finish without saving");
+    expect(code).toContain("Hide AI");
+    expect(code).toContain("Prepr Bot");
 
     const summary = renderToStaticMarkup(
       <CompletionPanel problem={problem} session={done} nextProblem={{ id: "p-x", title: "Next One" }} onRestart={noop} onReview={noop} onShowSolution={noop} solutionShown={false} />,

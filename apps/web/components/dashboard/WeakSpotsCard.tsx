@@ -27,7 +27,7 @@ export function WeakSpotsCard({ weakTags, now, className }: WeakSpotsCardProps) 
     <Card className={className} aria-labelledby="weak-title">
       <CardHeader
         title={<span id="weak-title">Weak spots</span>}
-        description="Synapse drills these first, here and over iMessage. Scores fade as you recall them."
+        description="These get extra practice here and over iMessage. Scores fade as you recall them."
       />
       {weakTags.length === 0 ? (
         <div className="rounded-xl border border-dashed border-line-strong bg-ink-900/50 px-4 py-6 text-center">

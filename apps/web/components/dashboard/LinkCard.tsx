@@ -65,7 +65,7 @@ export function LinkCard({ initial, onChange, className }: LinkCardProps) {
             tone: "success",
             icon: "📱",
             title: "iMessage linked",
-            description: `Synapse will text ${response.handle ?? "you"} when cards are due.`,
+            description: `Prepr will text ${response.handle ?? "you"} when cards are due.`,
           });
           onChangeRef.current?.();
         }
@@ -102,7 +102,7 @@ export function LinkCard({ initial, onChange, className }: LinkCardProps) {
         tone: response.paused ? "info" : "success",
         icon: response.paused ? "⏸️" : "▶️",
         title: response.paused ? "Texts paused" : "Texts resumed",
-        description: response.paused ? "Synapse won't text you until you resume." : "Synapse will text you when cards are due.",
+        description: response.paused ? "Prepr won't text you until you resume." : "Prepr will text you when cards are due.",
       });
       onChangeRef.current?.();
     } catch (error) {
@@ -146,7 +146,7 @@ export function LinkCard({ initial, onChange, className }: LinkCardProps) {
           <p className="text-sm text-fg-muted">
             {link.paused
               ? "Proactive texts are paused. Your schedule keeps running, so due cards will be waiting."
-              : `Synapse texts ${link.handle ?? "you"} micro-cards at their due times. Answer in plain text, then rate with a tapback.`}
+              : `Prepr texts ${link.handle ?? "you"} micro-cards at their due times. Answer in plain text, then rate with a tapback.`}
           </p>
           <ol className="mt-4 space-y-2 text-sm">
             {[
@@ -189,7 +189,7 @@ export function LinkCard({ initial, onChange, className }: LinkCardProps) {
         <div className="flex flex-1 flex-col">
           <p className="text-sm text-fg-muted">
             Get micro-cards texted to you at their due times. Text this code to{" "}
-            {link.agentHandle ? <span className="font-medium text-fg">{link.agentHandle}</span> : "your Synapse number"}:
+            {link.agentHandle ? <span className="font-medium text-fg">{link.agentHandle}</span> : "your Prepr number"}:
           </p>
 
           {link.code ? (

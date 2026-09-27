@@ -1,4 +1,5 @@
-import type { CardKind, JudgeLanguage, ReviewCard, Tag } from "../content/types";
+import type { CardKind, ReviewCard, Tag } from "../content/types";
+import type { CodeLanguage } from "../judge/native";
 import type { Evaluation } from "../grading";
 import type { Grade, ReviewState } from "../sm2";
 import type { BehavioralFeedback } from "../spar";
@@ -188,7 +189,7 @@ export interface IdeAttemptInput {
   stage: IdeStage;
   passed: boolean;
   now: number;
-  language?: JudgeLanguage;
+  language?: CodeLanguage;
   testsPassed?: number;
   testsTotal?: number;
   hintsUsed?: number;
@@ -226,7 +227,7 @@ export interface IdeAttempt {
   userId: string;
   problemId: string;
   stage: IdeStage;
-  language: JudgeLanguage | null;
+  language: CodeLanguage | null;
   passed: boolean;
   testsPassed: number | null;
   testsTotal: number | null;

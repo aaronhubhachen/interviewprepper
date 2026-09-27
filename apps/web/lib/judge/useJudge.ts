@@ -2,12 +2,13 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { JudgeClient, type PythonRuntimeStatus } from "./client";
-import { judgeCode, type JudgeOutcome, type JudgeStage, type JudgeMode } from "./judge";
-import type { JudgeLanguage } from "@synapse/core/content";
+import { isNativeLanguage, type CodeLanguage } from "@synapse/core/judge";
+import { judgeCode, type JudgeOutcome, type JudgeRunner, type JudgeStage, type JudgeMode } from "./judge";
+import { runServerJudge } from "./server-runner";
 
 export interface UseJudge {
   /** Executes in the worker and compares on the main thread. Never throws. */
-  judge: (input: { stage: JudgeStage; mode: JudgeMode; language: JudgeLanguage; code: string }) => Promise<JudgeOutcome>;
+  judge: (input: { stage: JudgeStage; mode: JudgeMode; language: CodeLanguage; code: string; problemId?: string }) => Promise<JudgeOutcome>;
   /** Start downloading Pyodide in the background (call when the user picks Python). */
   preloadPython: () => void;
   pythonStatus: PythonRuntimeStatus;
@@ -39,7 +40,13 @@ export function useJudge(): UseJudge {
     if (!client) {
       return { ok: false, mode: input.mode, language: input.language, reason: "disposed", message: "The judge is still starting. Try again." };
     }
-    return judgeCode(client, input);
+    const runner: JudgeRunner = {
+      run: (request) => {
+        const { language } = request;
+        return isNativeLanguage(language) ? runServerJudge(request) : client.run({ ...request, language });
+      },
+    };
+    return judgeCode(runner, input);
   }, []);
 
   const preloadPython = useCallback(() => clientRef.current?.preloadPython(), []);

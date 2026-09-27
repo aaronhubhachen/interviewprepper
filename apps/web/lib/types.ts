@@ -3,7 +3,8 @@
  * fetchers (lib/api.ts). Type-only imports, so this file is safe in client
  * components. Every timestamp is epoch milliseconds.
  */
-import type { BehavioralFeedback, IdeStage, PickReason, Stats } from "@synapse/core";
+import type { RawTestResult, RunFailure } from "@synapse/core/judge";
+import type { BehavioralFeedback, BotEvent, BotMessage, BotReport, CodeLanguage, NativeLanguage, GrillQuestion, GrillReport, GrillTurn, IdeStage, PickReason, Stats } from "@synapse/core";
 import type {
   BehavioralQuestion,
   CardDifficulty,
@@ -24,7 +25,7 @@ import type {
   TranscriptAnalysis,
 } from "@synapse/core/browser";
 
-export type { BehavioralFeedback, Evaluation, IdeStage, IntervalPreview, Rating, Stats, Tag, TextGrade };
+export type { BehavioralFeedback, CodeLanguage, Evaluation, IdeStage, IntervalPreview, Rating, Stats, Tag, TextGrade };
 
 /** Every non-2xx response has this body. */
 export interface ApiErrorBody {
@@ -206,7 +207,7 @@ export interface LinkResponse {
   /** 4-digit code to text as "link 1234" (null once linked). */
   code: string | null;
   paused: boolean;
-  /** The Synapse iMessage number/email if configured (SYNAPSE_AGENT_HANDLE), for an sms: link. */
+  /** The Prepr iMessage number/email if configured (SYNAPSE_AGENT_HANDLE), for an sms: link. */
   agentHandle: string | null;
   /** Human instructions, e.g. "Text “link 4821” to Synapse on iMessage." */
   instructions: string;
@@ -262,7 +263,7 @@ export interface ClientStagePrompt {
 export interface ClientCodeStage {
   functionName: string;
   params: string[];
-  starter: Record<JudgeLanguage, string>;
+  starter: Record<CodeLanguage, string>;
   /** All tests, hidden ones included (args + expected), because the judge runs in the browser. */
   tests: CodeTest[];
   compare: CompareMode;
@@ -295,7 +296,7 @@ export interface IdeAttemptSummary {
   passed: boolean;
   struggled: boolean;
   gaveUp: boolean;
-  language: JudgeLanguage | null;
+  language: CodeLanguage | null;
   testsPassed: number | null;
   testsTotal: number | null;
   createdAt: number;
@@ -352,7 +353,7 @@ export interface PracticeAttemptRequest {
   /** The user revealed the answer / gave up (always a struggle; ends the code stage). */
   gaveUp?: boolean;
   durationMs?: number;
-  language?: JudgeLanguage;
+  language?: CodeLanguage;
   testsPassed?: number;
   testsTotal?: number;
   /** Submitted code (max 50k chars). */
@@ -382,7 +383,7 @@ export interface PracticeAttemptResponse {
   scheduled: ScheduledDrills | null;
   /** SM-2 update of the problem card when the code stage ends (pass or give up). */
   graded: { grade: TextGrade; nextLabel: string; dueAt: number } | null;
-  /** Ready-to-show sentence, e.g. "Flagged Bitmask DP. Synapse will text you a drill tomorrow at 9:00 AM." */
+  /** Ready-to-show sentence, e.g. "Flagged Bitmask DP. Prepr will text you a drill tomorrow at 9:00 AM." */
   message: string | null;
 }
 
@@ -435,3 +436,77 @@ export interface SparSessionSummary {
 export interface SparSessionsResponse {
   sessions: SparSessionSummary[];
 }
+
+// ── /api/grill/* ───────────────────────────────────────────────────────────
+
+export type { GrillQuestion, GrillReport, GrillTurn };
+
+export interface GrillResumeResponse {
+  text: string;
+  pages: number | null;
+}
+
+export interface GrillSessionRequest {
+  resume: string;
+  turns: GrillTurn[];
+}
+
+export interface GrillNextResponse extends GrillQuestion {
+  /** 1-based number of this question. */
+  number: number;
+  total: number;
+}
+
+// ── /api/judge/* ───────────────────────────────────────────────────────────
+
+export interface JudgeLanguagesResponse {
+  /** Server-compiled languages that are enabled and have a toolchain installed. */
+  available: NativeLanguage[];
+  /** False when the server judge is switched off (production without SYNAPSE_NATIVE_JUDGE=1). */
+  enabled: boolean;
+}
+
+export interface JudgeRunRequest {
+  problemId: string;
+  language: NativeLanguage;
+  code: string;
+  /** JSON list of positional-argument lists (core's testArgsJson). */
+  argsJson: string;
+}
+
+export interface JudgeRunResponse {
+  raw: RawTestResult[] | RunFailure;
+}
+
+// ── /api/bot/* ─────────────────────────────────────────────────────────────
+
+export type { BotEvent, BotMessage, BotReport };
+
+export interface BotChatRequest {
+  problemId: string;
+  language: CodeLanguage;
+  code: string;
+  messages: BotMessage[];
+  trapMode: boolean;
+  trapsUsed: number;
+}
+
+export interface BotChatResponse {
+  reply: string;
+  source: "llm" | "heuristic";
+  /** Sealed note about a planted bug (opaque to the browser; sent back with the report). */
+  trapToken: string | null;
+}
+
+export interface BotReportRequest {
+  problemId: string;
+  language: CodeLanguage;
+  finalCode: string;
+  durationMs: number;
+  messages: BotMessage[];
+  events: BotEvent[];
+  traps: Array<{ messageIndex: number; token: string }>;
+  lastResult: { status: string; passed: number; total: number } | null;
+}
+
+export type BotReportResponse = BotReport;

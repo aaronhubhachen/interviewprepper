@@ -20,8 +20,8 @@ describe("probe → answer → feedback → tapback", () => {
     await linkByText(h);
 
     expect(h.space.texts[0]).toMatch(/^🔗 Linked!/);
-    expect(h.space.texts[1]).toMatch(/^☕ Morning Synapse — /);
-    expect(h.space.texts[2]).toMatch(/^☕ Morning Synapse · /);
+    expect(h.space.texts[1]).toMatch(/^☕ Morning Prepr — /);
+    expect(h.space.texts[2]).toMatch(/^☕ Morning Prepr · /);
     expect(isProbe(h.space.texts[2]!)).toBe(true);
     const probe = pending(h);
     expect(probe.phase).toBe("awaiting_answer");
@@ -217,7 +217,7 @@ describe("commands", () => {
     setup();
     await linkByText(h);
     await h.controller.handleText(h.space, "Help!");
-    expect(h.space.last.text).toMatch(/^🧠 Synapse commands/);
+    expect(h.space.last.text).toMatch(/^🧠 Prepr commands/);
   });
 
   it("stats reports due count, streak, retention and weak spot", async () => {
@@ -230,7 +230,7 @@ describe("commands", () => {
     await h.controller.handleText(h.space, "stats");
 
     const text = h.space.last.text;
-    expect(text).toMatch(/^📊 Your Synapse/);
+    expect(text).toMatch(/^📊 Your Prepr/);
     expect(text).toContain("Due now: 0 · Reviewed today: 1");
     expect(text).toContain("Streak: 1 day");
     expect(text).toContain("Retention (30d): 100%");
@@ -291,7 +291,7 @@ describe("commands", () => {
 
     await h.controller.handleText(h.space, "more");
     expect(h.space.probes.length).toBe(probesBefore + 1);
-    expect(h.space.last.text).toMatch(/^🧠 Synapse · /);
+    expect(h.space.last.text).toMatch(/^🧠 Prepr · /);
     const first = pendingCard(h);
 
     await h.controller.handleText(h.space, "next");
@@ -358,7 +358,7 @@ describe("linking & onboarding", () => {
     setup();
     await h.controller.handleText(h.space, "hello?", { handle: "+15550001111" });
     expect(h.space.sent).toHaveLength(1);
-    expect(h.space.last.text).toMatch(/^👋 Hey! I'm Synapse/);
+    expect(h.space.last.text).toMatch(/^👋 Hey! I'm Prepr/);
     const placeholder = h.store.findUserBySpace(h.space.id)!;
     expect(placeholder.id).not.toBe(WEB_USER);
 

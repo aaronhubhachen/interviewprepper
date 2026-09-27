@@ -5,8 +5,9 @@ import { usePathname } from "next/navigation";
 import type { ComponentType, SVGProps } from "react";
 import { cn } from "@/lib/cn";
 import { useDueCount } from "./DueCountProvider";
-import { DashboardIcon, PracticeIcon, ReviewIcon, SparIcon } from "./NavIcons";
+import { DashboardIcon, GrillIcon, PracticeIcon, ReviewIcon, SparIcon } from "./NavIcons";
 import { SynapseGlyph } from "./SynapseGlyph";
+import { ThemeToggle } from "./ThemeToggle";
 
 interface NavItem {
   href: string;
@@ -16,10 +17,11 @@ interface NavItem {
 }
 
 export const NAV_ITEMS: readonly NavItem[] = [
-  { href: "/", label: "Dashboard", Icon: DashboardIcon },
+  { href: "/dashboard", label: "Dashboard", Icon: DashboardIcon },
   { href: "/review", label: "Review", Icon: ReviewIcon, badge: "due" },
   { href: "/practice", label: "Practice", Icon: PracticeIcon },
   { href: "/spar", label: "Spar", Icon: SparIcon },
+  { href: "/grill", label: "Grill", Icon: GrillIcon },
 ];
 
 function isActive(pathname: string, href: string): boolean {
@@ -51,36 +53,39 @@ export function SiteHeader() {
   return (
     <header className="sticky top-0 z-40 border-b border-line/70 bg-ink-950/75 backdrop-blur-xl">
       <div className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between gap-4 px-4 sm:px-6">
-        <Link href="/" className="group flex items-center gap-2.5 rounded-lg" aria-label="Synapse home">
+        <Link href="/" className="group flex items-center gap-2.5 rounded-lg" aria-label="Prepr home">
           <SynapseGlyph className="h-8 w-8 transition-transform duration-300 motion-safe:group-hover:rotate-12" />
           <span className="font-display text-xl font-semibold tracking-tight text-fg">
-            Syn<span className="text-gradient">apse</span>
+            P<span className="text-gradient">repr</span>
           </span>
         </Link>
 
-        <nav aria-label="Main" className="hidden md:block">
-          <ul className="flex items-center gap-1">
-            {NAV_ITEMS.map(({ href, label, Icon, badge }) => {
-              const active = isActive(pathname, href);
-              return (
-                <li key={href}>
-                  <Link
-                    href={href}
-                    aria-current={active ? "page" : undefined}
-                    className={cn(
-                      "relative flex items-center gap-2 rounded-xl px-3.5 py-2 text-sm font-medium transition-colors",
-                      active ? "bg-ink-800 text-fg shadow-glow" : "text-fg-muted hover:bg-ink-800/70 hover:text-fg",
-                    )}
-                  >
-                    <Icon className={cn("h-4 w-4", active ? "text-synapse" : "text-fg-subtle")} />
-                    {label}
-                    {badge === "due" ? <DueBadge count={dueNow} /> : null}
-                  </Link>
-                </li>
-              );
-            })}
-          </ul>
-        </nav>
+        <div className="flex items-center gap-2">
+          <nav aria-label="Main" className="hidden md:block">
+            <ul className="flex items-center gap-1">
+              {NAV_ITEMS.map(({ href, label, Icon, badge }) => {
+                const active = isActive(pathname, href);
+                return (
+                  <li key={href}>
+                    <Link
+                      href={href}
+                      aria-current={active ? "page" : undefined}
+                      className={cn(
+                        "relative flex items-center gap-2 rounded-xl px-3.5 py-2 text-sm font-medium transition-colors",
+                        active ? "bg-ink-800 text-fg shadow-glow" : "text-fg-muted hover:bg-ink-800/70 hover:text-fg",
+                      )}
+                    >
+                      <Icon className={cn("h-4 w-4", active ? "text-synapse" : "text-fg-subtle")} />
+                      {label}
+                      {badge === "due" ? <DueBadge count={dueNow} /> : null}
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          </nav>
+          <ThemeToggle />
+        </div>
       </div>
     </header>
   );
@@ -97,7 +102,7 @@ export function MobileNav() {
       aria-label="Main"
       className="fixed inset-x-0 bottom-0 z-40 border-t border-line/80 bg-ink-950/90 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl md:hidden"
     >
-      <ul className="mx-auto grid max-w-md grid-cols-4">
+      <ul className="mx-auto grid max-w-md grid-cols-5">
         {NAV_ITEMS.map(({ href, label, Icon, badge }) => {
           const active = isActive(pathname, href);
           return (
@@ -111,7 +116,7 @@ export function MobileNav() {
                 )}
               >
                 <span className="relative">
-                  <Icon className={cn("h-6 w-6", active && "text-synapse drop-shadow-[0_0_8px_rgb(167_139_250/0.6)]")} />
+                  <Icon className={cn("h-6 w-6", active && "text-synapse drop-shadow-[0_0_8px_rgb(249_115_22/0.6)]")} />
                   {badge === "due" ? <DueBadge count={dueNow} compact /> : null}
                 </span>
                 {label}

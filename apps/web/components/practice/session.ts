@@ -4,7 +4,7 @@
  * Persisted to sessionStorage so a reload resumes mid-problem; user code is
  * persisted separately (localStorage) and is never sent to the server.
  */
-import type { JudgeLanguage } from "@synapse/core/content";
+import { isCodeLanguage, type CodeLanguage } from "@synapse/core/judge";
 import type { Evaluation } from "@synapse/core/grading";
 import type { JudgeStatus } from "@synapse/core/judge";
 import type { Rating } from "@synapse/core/sm2";
@@ -65,12 +65,12 @@ export interface JudgeSummary {
   status: JudgeStatus;
   passed: number;
   total: number;
-  language: JudgeLanguage;
+  language: CodeLanguage;
   at: number;
 }
 
 export interface CodeStageState {
-  language: JudgeLanguage;
+  language: CodeLanguage;
   /** Visible-test runs (free practice, never recorded). */
   runs: number;
   failedRuns: number;
@@ -100,7 +100,7 @@ function freshText(): TextStageState {
   return { draft: "", hintShown: false, revealed: false, result: null, rating: null, activeMs: 0, sync: null };
 }
 
-export function newSession(problemId: string, now: number, language: JudgeLanguage = "javascript"): PracticeSession {
+export function newSession(problemId: string, now: number, language: CodeLanguage = "javascript"): PracticeSession {
   return {
     version: 1,
     problemId,
@@ -126,14 +126,14 @@ export function newSession(problemId: string, now: number, language: JudgeLangua
 
 export type SessionAction =
   | { type: "restore"; session: PracticeSession }
-  | { type: "reset"; now: number; language?: JudgeLanguage }
+  | { type: "reset"; now: number; language?: CodeLanguage }
   | { type: "draft"; stage: TextStageKey; text: string }
   | { type: "hint"; stage: TextStageKey }
   | { type: "evaluated"; stage: TextStageKey; result: TextStageResult; revealed: boolean }
   | { type: "retry"; stage: TextStageKey }
   | { type: "completeText"; stage: TextStageKey; rating: Rating; sync: StageSync; activeMs: number }
   | { type: "time"; stage: StageKey; activeMs: number }
-  | { type: "language"; language: JudgeLanguage }
+  | { type: "language"; language: CodeLanguage }
   | { type: "judged"; summary: JudgeSummary; counted: boolean }
   | { type: "codeSynced"; sync: StageSync; completed: boolean; gaveUp: boolean; activeMs: number };
 
@@ -277,10 +277,10 @@ export function joinLabels(labels: readonly string[]): string {
   return `${labels.slice(0, -1).join(", ")} and ${labels[labels.length - 1]}`;
 }
 
-/** "Flagged Bitmask DP — Synapse will text you a drill tomorrow at 9:00 AM" (or "in 1 min" at demo scale). */
+/** "Flagged Bitmask DP — Prepr will text you a drill tomorrow at 9:00 AM" (or "in 1 min" at demo scale). */
 export function drillMessage(flags: readonly TagRef[], scheduled: ScheduledDrills): string {
   const count = scheduled.cardIds.length;
-  const texts = `Synapse will text you ${count === 1 ? "a drill" : `${count} drills`} ${scheduled.dueLabel ?? "soon"}`;
+  const texts = `Prepr will text you ${count === 1 ? "a drill" : `${count} drills`} ${scheduled.dueLabel ?? "soon"}`;
   return flags.length > 0 ? `Flagged ${joinLabels(flags.map((flag) => flag.label))} — ${texts}` : texts;
 }
 
@@ -346,11 +346,10 @@ export function unsavedSync(passed: boolean, at: number): StageSync {
 // ── persistence ────────────────────────────────────────────────────────────
 
 export const sessionStorageKey = (problemId: string) => `synapse:practice-session:v1:${problemId}`;
-export const codeStorageKey = (problemId: string, language: JudgeLanguage) => `synapse:code:v1:${problemId}:${language}`;
+export const codeStorageKey = (problemId: string, language: CodeLanguage) => `synapse:code:v1:${problemId}:${language}`;
 export const LANGUAGE_STORAGE_KEY = "synapse:code-language:v1";
 
 const STEPS = new Set<string>(["invariant", "edgeCase", "code", "done"]);
-const LANGUAGES = new Set<string>(["javascript", "python"]);
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
@@ -372,7 +371,7 @@ function isCodeStage(value: unknown): value is CodeStageState {
   return (
     isRecord(value) &&
     typeof value.language === "string" &&
-    LANGUAGES.has(value.language) &&
+    isCodeLanguage(value.language) &&
     ["runs", "failedRuns", "submits", "failedSubmits", "activeMs"].every((key) => typeof value[key] === "number") &&
     typeof value.completed === "boolean" &&
     typeof value.gaveUp === "boolean" &&

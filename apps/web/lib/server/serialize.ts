@@ -1,5 +1,7 @@
 import "server-only";
 
+import { allStarters } from "@synapse/core/judge";
+
 import {
   formatInterval,
   humanizeDuration,
@@ -80,7 +82,7 @@ export function toClientProblem(problem: Problem, relatedCards: { id: string; ti
       code: {
         functionName: code.functionName,
         params: [...code.params],
-        starter: { ...code.starter },
+        starter: allStarters(code),
         tests: code.tests.map((test) => ({ args: test.args, expected: test.expected, ...(test.hidden ? { hidden: true } : {}) })),
         compare: code.compare,
       },

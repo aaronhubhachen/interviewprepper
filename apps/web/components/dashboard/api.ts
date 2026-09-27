@@ -13,7 +13,7 @@ export async function getJson<T>(path: string, options: RequestOptions = {}): Pr
     response = await fetch(path, { headers: { Accept: "application/json" }, cache: "no-store", signal: options.signal });
   } catch (error) {
     if (error instanceof DOMException && error.name === "AbortError") throw new ApiError(0, "aborted", "Request was cancelled.");
-    throw new ApiError(0, "network", "Could not reach the Synapse server. Is it running?");
+    throw new ApiError(0, "network", "Could not reach the Prepr server. Is it running?");
   }
   const text = await response.text();
   let payload: unknown = null;

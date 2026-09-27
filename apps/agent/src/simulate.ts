@@ -1,5 +1,5 @@
 /**
- * Scripted Synapse demo without Photon: an in-memory store, a printing fake
+ * Scripted Prepr demo without Photon: an in-memory store, a printing fake
  * iMessage chat and a virtual clock at demo scale (1 SRS day = 1 minute).
  *
  *   npm run agent:simulate                 (root)  or  npm run simulate -w @synapse/agent
@@ -94,7 +94,7 @@ class TranscriptSpace implements ChatSpace {
     const id = `sim-msg-${++this.seq}`;
     this.sent.set(id, text);
     this.lastId = id;
-    bubble(this.clock, "🤖 Synapse", text);
+    bubble(this.clock, "🤖 Prepr", text);
     return { id };
   }
 
@@ -209,7 +209,7 @@ async function main(): Promise<void> {
   };
   const pendingCard = () => store.getPending(USER)?.cardId;
 
-  console.log("🧠 Synapse · iMessage agent simulation");
+  console.log("🧠 Prepr · iMessage agent simulation");
   console.log(
     `   Demo scale: 1 SRS day = ${DAY_MS / SECOND}s of virtual time, so "6h" ≈ 15s and "1d" = 1 min. ` +
       `Grader: ${useLlm ? `${llm.model} (${llm.provider})` : "heuristic (offline)"}.`,
@@ -291,7 +291,7 @@ async function main(): Promise<void> {
     const drill = await tick("drill");
     const drillIds = attempt.drills.map((entry) => entry.cardId);
     if (drillIds.length > 0) {
-      check(drill?.action === "sent" && drill.morning === true, "the drill arrives with a Morning Synapse briefing");
+      check(drill?.action === "sent" && drill.morning === true, "the drill arrives with a Morning Prepr briefing");
       check(drillIds.includes(drill?.cardId ?? ""), "the probe is the queued drill card");
       const drillCard = getCard(drill?.cardId ?? "");
       if (drillCard) {
@@ -320,6 +320,6 @@ async function main(): Promise<void> {
 }
 
 main().catch((error: unknown) => {
-  console.error("[synapse-simulate] failed", error);
+  console.error("[prepr-simulate] failed", error);
   process.exit(1);
 });

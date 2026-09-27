@@ -179,7 +179,7 @@ export class StudyController<S extends ChatSpace = ChatSpace> {
     this.policy = resolveAgentPolicy(deps.store, deps.policy);
     this.evaluate = deps.evaluate ?? ((input) => evaluateAnswer(input));
     this.clock = deps.now ?? Date.now;
-    this.log = deps.log ?? ((line) => console.info(`[synapse-agent] ${line}`));
+    this.log = deps.log ?? ((line) => console.info(`[prepr-agent] ${line}`));
   }
 
   // ── Public entry points ──────────────────────────────────────────────────

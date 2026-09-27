@@ -1,5 +1,5 @@
 /**
- * Synapse iMessage agent (Photon spectrum-ts).
+ * Prepr iMessage agent (Photon spectrum-ts).
  *
  *   npm run dev:agent        iMessage via Photon (needs PHOTON_PROJECT_ID / PHOTON_PROJECT_SECRET)
  *   npm run agent:terminal   local tuichat chat window (no iMessage needed)
@@ -13,7 +13,7 @@ import { evaluateAnswer, getConfig, llmStatus, openStore, type SynapseConfig, ty
 import { agentPolicyFromConfig, preview, StudyController, type SenderInfo } from "./controller";
 import { ownerHello } from "./messages";
 
-const TAG = "[synapse-agent]";
+const TAG = "[prepr-agent]";
 
 function log(line: string): void {
   console.info(`${TAG} ${line}`);
@@ -53,7 +53,7 @@ const TERMINAL_COMMANDS = [
   { name: "skip", description: "Skip the open card" },
   { name: "why", description: "Explain the last card" },
   { name: "stats", description: "Your progress" },
-  { name: "help", description: "Everything Synapse can do" },
+  { name: "help", description: "Everything Prepr can do" },
 ];
 
 async function connect(config: SynapseConfig, useTerminal: boolean): Promise<Connection> {

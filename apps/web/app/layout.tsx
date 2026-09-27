@@ -6,23 +6,7 @@ import { MobileNav, SiteHeader } from "@/components/shell/SiteNav";
 import { ToastProvider } from "@/components/ui/Toast";
 import "./globals.css";
 
-// Self-hosted variable fonts (OFL) so builds never depend on network access.
-const inter = localFont({
-  src: "./fonts/Inter-Variable-latin.woff2",
-  weight: "100 900",
-  variable: "--font-inter",
-  display: "swap",
-  fallback: ["ui-sans-serif", "system-ui", "Segoe UI", "Roboto", "sans-serif"],
-});
-
-const spaceGrotesk = localFont({
-  src: "./fonts/SpaceGrotesk-Variable-latin.woff2",
-  weight: "300 700",
-  variable: "--font-space-grotesk",
-  display: "swap",
-  fallback: ["ui-sans-serif", "system-ui", "sans-serif"],
-});
-
+// Keep code legible in a dedicated monospace face; interface text uses Helvetica in globals.css.
 const jetbrainsMono = localFont({
   src: "./fonts/JetBrainsMono-Variable-latin.woff2",
   weight: "100 800",
@@ -33,24 +17,24 @@ const jetbrainsMono = localFont({
 
 export const metadata: Metadata = {
   title: {
-    default: "Synapse · Spaced repetition for SWE interviews",
-    template: "%s · Synapse",
+    default: "Prepr · Spaced repetition for SWE interviews",
+    template: "%s · Prepr",
   },
   description:
     "Anki for LeetCode: micro DSA flashcards over iMessage, a card-flip coding IDE, and voice behavioral sparring, all scheduled with SM-2.",
-  applicationName: "Synapse",
+  applicationName: "Prepr",
 };
 
 export const viewport: Viewport = {
-  themeColor: "#07070f",
-  colorScheme: "dark",
+  themeColor: "#080808",
+  colorScheme: "light dark",
   width: "device-width",
   initialScale: 1,
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="en" className={`${inter.variable} ${spaceGrotesk.variable} ${jetbrainsMono.variable}`}>
+    <html lang="en" className={jetbrainsMono.variable}>
       <body className="min-h-dvh bg-ink-950 font-sans text-fg antialiased">
         <a href="#main" className="skip-link">
           Skip to content

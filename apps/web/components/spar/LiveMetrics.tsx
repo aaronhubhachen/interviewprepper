@@ -199,7 +199,7 @@ export function PaceMeter({ analysis, elapsedMs, mode }: { analysis: TranscriptA
       <MeterHeader title="Pace" value={ready ? String(analysis.wpm) : "—"} unit="wpm" reading={reading} />
       <div
         className="relative mt-2.5 h-2 rounded-full"
-        style={{ backgroundColor: "rgb(139 92 246 / 0.14)" }}
+        style={{ backgroundColor: "rgb(249 115 22 / 0.14)" }}
         role="img"
         aria-label={
           ready
@@ -213,7 +213,7 @@ export function PaceMeter({ analysis, elapsedMs, mode }: { analysis: TranscriptA
           style={{
             left: `${pacePct(PACE_BAND.min)}%`,
             width: `${pacePct(PACE_BAND.max) - pacePct(PACE_BAND.min)}%`,
-            backgroundColor: "rgb(139 92 246 / 0.38)",
+            backgroundColor: "rgb(249 115 22 / 0.38)",
           }}
         />
         {ready ? (
@@ -248,7 +248,7 @@ export function FillerMeter({ analysis }: { analysis: TranscriptAnalysis }) {
       <MeterHeader title="Fillers" value={analysis.wordCount ? analysis.fillerRate.toFixed(1) : "—"} unit="/ 100 words" reading={reading} />
       <div
         className="mt-2.5 h-2 overflow-hidden rounded-full"
-        style={{ backgroundColor: "rgb(139 92 246 / 0.14)" }}
+        style={{ backgroundColor: "rgb(249 115 22 / 0.14)" }}
         role="img"
         aria-label={`${analysis.fillerCount} filler words, ${analysis.fillerRate.toFixed(1)} per 100 words. Under 3 is clean.`}
       >
@@ -302,7 +302,7 @@ export function OwnershipMeter({ analysis }: { analysis: TranscriptAnalysis }) {
         role="img"
         aria-label={`${iStatements} “I” statements and ${weStatements} “we” statements. Aim for mostly “I” when describing your own actions.`}
       >
-        <div aria-hidden="true" className="flex h-2.5 gap-0.5 overflow-hidden rounded-full" style={{ backgroundColor: total ? undefined : "rgb(139 92 246 / 0.14)" }}>
+        <div aria-hidden="true" className="flex h-2.5 gap-0.5 overflow-hidden rounded-full" style={{ backgroundColor: total ? undefined : "rgb(249 115 22 / 0.14)" }}>
           {total > 0 ? (
             <>
               {iStatements > 0 ? (

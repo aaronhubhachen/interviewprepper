@@ -2,7 +2,7 @@
   "name": "@synapse/core",
   "version": "0.1.0",
   "private": true,
-  "description": "Synapse domain core: SM-2 scheduling, content registry, SQLite store, LLM evaluation, judge.",
+  "description": "Prepr domain core: SM-2 scheduling, content registry, SQLite store, LLM evaluation, judge.",
   "type": "module",
   "exports": {
     ".": "./src/index.ts",

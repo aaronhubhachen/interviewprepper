@@ -2,10 +2,7 @@ import type { PillTone } from "@/components/ui/Pill";
 import type { Level } from "@/lib/voice/metrics";
 
 /**
- * Chart colors (validated with the dataviz palette checker on the ink-850 surface:
- * lightness band, chroma floor, CVD ΔE 12.6, normal-vision ΔE 21.1, contrast >= 3:1).
- * The lighter brand steps (#a78bfa / #22d3ee) fall outside the dark-mode band, so marks
- * use the -500 / -strong steps; text never wears these colors.
+ * Chart colors use orange brand accents and neutral surfaces; text never uses chart fills.
  */
 export const SERIES_PRIMARY = "var(--color-synapse-500)";
 export const SERIES_COMPARE = "var(--color-axon-strong)";

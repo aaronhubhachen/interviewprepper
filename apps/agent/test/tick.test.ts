@@ -45,7 +45,7 @@ describe("tick: active hours", () => {
     const opened = await tickAt(chicago(9, 28, 8));
     expect(opened).toMatchObject({ action: "sent", morning: false });
     expect(h.space.sent).toHaveLength(1);
-    expect(h.space.last.text).toMatch(/^🧠 Synapse · /);
+    expect(h.space.last.text).toMatch(/^🧠 Prepr · /);
   });
 
   it("stays quiet after the active window closes", async () => {
@@ -59,7 +59,7 @@ describe("tick: active hours", () => {
     setup({ start: chicago(9, 28, 2), dayMs: 60_000 });
     const result = await tickAt(chicago(9, 28, 3));
     expect(result).toMatchObject({ action: "sent", morning: true });
-    expect(h.space.texts[0]).toMatch(/^☕ Morning Synapse — /);
+    expect(h.space.texts[0]).toMatch(/^☕ Morning Prepr — /);
     expect(isProbe(h.space.texts[1]!)).toBe(true);
   });
 });
@@ -136,18 +136,18 @@ describe("tick: morning briefing", () => {
     const morning = await tickAt(chicago(9, 28, 9));
     expect(morning).toMatchObject({ action: "sent", morning: true });
     const [briefing, probe] = h.space.texts.slice(-2);
-    expect(briefing).toMatch(/^☕ Morning Synapse — .*\./);
+    expect(briefing).toContain("☕ Morning Prepr —");
     expect(briefing).toContain("1-day streak");
-    expect(probe).toMatch(/^☕ Morning Synapse · /);
+    expect(probe).toMatch(/^☕ Morning Prepr · /);
     expect(isProbe(probe!)).toBe(true);
     await completeProbe(h);
 
     expect(await tickAt(chicago(9, 28, 11))).toMatchObject({ action: "sent", morning: false });
-    expect(h.space.texts.filter((text) => text.startsWith("☕ Morning Synapse — "))).toHaveLength(1);
+    expect(h.space.texts.filter((text) => text.startsWith("☕ Morning Prepr — "))).toHaveLength(1);
     await completeProbe(h);
 
     expect(await tickAt(chicago(9, 29, 9, 15))).toMatchObject({ action: "sent", morning: true });
-    expect(h.space.texts.filter((text) => text.startsWith("☕ Morning Synapse — "))).toHaveLength(2);
+    expect(h.space.texts.filter((text) => text.startsWith("☕ Morning Prepr — "))).toHaveLength(2);
   });
 
   it("does not record a briefing when nothing is due", async () => {
@@ -183,7 +183,7 @@ describe("IDE struggle → next-morning drill", () => {
     const weakLabels = problem.weakTags.map(tagLabel);
     expect(weakLabels.some((label) => briefing!.includes(`Weak spot: ${label}`))).toBe(true);
     expect(briefing).toContain(`(you struggled on ${problem.title} last night)`);
-    expect(probe).toMatch(/^☕ Morning Synapse · /);
+    expect(probe).toMatch(/^☕ Morning Prepr · /);
     expect(probe).toContain("🎯 Drill: ");
     expect(probe).toContain(`from your IDE run on ${problem.title}`);
   });

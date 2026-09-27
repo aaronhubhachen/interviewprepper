@@ -98,6 +98,7 @@ A substring is a contiguous, non-empty sequence of characters within the string.
       code: {
         functionName: "lengthOfLongestSubstring",
         params: ["s"],
+        signature: { params: ["string"], returns: "int" },
         starter: {
           javascript: `/**
  * @param {string} s
@@ -267,6 +268,7 @@ The test cases are generated so that the answer is unique.`,
       code: {
         functionName: "minWindow",
         params: ["s", "t"],
+        signature: { params: ["string", "string"], returns: "string" },
         starter: {
           javascript: `/**
  * @param {string} s
@@ -364,7 +366,7 @@ def minWindow(s: str, t: str) -> str:
     title: "3Sum",
     leetcodeSlug: "3sum",
     difficulty: "medium",
-    tags: ["two_pointers", "sorting"],
+    tags: ["two_pointers", "sorting", "arrays"],
     statement: `Given an integer array \`nums\`, return all the triplets \`[nums[i], nums[j], nums[k]]\` such that \`i\`, \`j\` and \`k\` are distinct indices and \`nums[i] + nums[j] + nums[k] == 0\`.
 
 The solution set **must not contain duplicate triplets**. You may return the triplets in any order, and the numbers inside each triplet in any order.`,
@@ -465,6 +467,7 @@ The solution set **must not contain duplicate triplets**. You may return the tri
       code: {
         functionName: "threeSum",
         params: ["nums"],
+        signature: { params: ["int[]"], returns: "list<list<int>>" },
         starter: {
           javascript: `/**
  * @param {number[]} nums
@@ -571,7 +574,7 @@ def threeSum(nums: List[int]) -> List[List[int]]:
     title: "Trapping Rain Water",
     leetcodeSlug: "trapping-rain-water",
     difficulty: "hard",
-    tags: ["two_pointers", "monotonic_stack", "dp_1d"],
+    tags: ["two_pointers", "monotonic_stack", "stack", "arrays", "dp_1d"],
     statement: `Given \`n\` non-negative integers representing an elevation map where the width of each bar is \`1\`, compute how much water it can trap after raining.
 
 Water above a bar is held in place by the tallest bar to its left and the tallest bar to its right.`,
@@ -661,6 +664,7 @@ Water above a bar is held in place by the tallest bar to its left and the talles
       code: {
         functionName: "trap",
         params: ["height"],
+        signature: { params: ["int[]"], returns: "int" },
         starter: {
           javascript: `/**
  * @param {number[]} height
@@ -740,7 +744,7 @@ def trap(height: List[int]) -> int:
     title: "Daily Temperatures",
     leetcodeSlug: "daily-temperatures",
     difficulty: "medium",
-    tags: ["monotonic_stack"],
+    tags: ["monotonic_stack", "stack"],
     statement: `Given an array of integers \`temperatures\` representing daily temperatures, return an array \`answer\` such that \`answer[i]\` is the number of days you have to wait after day \`i\` to get a **strictly warmer** temperature.
 
 If there is no future day that is warmer, set \`answer[i] = 0\`.`,
@@ -806,6 +810,7 @@ If there is no future day that is warmer, set \`answer[i] = 0\`.`,
       code: {
         functionName: "dailyTemperatures",
         params: ["temperatures"],
+        signature: { params: ["int[]"], returns: "int[]" },
         starter: {
           javascript: `/**
  * @param {number[]} temperatures
@@ -873,7 +878,7 @@ def dailyTemperatures(temperatures: List[int]) -> List[int]:
     title: "Search in Rotated Sorted Array",
     leetcodeSlug: "search-in-rotated-sorted-array",
     difficulty: "medium",
-    tags: ["binary_search"],
+    tags: ["binary_search", "arrays"],
     statement: `An integer array \`nums\` sorted in ascending order with **distinct** values was possibly rotated at an unknown pivot, e.g. \`[0,1,2,4,5,6,7]\` might become \`[4,5,6,7,0,1,2]\`.
 
 Given \`nums\` after the possible rotation and an integer \`target\`, return the index of \`target\` in \`nums\`, or \`-1\` if it is not present.
@@ -981,6 +986,7 @@ You must write an algorithm with **O(log n)** runtime complexity.`,
       code: {
         functionName: "search",
         params: ["nums", "target"],
+        signature: { params: ["int[]", "int"], returns: "int" },
         starter: {
           javascript: `/**
  * @param {number[]} nums
@@ -1118,6 +1124,7 @@ The test cases guarantee that the answer is unique. Follow-up: can you beat O(n 
       code: {
         functionName: "topKFrequent",
         params: ["nums", "k"],
+        signature: { params: ["int[]", "int"], returns: "int[]" },
         starter: {
           javascript: `/**
  * @param {number[]} nums
@@ -1187,7 +1194,7 @@ def topKFrequent(nums: List[int], k: int) -> List[int]:
     title: "Merge Intervals",
     leetcodeSlug: "merge-intervals",
     difficulty: "medium",
-    tags: ["intervals", "sorting"],
+    tags: ["intervals", "sorting", "arrays"],
     statement: `Given an array of \`intervals\` where \`intervals[i] = [start_i, end_i]\`, merge all overlapping intervals and return an array of the non-overlapping intervals that cover all the intervals in the input.
 
 Intervals that touch (one ends where the next starts) count as overlapping. You may return the intervals in any order.`,
@@ -1255,6 +1262,7 @@ Intervals that touch (one ends where the next starts) count as overlapping. You 
       code: {
         functionName: "merge",
         params: ["intervals"],
+        signature: { params: ["int[][]"], returns: "int[][]" },
         starter: {
           javascript: `/**
  * @param {number[][]} intervals
@@ -1410,6 +1418,7 @@ An island is surrounded by water and is formed by connecting adjacent land cells
       code: {
         functionName: "numIslands",
         params: ["grid"],
+        signature: { params: ["char[][]"], returns: "int" },
         starter: {
           javascript: `/**
  * @param {string[][]} grid - cells are "1" (land) or "0" (water)
@@ -1664,6 +1673,7 @@ Return \`true\` if you can finish all courses, otherwise return \`false\`.`,
       code: {
         functionName: "canFinish",
         params: ["numCourses", "prerequisites"],
+        signature: { params: ["int", "int[][]"], returns: "bool" },
         starter: {
           javascript: `/**
  * @param {number} numCourses
@@ -1819,6 +1829,7 @@ Return the **fewest number of coins** needed to make up \`amount\`. If that amou
       code: {
         functionName: "coinChange",
         params: ["coins", "amount"],
+        signature: { params: ["int[]", "int"], returns: "int" },
         starter: {
           javascript: `/**
  * @param {number[]} coins
@@ -1946,6 +1957,7 @@ Return the maximum amount of money you can rob.`,
       code: {
         functionName: "rob",
         params: ["nums"],
+        signature: { params: ["int[]"], returns: "int" },
         starter: {
           javascript: `/**
  * @param {number[]} nums
@@ -2107,6 +2119,7 @@ Every element must be used in exactly one subset. Note how small \`n\` is (at mo
       code: {
         functionName: "canPartitionKSubsets",
         params: ["nums", "k"],
+        signature: { params: ["int[]", "int"], returns: "bool" },
         starter: {
           javascript: `/**
  * @param {number[]} nums

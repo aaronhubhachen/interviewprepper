@@ -68,7 +68,7 @@ export interface ProbeCopy {
 }
 
 export function probe({ card, morning, drillNote, retry }: ProbeCopy): string {
-  const lines = [morning ? `☕ Morning Synapse · ${card.title}` : `🧠 Synapse · ${card.title}`];
+  const lines = [morning ? `☕ Morning Prepr · ${card.title}` : `🧠 Prepr · ${card.title}`];
   if (drillNote) lines.push(drillNote);
   else if (retry) lines.push("🔁 Back for round two.");
   const prompt = plain(card.prompt);
@@ -88,10 +88,10 @@ export interface BriefingCopy {
   streak: number;
 }
 
-/** "☕ Morning Synapse — 5 cards due. Weak spot: Bitmask DP (you struggled on … last night)." */
+/** "☕ Morning Prepr — 5 cards due. Weak spot: Bitmask DP (you struggled on … last night)." */
 export function morningBriefing({ due, newCards, weakSpot, streak }: BriefingCopy): string {
   const load = due > 0 ? `${plural(due, "card")} due` : newCards > 0 ? `${plural(newCards, "fresh card")} lined up` : "one quick card";
-  let text = `☕ Morning Synapse — ${load}.`;
+  let text = `☕ Morning Prepr — ${load}.`;
   if (weakSpot) text += ` Weak spot: ${weakSpot.label}${weakSpot.context ? ` (${weakSpot.context})` : ""}.`;
   if (streak > 0) text += ` 🔥 ${streak}-day streak, keep it alive.`;
   return text;
@@ -218,7 +218,7 @@ export function caughtUp({ nextLabel, newCapReached }: CaughtUpCopy): string {
 
 export function onboarding(webUrl: string): string {
   return [
-    "👋 Hey! I'm Synapse, your spaced-repetition interview coach. I text bite-size DSA cards right before you'd forget them.",
+    "👋 Hey! I'm Prepr, your spaced-repetition interview coach. I text bite-size DSA cards right before you'd forget them.",
     "",
     `🔗 Text 'link 1234' with the code on your dashboard (${webUrl}) to sync, or 'start' to jump right in.`,
   ].join("\n");
@@ -230,7 +230,7 @@ export function notStarted(webUrl: string): string {
 
 export function linked(): string {
   return [
-    "🔗 Linked! This chat now syncs with your Synapse dashboard.",
+    "🔗 Linked! This chat now syncs with your Prepr dashboard.",
     "Answer each card in 1 sentence, then rate my feedback with a tapback: ❤️ effortless · 👍 hesitant · 👎 guessed. 'help' lists commands.",
   ].join("\n");
 }
@@ -264,7 +264,7 @@ export function idle(): string {
 
 export function help(): string {
   return [
-    "🧠 Synapse commands",
+    "🧠 Prepr commands",
     "• more: next card",
     "• hint: a nudge (or ❓ tapback)",
     "• idk: reveal the answer",
@@ -287,7 +287,7 @@ export function resumed(): string {
 export function stats(s: Stats, webUrl: string): string {
   const retention = s.retention30d === null ? "no reviews yet" : `${Math.round(s.retention30d * 100)}%`;
   const lines = [
-    "📊 Your Synapse",
+    "📊 Your Prepr",
     `🗓️ Due now: ${s.dueNow} · Reviewed today: ${s.reviewedToday}`,
     `🔥 Streak: ${plural(s.streakDays, "day")}`,
     `🎯 Retention (30d): ${retention}`,
@@ -302,7 +302,7 @@ export function stats(s: Stats, webUrl: string): string {
 
 export function ownerHello(webUrl: string): string {
   return [
-    "👋 Synapse is live on iMessage. I'll text you bite-size DSA cards right before you'd forget them.",
+    "👋 Prepr is live on iMessage. I'll text you bite-size DSA cards right before you'd forget them.",
     `Reply 'more' for your first card, or 'help'. Dashboard: ${webUrl}`,
   ].join("\n");
 }

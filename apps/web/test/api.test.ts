@@ -10,6 +10,12 @@ import {
   type SynapseStore,
 } from "@synapse/core";
 import { GET as behavioralGET } from "@/app/api/behavioral/route";
+import { POST as botChatPOST } from "@/app/api/bot/chat/route";
+import { POST as botReportPOST } from "@/app/api/bot/report/route";
+import { openTrap, sealTrap } from "@/lib/server/bot";
+import { POST as grillNextPOST } from "@/app/api/grill/next/route";
+import { POST as grillReportPOST } from "@/app/api/grill/report/route";
+import { POST as grillResumePOST } from "@/app/api/grill/resume/route";
 import { GET as linkGET, POST as linkPOST } from "@/app/api/link/route";
 import { POST as attemptPOST } from "@/app/api/practice/attempt/route";
 import { POST as practiceEvaluatePOST } from "@/app/api/practice/evaluate/route";
@@ -26,6 +32,11 @@ import { GET as statsGET } from "@/app/api/stats/route";
 import { setClockForTests, setStoreForTests, setUserForTests } from "@/lib/server/store";
 import type {
   ApiErrorBody,
+  BotChatResponse,
+  BotReport,
+  GrillNextResponse,
+  GrillReport,
+  GrillResumeResponse,
   LinkResponse,
   PracticeAttemptResponse,
   PracticeEvaluateResponse,
@@ -374,5 +385,113 @@ describe("voice sparring", () => {
       await sparEvaluatePOST(post("/api/spar/evaluate", { questionId: "bq-nope", transcript, durationMs: 5000 }), NO_CTX),
       404,
     );
+  });
+});
+
+describe("resume grill", () => {
+  const resume = [
+    "Jordan Lee",
+    "- Led migration of the checkout service to 4 microservices, cutting p99 latency by 45%",
+    "- Architected a real-time collaborative notes app with WebSockets and Postgres",
+  ].join("\n");
+
+  it("extracts text uploads and rejects unsupported files", async () => {
+    const upload = (file: File) => {
+      const form = new FormData();
+      form.set("file", file);
+      return new Request(url("/api/grill/resume"), { method: "POST", body: form });
+    };
+    const ok = await body<GrillResumeResponse>(await grillResumePOST(upload(new File([resume], "resume.txt", { type: "text/plain" })), NO_CTX));
+    expect(ok).toEqual({ text: resume, pages: null });
+
+    const docx = await body<ApiErrorBody>(await grillResumePOST(upload(new File(["x".repeat(200)], "resume.docx")), NO_CTX), 400);
+    expect(docx.error.message).toMatch(/PDF/);
+    const fakePdf = await body<ApiErrorBody>(
+      await grillResumePOST(upload(new File(["not a pdf".repeat(20)], "resume.pdf", { type: "application/pdf" })), NO_CTX),
+      400,
+    );
+    expect(fakePdf.error.message).toMatch(/not a valid PDF/);
+  });
+
+  it("asks, follows up, and reports on a heuristic session", async () => {
+    const first = await body<GrillNextResponse>(await grillNextPOST(post("/api/grill/next", { resume, turns: [] }), NO_CTX));
+    expect(first).toMatchObject({ number: 1, total: 8, reaction: "", source: "heuristic" });
+    expect(first.target).toMatch(/^Led migration/);
+
+    const turns = [{ question: first.question, target: first.target, answer: "We made it faster." }];
+    const second = await body<GrillNextResponse>(await grillNextPOST(post("/api/grill/next", { resume, turns }), NO_CTX));
+    expect(second).toMatchObject({ number: 2, target: first.target });
+
+    const report = await body<GrillReport>(await grillReportPOST(post("/api/grill/report", { resume, turns }), NO_CTX));
+    expect(report.claims).toHaveLength(1);
+    expect(report.claims[0]!.verdict).toBe("cracked");
+  });
+
+  it("validates sessions", async () => {
+    const short = await body<ApiErrorBody>(await grillNextPOST(post("/api/grill/next", { resume: "too short", turns: [] }), NO_CTX), 400);
+    expect(short.error.details?.resume).toBeDefined();
+    const noTurns = await body<ApiErrorBody>(await grillReportPOST(post("/api/grill/report", { resume, turns: [] }), NO_CTX), 400);
+    expect(noTurns.error.details?.turns).toBeDefined();
+    const badTurn = await body<ApiErrorBody>(
+      await grillNextPOST(post("/api/grill/next", { resume, turns: [{ question: "Q", target: "T" }] }), NO_CTX),
+      400,
+    );
+    expect(badTurn.error.details?.answer).toBeDefined();
+    const full = Array.from({ length: 8 }, () => ({ question: "Q", target: "T", answer: "A" }));
+    await body<ApiErrorBody>(await grillNextPOST(post("/api/grill/next", { resume, turns: full }), NO_CTX), 400);
+  });
+});
+
+describe("prepr bot", () => {
+  it("seals planted-bug notes so the browser can't read them", () => {
+    const token = sealTrap("Off-by-one in the loop bound.");
+    expect(token).not.toContain("Off-by-one");
+    expect(openTrap(token)).toBe("Off-by-one in the loop bound.");
+    expect(openTrap(token.slice(0, -2) + "xx")).toBeNull();
+  });
+
+  it("chats offline and scores a session, revealing sealed traps", async () => {
+    const messages = [{ role: "user", content: "Any edge cases I should think about?" }];
+    const chat = await body<BotChatResponse>(
+      await botChatPOST(post("/api/bot/chat", { problemId: "p-valid-parentheses", language: "java", code: "", messages, trapMode: true, trapsUsed: 0 }), NO_CTX),
+    );
+    expect(chat).toMatchObject({ source: "heuristic", trapToken: null });
+
+    const report = await body<BotReport>(
+      await botReportPOST(
+        post("/api/bot/report", {
+          problemId: "p-valid-parentheses",
+          language: "java",
+          finalCode: "class Solution {}",
+          durationMs: 600_000,
+          messages: [...messages, { role: "assistant", content: chat.reply }],
+          events: [{ at: 1000, kind: "prompt", detail: messages[0]!.content }],
+          traps: [{ messageIndex: 1, token: sealTrap("Misses the empty-stack check.") }],
+          lastResult: null,
+        }),
+        NO_CTX,
+      ),
+    );
+    expect(report.traps[0]).toMatchObject({ description: "Misses the empty-stack check.", caught: false });
+    expect(report.dimensions).toHaveLength(6);
+  });
+
+  it("validates chat requests", async () => {
+    const bad = await body<ApiErrorBody>(
+      await botChatPOST(
+        post("/api/bot/chat", { problemId: "p-valid-parentheses", language: "cobol", code: "", messages: [{ role: "assistant", content: "hi" }], trapMode: true, trapsUsed: 0 }),
+        NO_CTX,
+      ),
+      400,
+    );
+    expect(bad.error.details?.language).toBeDefined();
+    const lastNotUser = await body<ApiErrorBody>(
+      await botChatPOST(
+        post("/api/bot/chat", { problemId: "p-valid-parentheses", language: "python", code: "", messages: [{ role: "assistant", content: "hi" }], trapMode: false, trapsUsed: 0 }),
+        NO_CTX,
+      ),
+      400,
+    );
+    expect(lastNotUser.error.message).toMatch(/last message/);
   });
 });

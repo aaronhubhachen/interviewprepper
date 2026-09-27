@@ -30,12 +30,16 @@ const PHRASES: Readonly<Record<SimpleCommand, readonly string[]>> = {
     "hi there",
     "good morning",
     "gm",
+    "prepr",
+    "hey prepr",
+    "hi prepr",
+    "hello prepr",
     "synapse",
     "hey synapse",
     "hi synapse",
     "hello synapse",
   ],
-  start: ["start", "begin", "get started", "lets go", "lets start", "subscribe", "sign me up", "start synapse"],
+  start: ["start", "begin", "get started", "lets go", "lets start", "subscribe", "sign me up", "start prepr", "start synapse"],
   more: [
     "more",
     "next",
@@ -99,13 +103,13 @@ export function normalizeCommandText(text: string): string {
     .replace(/['’`]/g, "")
     .replace(/[^\p{L}\p{N}]+/gu, " ")
     .trim()
-    .replace(/^(?:hey |ok |okay )?synapse /, "");
+    .replace(/^(?:hey |ok |okay )?(?:prepr|synapse) /, "");
 }
 
 /**
  * Exact-phrase commands only, so a real answer is never mistaken for one.
  * Case-insensitive and tolerant of punctuation, emoji, "/more" slash syntax and
- * a leading "synapse".
+ * a leading "Prepr" (or legacy "Synapse").
  */
 export function parseCommand(text: string): Command | undefined {
   const normalized = normalizeCommandText(text);

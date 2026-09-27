@@ -8,7 +8,7 @@ import {
   tagLabel,
   type IdeAttempt,
   type IdeStage,
-  type JudgeLanguage,
+  type CodeLanguage,
   type Problem,
   type SynapseStore,
   type TextGrade,
@@ -134,7 +134,7 @@ export interface AttemptInput {
   hintsUsed?: number;
   gaveUp?: boolean;
   durationMs?: number;
-  language?: JudgeLanguage;
+  language?: CodeLanguage;
   testsPassed?: number;
   testsTotal?: number;
   code?: string;
@@ -190,7 +190,7 @@ export function recordAttempt(store: SynapseStore, userId: string, now: number, 
     if (flaggedTags.length > 0) {
       const spots = flaggedTags.length === 1 ? "a weak spot" : "weak spots";
       sentences.push(`Flagged ${joinLabels(flaggedTags.map((t) => t.label))} as ${spots}.`);
-      sentences.push(`Synapse will text you ${drills} ${scheduled.dueLabel ?? "soon"}.`);
+      sentences.push(`Prepr will text you ${drills} ${scheduled.dueLabel ?? "soon"}.`);
     } else {
       sentences.push(`${scheduled.cardIds.length === 1 ? "A drill is" : "Drills are"} already queued for ${scheduled.dueLabel ?? "later"}.`);
     }

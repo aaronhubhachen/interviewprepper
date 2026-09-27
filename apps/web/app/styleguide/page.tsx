@@ -25,7 +25,7 @@ export default function StyleguidePage() {
     <div className="space-y-10">
       <PageHeader
         eyebrow="Design system"
-        title="Synapse UI kit"
+        title="Prepr UI kit"
         description="Shared components in components/ui. Tokens live in app/globals.css (@theme)."
         actions={<ButtonLink href="/">Dashboard</ButtonLink>}
       />

@@ -18,7 +18,7 @@ export function statsPayload(store: SynapseStore, userId: string, now: number): 
   };
 }
 
-/** Optional: the Synapse iMessage number/email, so the dashboard can offer an sms: link. */
+/** Optional: the Prepr iMessage number/email, so the dashboard can offer an sms: link. */
 function agentHandle(): string | null {
   const value = process.env.SYNAPSE_AGENT_HANDLE?.trim();
   return value ? value : null;
@@ -30,7 +30,7 @@ export function linkPayload(store: SynapseStore, userId: string, now: number): L
   const code = linked ? null : store.createOrGetLinkCode(userId);
   const handle = agentHandle();
   const instructions = linked
-    ? `Linked${user.handle ? ` to ${user.handle}` : ""}. Synapse texts you micro-cards when they are due.`
+    ? `Linked${user.handle ? ` to ${user.handle}` : ""}. Prepr texts you micro-cards when they are due.`
     : `Text “link ${code}” to ${handle ?? "the Synapse number"} on iMessage to connect this dashboard.`;
   return {
     linked,

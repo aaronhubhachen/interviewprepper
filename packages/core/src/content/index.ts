@@ -1,7 +1,8 @@
 import { BEHAVIORAL } from "./behavioral";
 import { MICROCARDS_A } from "./microcards-a";
 import { MICROCARDS_B } from "./microcards-b";
-import { PROBLEMS } from "./problems";
+import { PROBLEMS as PROBLEMS_A } from "./problems";
+import { PROBLEMS_B } from "./problems-b";
 import { TAG_IDS } from "./types";
 import type {
   BehavioralQuestion,
@@ -16,6 +17,7 @@ import type {
 export * from "./types";
 
 const MICROCARDS: readonly MicroCard[] = [...MICROCARDS_A, ...MICROCARDS_B];
+const PROBLEMS: readonly Problem[] = [...PROBLEMS_A, ...PROBLEMS_B];
 
 const PROBLEM_DIFFICULTY: Record<ProblemDifficulty, CardDifficulty> = { easy: 1, medium: 2, hard: 3 };
 

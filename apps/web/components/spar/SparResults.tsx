@@ -47,7 +47,7 @@ function Delta({ value, suffix }: { value: number; suffix?: string }) {
 
 function MiniBar({ value, color }: { value: number; color: string }) {
   return (
-    <span aria-hidden="true" className="hidden h-1.5 w-14 overflow-hidden rounded-full @sm:inline-block" style={{ backgroundColor: "rgb(139 92 246 / 0.14)" }}>
+    <span aria-hidden="true" className="hidden h-1.5 w-14 overflow-hidden rounded-full @sm:inline-block" style={{ backgroundColor: "rgb(249 115 22 / 0.14)" }}>
       <span className="block h-full rounded-full" style={{ width: `${Math.min(100, Math.max(0, value))}%`, backgroundColor: color }} />
     </span>
   );

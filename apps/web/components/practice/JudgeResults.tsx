@@ -26,11 +26,13 @@ export interface JudgeResultsProps {
   totalCount: number;
   /** Whether the last submit was recorded (false in practice mode or for compile errors). */
   recordedNote?: ReactNode;
+  /** Java / C++ / Go / TypeScript compile and run on the server instead of in the browser. */
+  runsOnServer?: boolean;
 }
 
 type Tab = "tests" | "console";
 
-export function JudgeResults({ outcome, running, loadingRuntime, params, visibleCount, totalCount, recordedNote }: JudgeResultsProps) {
+export function JudgeResults({ outcome, running, loadingRuntime, params, visibleCount, totalCount, recordedNote, runsOnServer = false }: JudgeResultsProps) {
   const [tab, setTab] = useState<Tab>("tests");
   const baseId = useId();
   const tabRefs = useRef<Record<Tab, HTMLButtonElement | null>>({ tests: null, console: null });
@@ -128,7 +130,7 @@ export function JudgeResults({ outcome, running, loadingRuntime, params, visible
           className="h-full"
         >
           {!outcome ? (
-            <IdleHint visibleCount={visibleCount} totalCount={totalCount} />
+            <IdleHint visibleCount={visibleCount} totalCount={totalCount} runsOnServer={runsOnServer} />
           ) : !outcome.ok ? (
             <div className="p-4">
               <div role="alert" className="rounded-2xl border border-warning/40 bg-warning/10 px-4 py-3 text-sm">
@@ -155,7 +157,7 @@ export function JudgeResults({ outcome, running, loadingRuntime, params, visible
   );
 }
 
-function IdleHint({ visibleCount, totalCount }: { visibleCount: number; totalCount: number }) {
+function IdleHint({ visibleCount, totalCount, runsOnServer }: { visibleCount: number; totalCount: number; runsOnServer: boolean }) {
   const hidden = totalCount - visibleCount;
   return (
     <div className="flex h-full min-h-[12rem] flex-col items-center justify-center gap-2 px-6 py-8 text-center">
@@ -167,7 +169,11 @@ function IdleHint({ visibleCount, totalCount }: { visibleCount: number; totalCou
         <span className="font-semibold">Submit</span> runs all {totalCount}
         {hidden > 0 ? `, including ${hidden} hidden` : ""}.
       </p>
-      <p className="text-xs text-fg-subtle">Code runs in a sandboxed worker in your browser and is never uploaded. 3 s time limit per run.</p>
+      <p className="text-xs text-fg-subtle">
+        {runsOnServer
+          ? "Your code is compiled and run on the Prepr server in a throwaway folder. 10 s time limit per run."
+          : "Code runs in a sandboxed worker in your browser and is never uploaded. 3 s time limit per run."}
+      </p>
     </div>
   );
 }

@@ -20,7 +20,7 @@ export default function RouteError({
     <EmptyState
       icon="⚡"
       level={1}
-      title="A synapse misfired"
+      title="Something went wrong"
       description="Something went wrong while rendering this page. Your progress is saved."
       action={
         <>

@@ -89,6 +89,11 @@ export function ProblemList({ initialFilters }: { initialFilters: ProblemFilters
           </ButtonLink>
         }
       />
+      <p className="-mt-3 mb-6 flex flex-wrap items-center gap-x-2 text-sm text-fg-muted sm:-mt-5">
+        <span aria-hidden="true" className="text-synapse">✦</span>
+        Every problem&apos;s code stage has a built-in AI assistant (<kbd className="font-mono text-xs">⌘L</kbd>) that practices AI-assisted interviews: it
+        can make mistakes on purpose, and Review scores how you used it.
+      </p>
       {state.status === "loading" ? (
         <ListSkeleton />
       ) : state.status === "error" ? (
@@ -268,7 +273,7 @@ function ProblemRow({ problem, now, weak }: { problem: ProblemSummary; now: numb
           "group grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-4 gap-y-3 rounded-card border p-4 shadow-card transition-[border-color,box-shadow,transform] duration-200 sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:px-5",
           "motion-safe:hover:-translate-y-0.5",
           isWeak
-            ? "border-warning/40 bg-[linear-gradient(100deg,rgb(251_191_36/0.08),transparent_45%)] bg-ink-850/85 hover:border-warning/70"
+            ? "border-warning/40 bg-[linear-gradient(100deg,rgb(249_115_22/0.08),transparent_45%)] bg-ink-850/85 hover:border-warning/70"
             : "border-line bg-ink-850/85 hover:border-synapse/50 hover:shadow-glow",
         )}
       >

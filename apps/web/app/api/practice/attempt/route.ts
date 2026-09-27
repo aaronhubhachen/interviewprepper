@@ -1,4 +1,4 @@
-import type { IdeStage, JudgeLanguage, TextGrade } from "@synapse/core";
+import { CODE_LANGUAGES, type IdeStage, type TextGrade } from "@synapse/core";
 import { json, readJson, route } from "@/lib/server/http";
 import { recordAttempt } from "@/lib/server/practice";
 import { currentUserId, getStore, now } from "@/lib/server/store";
@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 
 const STAGES: readonly IdeStage[] = ["invariant", "edgeCase", "code"];
 const GRADES: readonly TextGrade[] = [1, 3, 5];
-const LANGUAGES: readonly JudgeLanguage[] = ["javascript", "python"];
+const LANGUAGES = CODE_LANGUAGES;
 
 /**
  * POST /api/practice/attempt → PracticeAttemptResponse

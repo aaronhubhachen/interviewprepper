@@ -6,6 +6,17 @@
 import type {
   ApiErrorBody,
   BehavioralResponse,
+  BotChatRequest,
+  BotChatResponse,
+  BotReportRequest,
+  BotReportResponse,
+  GrillNextResponse,
+  GrillReport,
+  JudgeLanguagesResponse,
+  JudgeRunRequest,
+  JudgeRunResponse,
+  GrillResumeResponse,
+  GrillSessionRequest,
   DueResponse,
   LinkResponse,
   PracticeAttemptRequest,
@@ -180,6 +191,61 @@ export function evaluateSpar(body: SparEvaluateRequest, options?: RequestOptions
 /** GET /api/spar/sessions?limit= */
 export function fetchSparSessions(limit?: number, options?: RequestOptions): Promise<SparSessionsResponse> {
   return get(`/api/spar/sessions${limit ? `?limit=${limit}` : ""}`, options);
+}
+
+// ── Resume grill ─────────────────────────────────────────────────────────
+
+/** POST /api/grill/resume (multipart "file": PDF, .txt or .md) → extracted text. */
+export async function uploadResume(file: File, options: RequestOptions = {}): Promise<GrillResumeResponse> {
+  const form = new FormData();
+  form.set("file", file);
+  let response: Response;
+  try {
+    response = await fetch("/api/grill/resume", { method: "POST", body: form, cache: "no-store", signal: options.signal });
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "AbortError") throw new ApiError(0, "aborted", "Request was cancelled.");
+    throw new ApiError(0, "network", "Could not reach the Synapse server. Is it running?");
+  }
+  const payload: unknown = await response.json().catch(() => null);
+  if (!response.ok) {
+    if (isErrorBody(payload)) throw new ApiError(response.status, payload.error.code, payload.error.message, payload.error.details);
+    throw new ApiError(response.status, "http_error", `Upload failed (${response.status}).`);
+  }
+  return payload as GrillResumeResponse;
+}
+
+/** POST /api/grill/next: the interviewer's next question (LLM, up to ~15 s). */
+export function fetchGrillQuestion(body: GrillSessionRequest, options?: RequestOptions): Promise<GrillNextResponse> {
+  return post("/api/grill/next", body, options);
+}
+
+/** POST /api/grill/report: panel verdict per claim (LLM, up to ~30 s). */
+export function fetchGrillReport(body: GrillSessionRequest, options?: RequestOptions): Promise<GrillReport> {
+  return post("/api/grill/report", body, options);
+}
+
+// ── Prepr Bot ────────────────────────────────────────────────────────────
+
+/** POST /api/bot/chat (LLM, up to ~20 s). */
+export function sendBotMessage(body: BotChatRequest, options?: RequestOptions): Promise<BotChatResponse> {
+  return post("/api/bot/chat", body, options);
+}
+
+/** POST /api/bot/report (LLM, up to ~35 s). */
+export function fetchBotReport(body: BotReportRequest, options?: RequestOptions): Promise<BotReportResponse> {
+  return post("/api/bot/report", body, options);
+}
+
+// ── Server judge (Java / C++ / Go / TypeScript) ─────────────────────────
+
+/** GET /api/judge/languages: which server-compiled languages this server can run. */
+export function fetchJudgeLanguages(options?: RequestOptions): Promise<JudgeLanguagesResponse> {
+  return get("/api/judge/languages", options);
+}
+
+/** POST /api/judge/run: compile + run on the server; returns raw per-test output (compare with judgeResults). */
+export function runOnServer(body: JudgeRunRequest, options?: RequestOptions): Promise<JudgeRunResponse> {
+  return post("/api/judge/run", body, options);
 }
 
 /** User-facing message for any thrown value. */

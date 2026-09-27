@@ -234,7 +234,7 @@ function Back({
         <StageEyebrow stage={stage} />
         <div className="flex items-center gap-2">
           <Pill tone={state.revealed ? "neutral" : verdict.tone}>{state.revealed ? "Revealed" : verdict.label}</Pill>
-          <Pill tone="cyan" title={result.evaluation.source === "llm" ? "Graded by the Synapse model" : "Graded against the key points (offline)"}>
+          <Pill tone="cyan" title={result.evaluation.source === "llm" ? "Graded by the Prepr model" : "Graded against the key points (offline)"}>
             {result.evaluation.source === "llm" ? "AI feedback" : "Key-point check"}
           </Pill>
         </div>

@@ -197,7 +197,7 @@ export function Segmented<T extends string>({
             className={cn(
               "rounded-[0.6rem] font-medium transition-colors",
               size === "sm" ? "px-2.5 py-1 text-xs" : "px-3.5 py-1.5 text-sm",
-              selected ? "bg-ink-600 text-fg shadow-[0_0_0_1px_rgb(167_139_250/0.35)]" : "text-fg-muted hover:text-fg",
+              selected ? "bg-ink-600 text-fg shadow-[0_0_0_1px_rgb(249_115_22/0.35)]" : "text-fg-muted hover:text-fg",
             )}
           >
             {option.label}

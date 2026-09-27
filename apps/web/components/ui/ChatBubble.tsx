@@ -14,7 +14,7 @@ export interface ChatBubbleProps {
   typing?: boolean;
   /** Draw the iMessage tail (default true; set false for consecutive bubbles). */
   tail?: boolean;
-  /** Sender name above the first bubble in a group (e.g. "Synapse"). */
+  /** Sender name above the first bubble in a group (e.g. "Prepr"). */
   name?: ReactNode;
   className?: string;
 }
@@ -56,7 +56,7 @@ export function ChatBubble({ from, children, meta, tapback, typing, tail = true,
 function TypingDots() {
   return (
     <span className="flex h-5 items-center gap-1" role="status">
-      <span className="sr-only">Synapse is typing…</span>
+      <span className="sr-only">Prepr is typing…</span>
       {[0, 150, 300].map((delay) => (
         <span
           key={delay}

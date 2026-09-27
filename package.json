@@ -2,7 +2,7 @@
   "name": "synapse",
   "version": "0.1.0",
   "private": true,
-  "description": "Synapse: a spaced-repetition SWE interview engine (Anki for LeetCode) over iMessage + web.",
+  "description": "Prepr: a spaced-repetition SWE interview engine (Anki for LeetCode) over iMessage + web.",
   "type": "module",
   "workspaces": [
     "packages/*",

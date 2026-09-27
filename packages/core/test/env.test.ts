@@ -100,6 +100,9 @@ describe("LLM plumbing", () => {
       n: 2,
     });
     expect(extractJson("no json here")).toBeUndefined();
+    const withFence = { reply: "Try:\n```python\nx = 1\n```" };
+    expect(extractJson(JSON.stringify(withFence))).toEqual(withFence);
+    expect(extractJson("```json\n" + JSON.stringify(withFence) + "\n```")).toEqual(withFence);
   });
 
   it("returns null instead of throwing when no model is available", async () => {

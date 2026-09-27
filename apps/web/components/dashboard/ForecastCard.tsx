@@ -8,8 +8,8 @@ import { peakIndex } from "./chart-math";
 import { ChartTable, ChartViewToggle, ColumnChart, type ChartView, type ColumnDatum, type ColumnSeries } from "./ColumnChart";
 import { summarizeForecast } from "./insights";
 
-/** Single series: brand violet (synapse-500, 4.5:1 on the card surface). No legend; the title names it. */
-const FORECAST_SERIES: readonly ColumnSeries[] = [{ key: "due", label: "Cards due", color: "#8b5cf6" }];
+/** Single orange series. No legend; the title names it. */
+const FORECAST_SERIES: readonly ColumnSeries[] = [{ key: "due", label: "Cards due", color: "var(--color-chart-orange)" }];
 const PLOT_HEIGHT = 168;
 
 export interface ForecastCardProps {

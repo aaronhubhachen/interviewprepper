@@ -1,24 +1,24 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { JudgeLanguage } from "@synapse/core/content";
+import { CODE_LANGUAGES, isNativeLanguage, LANGUAGE_EXTENSIONS, LANGUAGE_LABELS, type CodeLanguage, type NativeLanguage } from "@synapse/core/judge";
 import { Banner } from "@/components/ui/Banner";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Kbd } from "@/components/ui/Kbd";
 import { cn } from "@/lib/cn";
 import type { JudgeMode, JudgeOutcome } from "@/lib/judge";
+import { BotChat } from "@/components/bot/BotChat";
+import { BotReportView } from "@/components/bot/BotReportView";
+import { useAiAssistant } from "@/components/bot/useAiAssistant";
+import { fetchJudgeLanguages } from "@/lib/api";
 import { useJudge } from "@/lib/judge/useJudge";
 import type { ClientProblem } from "@/lib/types";
-import { ConfirmButton, Segmented, StageTimer } from "./bits";
+import { ConfirmButton, StageTimer } from "./bits";
 import { CodeEditor } from "./CodeEditor";
 import { JudgeResults } from "./JudgeResults";
 import { codeStorageKey, LANGUAGE_STORAGE_KEY, safeStorage, STAGE_META, type CodeStageState } from "./session";
 
-const LANGUAGES: ReadonlyArray<{ value: JudgeLanguage; label: string }> = [
-  { value: "javascript", label: "JavaScript" },
-  { value: "python", label: "Python" },
-];
 
 const EDITOR_HEIGHT = "clamp(20rem, 52vh, 34rem)";
 const SAVE_DEBOUNCE_MS = 350;
@@ -33,7 +33,7 @@ export interface CodeStagePanelProps {
   saveError: string | null;
   notes: { invariant: string | null; edgeCase: string | null };
   getElapsed: () => number;
-  onLanguage: (language: JudgeLanguage) => void;
+  onLanguage: (language: CodeLanguage) => void;
   /** Every finished Run / Submit (the parent records submits). */
   onJudged: (outcome: JudgeOutcome) => void;
   onGiveUp: () => void;
@@ -41,11 +41,14 @@ export interface CodeStagePanelProps {
   /** Offered when an accepted submit / give-up could not be saved. */
   onSkipSave?: () => void;
   onShowSummary?: () => void;
+  /** Cursor-style AI side panel beside the editor. */
+  aiOpen: boolean;
+  onToggleAi: () => void;
 }
 
 const storage = safeStorage("local");
 
-function loadCode(problem: ClientProblem, language: JudgeLanguage): string {
+function loadCode(problem: ClientProblem, language: CodeLanguage): string {
   return storage.getItem(codeStorageKey(problem.id, language)) ?? problem.stages.code.starter[language];
 }
 
@@ -63,25 +66,40 @@ export function CodeStagePanel({
   onRetrySave,
   onSkipSave,
   onShowSummary,
+  aiOpen,
+  onToggleAi,
 }: CodeStagePanelProps) {
   const stage = problem.stages.code;
   const language = state.language;
   const { judge, preloadPython, pythonStatus, pythonError } = useJudge();
-  const [code, setCode] = useState<Record<JudgeLanguage, string>>(() => ({
-    javascript: loadCode(problem, "javascript"),
-    python: loadCode(problem, "python"),
-  }));
+  const [code, setCode] = useState<Record<CodeLanguage, string>>(
+    () => Object.fromEntries(CODE_LANGUAGES.map((lang) => [lang, loadCode(problem, lang)])) as Record<CodeLanguage, string>,
+  );
+  /** null until the server says which compiled languages it can run. */
+  const [serverLanguages, setServerLanguages] = useState<NativeLanguage[] | null>(null);
   const [running, setRunning] = useState<JudgeMode | null>(null);
   const [outcome, setOutcome] = useState<JudgeOutcome | null>(null);
   const [recordedNote, setRecordedNote] = useState<string | null>(null);
-  const saveTimers = useRef<Partial<Record<JudgeLanguage, number>>>({});
+  const saveTimers = useRef<Partial<Record<CodeLanguage, number>>>({});
   const codeRef = useRef(code);
   useEffect(() => {
     codeRef.current = code;
   }, [code]);
+  const getCode = useCallback(() => codeRef.current[language], [language]);
+  const ai = useAiAssistant({ problemId: problem.id, language, getCode });
 
   const visibleCount = useMemo(() => stage.tests.filter((test) => !test.hidden).length || stage.tests.length, [stage.tests]);
   const totalCount = stage.tests.length;
+
+  useEffect(() => {
+    const controller = new AbortController();
+    fetchJudgeLanguages({ signal: controller.signal })
+      .then((response) => setServerLanguages(response.available))
+      .catch(() => {
+        if (!controller.signal.aborted) setServerLanguages([]);
+      });
+    return () => controller.abort();
+  }, []);
 
   // Warm Pyodide as soon as Python is the active language.
   useEffect(() => {
@@ -92,7 +110,7 @@ export function CodeStagePanel({
   useEffect(() => {
     const timers = saveTimers.current;
     return () => {
-      for (const lang of Object.keys(timers) as JudgeLanguage[]) {
+      for (const lang of Object.keys(timers) as CodeLanguage[]) {
         window.clearTimeout(timers[lang]);
         storage.setItem(codeStorageKey(problem.id, lang), codeRef.current[lang]);
       }
@@ -120,7 +138,7 @@ export function CodeStagePanel({
     setCode((current) => ({ ...current, [language]: stage.starter[language] }));
   };
 
-  const switchLanguage = (next: JudgeLanguage) => {
+  const switchLanguage = (next: CodeLanguage) => {
     storage.setItem(LANGUAGE_STORAGE_KEY, next);
     onLanguage(next);
   };
@@ -130,16 +148,17 @@ export function CodeStagePanel({
       if (running) return;
       if (mode === "submit" && saving) return;
       setRunning(mode);
-      const result = await judge({ stage, mode, language, code: codeRef.current[language] });
+      const result = await judge({ stage, mode, language, code: codeRef.current[language], problemId: problem.id });
       setRunning(null);
       setOutcome(result);
+      if (result.ok) ai.noteRun(mode, result.report.passed, result.report.total, result.report.status);
       if (mode === "run") setRecordedNote("Run is free practice: only Submit is recorded");
       else if (practiceMode) setRecordedNote("Practice mode: not recorded");
       else if (result.ok && result.report.status === "compile_error") setRecordedNote("Compile errors don't count as a submission");
       else setRecordedNote(null);
       onJudged(result);
     },
-    [judge, language, onJudged, practiceMode, running, saving, stage],
+    [ai, judge, language, onJudged, practiceMode, problem.id, running, saving, stage],
   );
 
   const onRun = useCallback(() => void execute("run"), [execute]);
@@ -151,6 +170,11 @@ export function CodeStagePanel({
     const onKey = (event: KeyboardEvent) => {
       if (!(event.ctrlKey || event.metaKey) || event.altKey || event.defaultPrevented) return;
       if (!panelRef.current || panelRef.current.closest("[hidden]")) return;
+      if (event.key.toLowerCase() === "l" && !event.shiftKey) {
+        event.preventDefault();
+        onToggleAi();
+        return;
+      }
       const target = event.target as HTMLElement | null;
       if (target?.closest(".monaco-editor") || target?.tagName === "TEXTAREA" || target?.tagName === "INPUT") return;
       if (event.key === "Enter") {
@@ -163,7 +187,7 @@ export function CodeStagePanel({
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [onRun, onSubmit]);
+  }, [onRun, onSubmit, onToggleAi]);
 
   const pythonLoading = language === "python" && pythonStatus === "loading";
   const meta = STAGE_META.code;
@@ -185,14 +209,33 @@ export function CodeStagePanel({
           </div>
           <div className="flex items-center gap-2">
             {!practiceMode ? <StageTimer getElapsed={getElapsed} /> : null}
-            <Segmented label="Language" value={language} options={LANGUAGES} onChange={switchLanguage} />
+            <LanguagePicker value={language} serverLanguages={serverLanguages} onChange={switchLanguage} />
+            <button
+              type="button"
+              onClick={onToggleAi}
+              aria-pressed={aiOpen}
+              aria-keyshortcuts="Control+L Meta+L"
+              title={`${aiOpen ? "Hide" : "Show"} the AI assistant (Ctrl/⌘ L)`}
+              className={cn(
+                "inline-flex h-9 items-center gap-1.5 rounded-xl border px-3 text-sm font-medium transition-colors",
+                aiOpen ? "border-synapse bg-synapse/15 text-fg" : "border-line-strong bg-ink-900/80 text-fg-muted hover:border-synapse/60 hover:text-fg",
+              )}
+            >
+              <svg aria-hidden="true" viewBox="0 0 16 16" className="h-3.5 w-3.5 fill-current text-synapse">
+                <path d="M8 1.5 9.4 5.6 13.5 7 9.4 8.4 8 12.5 6.6 8.4 2.5 7l4.1-1.4L8 1.5Zm4.5 8.5.6 1.6 1.6.6-1.6.6-.6 1.6-.6-1.6-1.6-.6 1.6-.6.6-1.6Z" />
+              </svg>
+              {aiOpen ? "Hide AI" : "Show AI"}
+              <span className="hidden font-mono text-[0.7rem] text-fg-subtle sm:inline">⌘L</span>
+            </button>
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center justify-between gap-2 border-y border-line bg-ink-900/60 px-4 py-2 text-xs text-fg-subtle">
+        <div className={cn("border-t border-line", aiOpen && "grid xl:grid-cols-[minmax(0,1fr)_minmax(20rem,26rem)]")}>
+        <div className="min-w-0">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line bg-ink-900/60 px-4 py-2 text-xs text-fg-subtle">
           <span className="inline-flex items-center gap-2" aria-live="polite">
-            <span aria-hidden="true" className={cn("h-2 w-2 rounded-full", runtimeDot(language, pythonStatus))} />
-            {runtimeLabel(language, pythonStatus)}
+            <span aria-hidden="true" className={cn("h-2 w-2 rounded-full", runtimeDot(language, pythonStatus, serverLanguages))} />
+            {runtimeLabel(language, pythonStatus, serverLanguages)}
           </span>
           <span className="hidden items-center gap-1.5 2xl:inline-flex">
             <Kbd>Ctrl</Kbd>
@@ -224,12 +267,16 @@ export function CodeStagePanel({
         <CodeEditor
           value={code[language]}
           language={language}
-          onChange={updateCode}
+          onChange={(next) => {
+            ai.noteEdit(codeRef.current[language], next);
+            updateCode(next);
+          }}
           onRun={onRun}
           onSubmit={onSubmit}
-          ariaLabel={`${language === "python" ? "Python" : "JavaScript"} solution for ${problem.title}. Press Control M to let Tab move focus.`}
+          onToggleAi={onToggleAi}
+          ariaLabel={`${LANGUAGE_LABELS[language]} solution for ${problem.title}. Press Control M to let Tab move focus.`}
           height={EDITOR_HEIGHT}
-          path={`file:///synapse/${problem.id}/solution.${language === "python" ? "py" : "js"}`}
+          path={`file:///synapse/${problem.id}/solution.${LANGUAGE_EXTENSIONS[language]}`}
         />
 
         <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line px-4 py-3">
@@ -280,10 +327,88 @@ export function CodeStagePanel({
             params={stage.params}
             visibleCount={visibleCount}
             totalCount={totalCount}
+            runsOnServer={isNativeLanguage(language)}
             recordedNote={recordedNote ?? undefined}
           />
         </div>
+        </div>
+        {aiOpen ? (
+          <div className="h-[34rem] border-t border-line xl:h-auto xl:border-l xl:border-t-0">
+            <BotChat
+              docked
+              messages={ai.messages}
+              sending={ai.sending}
+              error={ai.error}
+              offline={ai.offline}
+              language={language}
+              onSend={ai.send}
+              onInsert={(snippet) => {
+                ai.noteInsert(snippet);
+                updateCode(snippet);
+              }}
+              onCopy={ai.noteCopy}
+              actions={
+                <>
+                  <button
+                    type="button"
+                    onClick={() => ai.setTrapMode(!ai.trapMode)}
+                    aria-pressed={ai.trapMode}
+                    title="When on, the assistant sometimes writes code with a subtle bug, like real AI. Catching it counts in your review."
+                    className={cn(
+                      "h-7 rounded-lg border px-2 text-xs font-medium transition-colors",
+                      ai.trapMode ? "border-synapse/60 text-synapse-soft" : "border-line text-fg-subtle hover:text-fg",
+                    )}
+                  >
+                    Mistakes {ai.trapMode ? "on" : "off"}
+                  </button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-7 px-2 text-xs"
+                    onClick={ai.review}
+                    loading={ai.reviewing}
+                    loadingLabel="Reviewing your AI use"
+                    disabled={!ai.messages.some((message) => message.role === "user")}
+                    title="Score how you used the AI: framing, prompting, verification, catching its mistakes"
+                  >
+                    Review
+                  </Button>
+                  {ai.messages.length > 0 ? (
+                    <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" onClick={ai.clear} title="Start a fresh conversation">
+                      Clear
+                    </Button>
+                  ) : null}
+                  <Button size="sm" variant="ghost" className="h-7 w-7 px-0" onClick={onToggleAi} aria-label="Hide the AI assistant" title="Hide (Ctrl/⌘ L)">
+                    <span aria-hidden="true">×</span>
+                  </Button>
+                </>
+              }
+            >
+              {ai.reviewError ? (
+                <div className="px-3 pb-2">
+                  <Banner tone="danger">{ai.reviewError}</Banner>
+                </div>
+              ) : null}
+            </BotChat>
+          </div>
+        ) : null}
+        </div>
       </Card>
+
+      {ai.report ? (
+        <Card className="space-y-4" aria-label="Review of your AI use">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-synapse">AI-assisted interview review</p>
+              <p className="mt-1 text-sm text-fg-muted">How an interviewer running an AI-enabled round would read your session so far.</p>
+            </div>
+            <Button size="sm" variant="ghost" onClick={ai.dismissReport}>
+              Close
+            </Button>
+          </div>
+          <BotReportView embedded problem={problem} report={ai.report} />
+        </Card>
+      ) : null}
 
       {saveError ? (
         <Banner
@@ -352,7 +477,18 @@ export function CodeStagePanel({
   );
 }
 
-function runtimeLabel(language: JudgeLanguage, status: string): string {
+const NATIVE_RUNTIME: Record<NativeLanguage, string> = {
+  java: "Java 21 · compiled and run on the server",
+  cpp: "C++17 · compiled and run on the server",
+  go: "Go · compiled and run on the server",
+  typescript: "TypeScript · types stripped, runs on the server (types are not checked)",
+};
+
+function runtimeLabel(language: CodeLanguage, status: string, serverLanguages: NativeLanguage[] | null): string {
+  if (isNativeLanguage(language)) {
+    if (serverLanguages && !serverLanguages.includes(language)) return `${LANGUAGE_LABELS[language]} · not available on this server`;
+    return NATIVE_RUNTIME[language];
+  }
   if (language === "javascript") return "JavaScript · runs in a sandboxed worker";
   switch (status) {
     case "ready":
@@ -366,9 +502,45 @@ function runtimeLabel(language: JudgeLanguage, status: string): string {
   }
 }
 
-function runtimeDot(language: JudgeLanguage, status: string): string {
+function runtimeDot(language: CodeLanguage, status: string, serverLanguages: NativeLanguage[] | null): string {
+  if (isNativeLanguage(language)) {
+    if (!serverLanguages) return "bg-fg-subtle";
+    return serverLanguages.includes(language) ? "bg-success" : "bg-danger";
+  }
   if (language === "javascript" || status === "ready") return "bg-success";
   if (status === "loading") return "bg-warning motion-safe:animate-pulse";
   if (status === "error") return "bg-danger";
   return "bg-fg-subtle";
+}
+
+function LanguagePicker({
+  value,
+  serverLanguages,
+  onChange,
+}: {
+  value: CodeLanguage;
+  serverLanguages: NativeLanguage[] | null;
+  onChange: (language: CodeLanguage) => void;
+}) {
+  const unavailable = (language: CodeLanguage) => isNativeLanguage(language) && serverLanguages !== null && !serverLanguages.includes(language);
+  return (
+    <label className="relative inline-flex items-center">
+      <span className="sr-only">Language</span>
+      <select
+        value={value}
+        onChange={(event) => onChange(event.target.value as CodeLanguage)}
+        className="h-9 appearance-none rounded-xl border border-line-strong bg-ink-900/80 py-1 pl-3 pr-8 text-sm font-medium text-fg transition-colors hover:border-synapse/60 focus:border-synapse focus:outline-none"
+      >
+        {CODE_LANGUAGES.map((language) => (
+          <option key={language} value={language} disabled={unavailable(language) && language !== value}>
+            {LANGUAGE_LABELS[language]}
+            {unavailable(language) ? " (not installed)" : ""}
+          </option>
+        ))}
+      </select>
+      <svg aria-hidden="true" viewBox="0 0 12 12" className="pointer-events-none absolute right-3 h-3 w-3 text-fg-subtle" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
+        <path d="m3 4.5 3 3 3-3" />
+      </svg>
+    </label>
+  );
 }

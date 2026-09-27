@@ -18,7 +18,7 @@ import {
 const PLOT_HEIGHT = 168;
 const SOURCE_SERIES: readonly ColumnSeries[] = ACTIVITY_SERIES.map(({ key, label, color }) => ({ key, label, color }));
 /** Fallback when the per-source endpoint is unavailable: one series (slot 1), no legend. */
-const TOTAL_SERIES: readonly ColumnSeries[] = [{ key: "reviews", label: "Reviews", color: "#3987e5" }];
+const TOTAL_SERIES: readonly ColumnSeries[] = [{ key: "reviews", label: "Reviews", color: "var(--color-chart-orange)" }];
 
 export interface ActivityCardProps {
   /** Per-source buckets (preferred). */

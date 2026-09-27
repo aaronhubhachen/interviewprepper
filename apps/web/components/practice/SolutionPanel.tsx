@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import type { JudgeLanguage } from "@synapse/core/content";
+import { isNativeLanguage, type CodeLanguage } from "@synapse/core/judge";
 import { Banner } from "@/components/ui/Banner";
 import { Button } from "@/components/ui/Button";
 import { Card, CardHeader } from "@/components/ui/Card";
@@ -20,8 +21,14 @@ const LANGUAGES: ReadonlyArray<{ value: JudgeLanguage; label: string }> = [
   { value: "python", label: "Python" },
 ];
 
-export function SolutionPanel({ state, initialLanguage, onRetry }: { state: SolutionState; initialLanguage: JudgeLanguage; onRetry: () => void }) {
-  const [language, setLanguage] = useState<JudgeLanguage>(initialLanguage);
+/** References exist in JavaScript and Python; compiled-language users see the closer match (TypeScript → JavaScript, others → Python). */
+function referenceLanguage(language: CodeLanguage): JudgeLanguage {
+  if (!isNativeLanguage(language)) return language;
+  return language === "typescript" ? "javascript" : "python";
+}
+
+export function SolutionPanel({ state, initialLanguage, onRetry }: { state: SolutionState; initialLanguage: CodeLanguage; onRetry: () => void }) {
+  const [language, setLanguage] = useState<JudgeLanguage>(referenceLanguage(initialLanguage));
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {

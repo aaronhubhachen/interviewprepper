@@ -78,7 +78,7 @@ describe("parseMarkdown", () => {
       const text = blocks
         .map((block) => (block.type === "code" ? block.text : block.type === "list" ? block.items.map(inlineToText).join(" ") : inlineToText(block.children)))
         .join(" ");
-      const plain = problem.statement.replace(/`|\*\*/g, "").replace(/\s+/g, " ").trim();
+      const plain = problem.statement.replace(/^- /gm, "").replace(/`|\*\*/g, "").replace(/\s+/g, " ").trim();
       expect(text.replace(/\s+/g, " ").trim(), problem.id).toBe(plain);
     }
   });
@@ -234,7 +234,7 @@ describe("practice session", () => {
   it("words the struggle → iMessage sync message", () => {
     const scheduled = { cardIds: ["mc-a"], titles: ["A"], dueAt: 1, dueLabel: "tomorrow at 9:00 AM" };
     expect(drillMessage([{ tag: "dp_state_compression", label: "Bitmask DP" }], scheduled)).toBe(
-      "Flagged Bitmask DP — Synapse will text you a drill tomorrow at 9:00 AM",
+      "Flagged Bitmask DP — Prepr will text you a drill tomorrow at 9:00 AM",
     );
     expect(
       drillMessage(
@@ -244,8 +244,8 @@ describe("practice session", () => {
         ],
         { ...scheduled, cardIds: ["a", "b"], dueLabel: "in 1 min" },
       ),
-    ).toBe("Flagged Sliding Window and Hashing — Synapse will text you 2 drills in 1 min");
-    expect(drillMessage([], { ...scheduled, dueLabel: null })).toBe("Synapse will text you a drill soon");
+    ).toBe("Flagged Sliding Window and Hashing — Prepr will text you 2 drills in 1 min");
+    expect(drillMessage([], { ...scheduled, dueLabel: null })).toBe("Prepr will text you a drill soon");
     expect(joinLabels(["A", "B", "C"])).toBe("A, B and C");
   });
 

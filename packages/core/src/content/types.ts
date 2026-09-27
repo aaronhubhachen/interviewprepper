@@ -1,6 +1,10 @@
+import type { NativeLanguage, Signature } from "../judge/native";
+
 export const TAGS = [
+  { id: "arrays", label: "Arrays" },
   { id: "two_pointers", label: "Two Pointers" },
   { id: "sliding_window", label: "Sliding Window" },
+  { id: "stack", label: "Stack" },
   { id: "monotonic_stack", label: "Monotonic Stack" },
   { id: "binary_search", label: "Binary Search" },
   { id: "hashing", label: "Hashing" },
@@ -94,7 +98,11 @@ export interface CodeTest {
 export interface CodeStage {
   functionName: string;
   params: string[];
+  /** Parameter and return types, used to generate Java / C++ / Go / TypeScript starters and harnesses. */
+  signature: Signature;
   starter: Record<JudgeLanguage, string>;
+  /** Hand-written starters for server-compiled languages (node-based problems ship adapters). */
+  nativeStarters?: Partial<Record<NativeLanguage, string>>;
   reference: Record<JudgeLanguage, string>;
   tests: CodeTest[];
   compare: CompareMode;

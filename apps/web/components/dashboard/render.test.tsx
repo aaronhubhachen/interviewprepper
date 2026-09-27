@@ -56,7 +56,7 @@ const render = (node: React.ReactNode) => renderToStaticMarkup(<ToastProvider>{n
 describe("dashboard panels", () => {
   it("renders the skeleton before data arrives", () => {
     const html = render(<Dashboard />);
-    expect(html).toContain("Your synapses");
+    expect(html).toContain("Your progress");
     expect(html).toContain("Loading your dashboard");
   });
 
@@ -77,7 +77,7 @@ describe("dashboard panels", () => {
     const chart = render(<ActivityCard activity={activity} reviewsByDay={stats.reviewsByDay} demoScale={false} />);
     expect(chart).toContain("Review activity");
     expect(chart).toContain("iMessage");
-    expect(chart).toContain("#3987e5");
+    expect(chart).toContain("var(--color-chart-orange)");
     expect(chart).toMatch(/\d+ reviews? in the last 30 days/);
 
     const fallback = render(<ActivityCard activity={null} reviewsByDay={stats.reviewsByDay} demoScale={false} />);
@@ -122,7 +122,7 @@ describe("review surfaces", () => {
     const { ReviewSession } = await import("@/components/review/ReviewSession");
     const html = render(<ReviewSession />);
     expect(html).toContain("Review");
-    expect(html).toContain("Synapse is typing");
+    expect(html).toContain("Prepr is typing");
     expect(html).toContain("Send answer");
   });
 

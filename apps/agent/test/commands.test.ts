@@ -23,6 +23,9 @@ describe("parseCommand", () => {
     ["explain", "why"],
     ["start", "start"],
     ["hey", "greeting"],
+    ["prepr", "greeting"],
+    ["hey prepr", "greeting"],
+    ["start prepr", "start"],
     ["synapse more", "more"],
   ])("%j → %s", (text, type) => {
     expect(parseCommand(text)?.type).toBe(type);
@@ -45,6 +48,7 @@ describe("parseCommand", () => {
 
   it("normalizes case, apostrophes and punctuation", () => {
     expect(normalizeCommandText("  I Don’t KNOW!!  ")).toBe("i dont know");
+    expect(normalizeCommandText("hey prepr, stats")).toBe("stats");
     expect(normalizeCommandText("hey synapse, stats")).toBe("stats");
   });
 });
@@ -56,7 +60,7 @@ describe("textAsTapback", () => {
     expect(textAsTapback("👎")).toBe("dislike");
     expect(textAsTapback("?")).toBe("question");
     expect(textAsTapback("!!")).toBe("emphasize");
-    expect(textAsTapback("Loved “🧠 Synapse · LRU Cache”")).toBe("love");
+    expect(textAsTapback("Loved “🧠 Prepr · LRU Cache”")).toBe("love");
   });
 
   it("ignores texts with words", () => {

@@ -10,3 +10,21 @@ export {
   type RunFailure,
   type TestCaseResult,
 } from "./results";
+export {
+  allStarters,
+  buildNativeProgram,
+  CODE_LANGUAGES,
+  CPP_BITS_SHIM,
+  isCodeLanguage,
+  isNativeLanguage,
+  LANGUAGE_EXTENSIONS,
+  LANGUAGE_LABELS,
+  NATIVE_LANGUAGES,
+  NATIVE_RESULT_MARKER,
+  nativeStarter,
+  type CodeLanguage,
+  type NativeLanguage,
+  type NativeProgram,
+  type Signature,
+  type ValueType,
+} from "./native";

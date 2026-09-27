@@ -2,10 +2,12 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useLayoutEffect, useReducer, useRef, useState } from "react";
-import type { JudgeLanguage, Tag } from "@synapse/core/content";
+import type { Tag } from "@synapse/core/content";
+import { isCodeLanguage, type CodeLanguage } from "@synapse/core/judge";
 import type { Rating } from "@synapse/core/sm2";
 import type { TextGrade } from "@synapse/core/tapback";
 import { Banner } from "@/components/ui/Banner";
+import { cn } from "@/lib/cn";
 import { Button, ButtonLink, buttonClasses } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { PageHeader } from "@/components/ui/PageHeader";
@@ -45,6 +47,7 @@ import {
 
 const sessionStore = safeStorage("session");
 const localStore = safeStorage("local");
+const AI_PANEL_KEY = "synapse:ai-panel:v1";
 
 interface ActiveClock {
   stage: StageKey | null;
@@ -80,6 +83,19 @@ export function ProblemWorkspace({ problem }: { problem: ClientProblem }) {
   const [nextProblem, setNextProblem] = useState<{ id: string; title: string } | null>(null);
   const [bannerDismissedAt, setBannerDismissedAt] = useState(0);
   const [dealt, setDealt] = useState(false);
+  const [aiOpen, setAiOpen] = useState(true);
+
+  useEffect(() => {
+    // Restored after hydration: localStorage is not readable during the server render.
+    if (localStore.getItem(AI_PANEL_KEY) === "0") setAiOpen(false);
+  }, []);
+
+  const toggleAi = useCallback(() => {
+    setAiOpen((open) => {
+      localStore.setItem(AI_PANEL_KEY, open ? "0" : "1");
+      return !open;
+    });
+  }, []);
 
   const sessionRef = useRef(session);
   useEffect(() => {
@@ -93,7 +109,8 @@ export function ProblemWorkspace({ problem }: { problem: ClientProblem }) {
 
   useEffect(() => {
     const stored = parseSession(sessionStore.getItem(storageKey), problem.id);
-    const preferred: JudgeLanguage = localStore.getItem(LANGUAGE_STORAGE_KEY) === "python" ? "python" : "javascript";
+    const saved = localStore.getItem(LANGUAGE_STORAGE_KEY) ?? "";
+    const preferred: CodeLanguage = isCodeLanguage(saved) ? saved : "javascript";
     dispatch({ type: "restore", session: stored ?? newSession(problem.id, Date.now(), preferred) });
     setHydrated(true);
   }, [problem.id, storageKey]);
@@ -398,6 +415,7 @@ export function ProblemWorkspace({ problem }: { problem: ClientProblem }) {
     if (stage === "code") requestAnimationFrame(() => document.getElementById("code-stage-heading")?.focus({ preventScroll: true }));
   };
   const codeReached = session.current === "code" || session.current === "done";
+  const aiWide = aiOpen && hydrated && displayed === "code";
   const schedule = latestSchedule(session);
   const sessionFlags = flaggedTags(session);
   const showBanner = hydrated && schedule?.scheduled && schedule.at > bannerDismissedAt && displayed !== "done";
@@ -458,7 +476,13 @@ export function ProblemWorkspace({ problem }: { problem: ClientProblem }) {
         }
       />
 
-      <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
+      <div
+        className={cn(
+          "grid items-start gap-6 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]",
+          // Cursor-style: with the AI docked, break out of the page width into problem | editor | AI.
+          aiWide && "xl:mx-[calc((100%_-_min(100rem,100vw_-_3rem))/2)] xl:grid-cols-[minmax(0,23rem)_minmax(0,1fr)]",
+        )}
+      >
         <div
           role="region"
           aria-label="Problem statement"
@@ -534,6 +558,8 @@ export function ProblemWorkspace({ problem }: { problem: ClientProblem }) {
                     onRetrySave={() => (saveError?.stage === "code" ? saveError.retry() : undefined)}
                     onSkipSave={saveError?.stage === "code" && saveError.skip ? saveError.skip : undefined}
                     onShowSummary={isDone ? () => setViewing(null) : undefined}
+                    aiOpen={aiOpen}
+                    onToggleAi={toggleAi}
                   />
                 </div>
               ) : null}

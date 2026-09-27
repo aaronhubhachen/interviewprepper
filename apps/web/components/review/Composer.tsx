@@ -75,7 +75,7 @@ export function Composer({
           value={value}
           maxLength={MAX_ANSWER_CHARS}
           disabled={!enabled}
-          placeholder={busy ? "Synapse is grading your answer…" : placeholder}
+          placeholder={busy ? "Prepr is grading your answer…" : placeholder}
           onChange={(event: ChangeEvent<HTMLTextAreaElement>) => onChange(event.target.value)}
           onKeyDown={handleKeyDown}
           aria-describedby={`${helpId} ${nearLimit ? counterId : ""}`.trim()}

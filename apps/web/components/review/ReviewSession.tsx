@@ -234,7 +234,7 @@ export function ReviewSession({ tag, invalidTag, initialState }: ReviewSessionPr
 
       {invalidTag ? (
         <Banner tone="warning" title="Unknown pattern" className="mb-4">
-          “{invalidTag.slice(0, 60)}” isn&apos;t a Synapse pattern, so you&apos;re reviewing all due cards.
+          “{invalidTag.slice(0, 60)}” isn&apos;t a Prepr pattern, so you&apos;re reviewing all due cards.
         </Banner>
       ) : null}
 
@@ -243,7 +243,7 @@ export function ReviewSession({ tag, invalidTag, initialState }: ReviewSessionPr
           <div className="flex items-center gap-3 border-b border-line px-4 py-3 sm:px-6">
             <SynapseGlyph className="h-9 w-9 shrink-0" />
             <div className="min-w-0 flex-1">
-              <p className="text-sm font-semibold text-fg">Synapse</p>
+              <p className="text-sm font-semibold text-fg">Prepr</p>
               <p className="truncate text-xs text-fg-subtle">{subtitle}</p>
             </div>
             {state.queue ? (
@@ -260,7 +260,7 @@ export function ReviewSession({ tag, invalidTag, initialState }: ReviewSessionPr
 
             {state.phase === "loading" ? (
               <div data-anchor className={cn(state.turns.length === 0 && "pt-3")}>
-                <ChatBubble from="agent" name={state.turns.length === 0 ? "Synapse" : undefined} typing />
+                <ChatBubble from="agent" name={state.turns.length === 0 ? "Prepr" : undefined} typing />
               </div>
             ) : null}
 
@@ -386,7 +386,7 @@ function DoneMessage({ state, patternLabel: label }: { state: SessionState; patt
       <EmptyState
         icon="🎉"
         title={`${title}. ${description}`}
-        description="Study new cards past today's limit, or practice a problem in the card-flip IDE. Synapse will text you when reviews come due."
+        description="Study new cards past today's limit, or practice a problem in the card-flip IDE. Prepr will text you when reviews come due."
       />
     );
   }
