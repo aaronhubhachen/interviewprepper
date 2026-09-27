@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import type { ComponentType, SVGProps } from "react";
 import { cn } from "@/lib/cn";
 import { useDueCount } from "./DueCountProvider";
-import { DashboardIcon, GrillIcon, MockIcon, PracticeIcon, ReviewIcon, SparIcon } from "./NavIcons";
+import { DashboardIcon, DesignIcon, GrillIcon, MockIcon, PracticeIcon, ReviewIcon, SparIcon } from "./NavIcons";
 import { SynapseGlyph } from "./SynapseGlyph";
 import { ThemeToggle } from "./ThemeToggle";
 
@@ -24,6 +24,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
   { href: "/practice", label: "Practice", Icon: PracticeIcon },
   { href: "/spar", label: "Spar", Icon: SparIcon },
   { href: "/grill", label: "Grill", Icon: GrillIcon },
+  { href: "/design", label: "Design", Icon: DesignIcon, desktopOnly: true },
   { href: "/mock", label: "Mock", Icon: MockIcon, desktopOnly: true },
 ];
 

@@ -67,3 +67,14 @@ export function MockIcon(props: SVGProps<SVGSVGElement>) {
     </svg>
   );
 }
+
+export function DesignIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base} {...props}>
+      <rect x="3" y="3.5" width="7" height="5" rx="1.5" />
+      <rect x="14" y="3.5" width="7" height="5" rx="1.5" />
+      <rect x="8.5" y="15.5" width="7" height="5" rx="1.5" />
+      <path d="M6.5 8.5v3h11v-3M12 11.5v4" />
+    </svg>
+  );
+}

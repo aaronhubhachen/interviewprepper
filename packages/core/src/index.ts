@@ -2,6 +2,7 @@
 export * from "./browser";
 export * from "./env";
 export * from "./evaluate";
+export * from "./design";
 export * from "./grill";
 export * from "./llm";
 export * from "./spar";

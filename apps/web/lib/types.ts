@@ -4,6 +4,7 @@
  * components. Every timestamp is epoch milliseconds.
  */
 import type { RawTestResult, RunFailure } from "@synapse/core/judge";
+import type { DesignComponentKind, DesignDiagram, DesignPhase, DesignPrompt, DesignQuestion, DesignReport, DesignTurn } from "@synapse/core";
 import type { MockBehavioralRound, MockCodingRound, MockGrillRound, MockLoopInput, MockPacket } from "@synapse/core";
 import type { BehavioralFeedback, BotEvent, PracticeSession, BotMessage, BotReport, CodeLanguage, NativeLanguage, GrillQuestion, GrillReport, GrillTurn, IdeStage, PickReason, Stats } from "@synapse/core";
 import type {
@@ -544,3 +545,20 @@ export interface BotInlineEditResponse {
 // ── /api/mock/packet ───────────────────────────────────────────────────────
 
 export type { MockBehavioralRound, MockCodingRound, MockGrillRound, MockLoopInput, MockPacket };
+
+// ── /api/design/* ─────────────────────────────────────────────────────────
+
+export type { DesignComponentKind, DesignDiagram, DesignPhase, DesignPrompt, DesignReport, DesignTurn };
+
+export interface DesignSessionRequest {
+  promptId: string;
+  diagram: DesignDiagram;
+  notes: string;
+  turns: DesignTurn[];
+}
+
+export interface DesignNextResponse extends DesignQuestion {
+  /** 1-based number of this question. */
+  number: number;
+  total: number;
+}

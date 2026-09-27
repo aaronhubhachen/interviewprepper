@@ -14,6 +14,9 @@ import type {
   BotReportRequest,
   BotReportResponse,
   GrillNextResponse,
+  DesignNextResponse,
+  DesignReport,
+  DesignSessionRequest,
   GrillReport,
   MockLoopInput,
   MockPacket,
@@ -249,6 +252,16 @@ export function fetchGrillQuestion(body: GrillSessionRequest, options?: RequestO
 /** POST /api/grill/report: panel verdict per claim (LLM, up to ~30 s). */
 export function fetchGrillReport(body: GrillSessionRequest, options?: RequestOptions): Promise<GrillReport> {
   return post("/api/grill/report", body, options);
+}
+
+// ── System design ─────────────────────────────────────────────────────────
+
+export function fetchDesignQuestion(body: DesignSessionRequest, options?: RequestOptions): Promise<DesignNextResponse> {
+  return post("/api/design/next", body, options);
+}
+
+export function fetchDesignReport(body: DesignSessionRequest, options?: RequestOptions): Promise<DesignReport> {
+  return post("/api/design/report", body, options);
 }
 
 // ── Saved interview rounds ───────────────────────────────────────────────

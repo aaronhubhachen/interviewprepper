@@ -17,6 +17,8 @@ import { POST as botReportPOST } from "@/app/api/bot/report/route";
 import { openTrap, sealTrap } from "@/lib/server/bot";
 import { POST as grillNextPOST } from "@/app/api/grill/next/route";
 import { POST as mockPacketPOST } from "@/app/api/mock/packet/route";
+import { POST as designNextPOST } from "@/app/api/design/next/route";
+import { POST as designReportPOST } from "@/app/api/design/report/route";
 import { POST as grillReportPOST } from "@/app/api/grill/report/route";
 import { POST as grillResumePOST } from "@/app/api/grill/resume/route";
 import { GET as linkGET, POST as linkPOST } from "@/app/api/link/route";
@@ -42,6 +44,8 @@ import type {
   GrillNextResponse,
   GrillReport,
   GrillResumeResponse,
+  DesignNextResponse,
+  DesignReport,
   MockPacket,
   PracticeSessionsResponse,
   LinkResponse,
@@ -710,6 +714,44 @@ describe("mock loop", () => {
     await body<ApiErrorBody>(await mockPacketPOST(post("/api/mock/packet", { coding: { ...coding, passed: -1 } }), NO_CTX), 400);
     await body<ApiErrorBody>(await mockPacketPOST(post("/api/mock/packet", { behavioral: { ...behavioral, strengths: "nope" } }), NO_CTX), 400);
     await body<ApiErrorBody>(await mockPacketPOST(post("/api/mock/packet", { grill: { ...grill, overall: 140 } }), NO_CTX), 400);
+  });
+});
+
+describe("system design", () => {
+  const diagram = {
+    nodes: [
+      { id: "c", kind: "client", label: "Browser", x: 100, y: 300 },
+      { id: "api", kind: "api", label: "API", x: 400, y: 300 },
+      { id: "db", kind: "database", label: "Links DB", x: 700, y: 300 },
+    ],
+    edges: [
+      { from: "c", to: "api", label: "HTTPS" },
+      { from: "api", to: "db", label: "" },
+    ],
+  };
+  const base = { promptId: "sd-url-shortener", diagram, notes: "GET /{code} -> 301" };
+
+  it("asks phase questions offline and saves the scored design with its diagram", async () => {
+    const first = await body<DesignNextResponse>(await designNextPOST(post("/api/design/next", { ...base, turns: [] }), NO_CTX));
+    expect(first).toMatchObject({ number: 1, total: 6, phase: "requirements", source: "heuristic" });
+    const turns = [{ phase: "requirements", question: first.question, answer: "Shorten and redirect; 100M links a month, about 4000 reads per second." }];
+    const second = await body<DesignNextResponse>(await designNextPOST(post("/api/design/next", { ...base, turns }), NO_CTX));
+    expect(second.phase).toBe("api");
+
+    const report = await body<DesignReport>(await designReportPOST(post("/api/design/report", { ...base, turns }), NO_CTX));
+    expect(report.dimensions).toHaveLength(6);
+    const saved = await body<PracticeSessionsResponse>(await sessionsListGET(get("/api/sessions?kind=design"), NO_CTX));
+    expect(saved.sessions[0]).toMatchObject({ kind: "design", subject: "URL shortener", score: report.overall });
+    expect(JSON.stringify(saved.sessions[0]!.report)).toContain("Links DB");
+  });
+
+  it("validates prompts, diagrams, and turns", async () => {
+    await body<ApiErrorBody>(await designNextPOST(post("/api/design/next", { ...base, promptId: "sd-nope", turns: [] }), NO_CTX), 400);
+    await body<ApiErrorBody>(await designNextPOST(post("/api/design/next", { ...base, diagram: { nodes: [{ id: "x", kind: "blimp", label: "", x: 0, y: 0 }], edges: [] }, turns: [] }), NO_CTX), 400);
+    await body<ApiErrorBody>(await designNextPOST(post("/api/design/next", { ...base, diagram: { nodes: [], edges: [{ from: "a", to: "b", label: "" }] }, turns: [] }), NO_CTX), 400);
+    await body<ApiErrorBody>(await designReportPOST(post("/api/design/report", { ...base, turns: [] }), NO_CTX), 400);
+    const full = Array.from({ length: 6 }, () => ({ phase: "requirements", question: "Q", answer: "A" }));
+    await body<ApiErrorBody>(await designNextPOST(post("/api/design/next", { ...base, turns: full }), NO_CTX), 400);
   });
 });
 
