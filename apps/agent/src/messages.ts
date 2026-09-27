@@ -59,7 +59,7 @@ function streakSentence(streak: number): string {
 
 export interface ProbeCopy {
   card: ReviewCard;
-  /** First card of the day, right after the briefing. */
+  /** First card of the day, right after a morning briefing (not an afternoon check-in). */
   morning: boolean;
   /** "🎯 Drill: Bitmask DP · from your IDE run on …" for IDE-struggle drills. */
   drillNote?: string;
@@ -86,12 +86,14 @@ export interface BriefingCopy {
   newCards: number;
   weakSpot?: { label: string; context?: string };
   streak: number;
+  /** The day's first briefing lands after the morning: "🧠 Prepr check-in" instead of "☕ Morning Prepr". */
+  checkIn?: boolean;
 }
 
 /** "☕ Morning Prepr — 5 cards due. Weak spot: Bitmask DP (you struggled on … last night)." */
-export function morningBriefing({ due, newCards, weakSpot, streak }: BriefingCopy): string {
+export function morningBriefing({ due, newCards, weakSpot, streak, checkIn }: BriefingCopy): string {
   const load = due > 0 ? `${plural(due, "card")} due` : newCards > 0 ? `${plural(newCards, "fresh card")} lined up` : "one quick card";
-  let text = `☕ Morning Prepr — ${load}.`;
+  let text = `${checkIn ? "🧠 Prepr check-in" : "☕ Morning Prepr"} — ${load}.`;
   if (weakSpot) text += ` Weak spot: ${weakSpot.label}${weakSpot.context ? ` (${weakSpot.context})` : ""}.`;
   if (streak > 0) text += ` 🔥 ${streak}-day streak, keep it alive.`;
   return text;
@@ -153,6 +155,23 @@ export function reveal(outcome: GradeOutcome): string {
 export function autoGraded(outcome: GradeOutcome, rating: Rating): string {
   const copy = RATING_COPY[rating];
   return `${copy.emoji} Logged ${outcome.card.title} as ${copy.label} (my grade). Back in ${outcome.nextLabel}.`;
+}
+
+/** A changed tapback on the feedback (❤️ → 👎) replaced the earlier rating. */
+export function regraded(outcome: GradeOutcome, rating: Rating): string {
+  const copy = RATING_COPY[rating];
+  return `✏️ Updated: ${outcome.card.title} is now ${copy.emoji} ${copy.label}. Back in ${outcome.nextLabel}.`;
+}
+
+/** Fallback when the rating was saved but the full confirmation could not be sent. */
+export function gradeSaved(outcome: GradeOutcome, rating: Rating): string {
+  const copy = RATING_COPY[rating];
+  return `✅ Saved: ${outcome.card.title} as ${copy.emoji} ${copy.label}, back in ${outcome.nextLabel}. Reply 'more' for another.`;
+}
+
+/** Fallback when an 'idk' was logged but the full reveal could not be sent: the answer key still goes out. */
+export function revealSaved(outcome: GradeOutcome): string {
+  return `💡 ${clampSentences(plain(outcome.card.answerKey), 2, 300)}\n🔁 Saved as a blank. ${outcome.card.title} comes back in ${outcome.nextLabel}.`;
 }
 
 // ── Card helpers ───────────────────────────────────────────────────────────
@@ -220,12 +239,12 @@ export function onboarding(webUrl: string): string {
   return [
     "👋 Hey! I'm Prepr, your spaced-repetition interview coach. I text bite-size DSA cards right before you'd forget them.",
     "",
-    `🔗 Text 'link 1234' with the code on your dashboard (${webUrl}) to sync, or 'start' to jump right in.`,
+    `🔗 Text 'link 123456' with the code on your dashboard (${webUrl}) to sync, or 'start' to jump right in.`,
   ].join("\n");
 }
 
 export function notStarted(webUrl: string): string {
-  return `👋 Text 'start' to begin drilling here, or 'link 1234' with the code on your dashboard (${webUrl}).`;
+  return `👋 Text 'start' to begin drilling here, or 'link 123456' with the code on your dashboard (${webUrl}).`;
 }
 
 export function linked(): string {
@@ -238,7 +257,7 @@ export function linked(): string {
 export function startedSolo(webUrl: string): string {
   return [
     "🧠 You're in! I'll text cards right when they're due.",
-    `Rate my feedback with a tapback: ❤️ effortless · 👍 hesitant · 👎 guessed. To sync the web dashboard later, text 'link 1234' with the code from ${webUrl}.`,
+    `Rate my feedback with a tapback: ❤️ effortless · 👍 hesitant · 👎 guessed. To sync the web dashboard later, text 'link 123456' with the code from ${webUrl}.`,
   ].join("\n");
 }
 
@@ -247,11 +266,19 @@ export function welcomeBack(): string {
 }
 
 export function linkFailed(webUrl: string): string {
-  return `🤔 That code didn't match. Grab the 4-digit code from your dashboard (${webUrl}) and text 'link 1234'.`;
+  return `🤔 That code didn't match (codes expire after 10 minutes). Grab the 6-digit code from your dashboard (${webUrl}) and text 'link 123456'.`;
 }
 
 export function linkUsage(webUrl: string): string {
-  return `🔗 Text 'link' plus the 4-digit code from your dashboard (${webUrl}), e.g. 'link 1234'.`;
+  return `🔗 Text 'link' plus the 6-digit code from your dashboard (${webUrl}), e.g. 'link 123456'.`;
+}
+
+export function linkLocked(): string {
+  return "🔒 Too many wrong codes. Wait an hour, then text 'link' with the 6-digit code from your dashboard.";
+}
+
+export function textOnly(): string {
+  return "📎 I can only read text. Type your answer in a sentence, or 'help' for commands.";
 }
 
 export function greeting(): string {
@@ -300,10 +327,11 @@ export function stats(s: Stats, webUrl: string): string {
   return lines.join("\n");
 }
 
+/** Sent when SYNAPSE_OWNER_HANDLE links at startup; the first card (or "all caught up") follows right away. */
 export function ownerHello(webUrl: string): string {
   return [
     "👋 Prepr is live on iMessage. I'll text you bite-size DSA cards right before you'd forget them.",
-    `Reply 'more' for your first card, or 'help'. Dashboard: ${webUrl}`,
+    `Answer in 1 sentence, then rate my feedback with a tapback: ❤️ effortless · 👍 hesitant · 👎 guessed. 'help' lists commands. Dashboard: ${webUrl}`,
   ].join("\n");
 }
 

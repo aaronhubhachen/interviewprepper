@@ -44,12 +44,18 @@ function tidy(text: string): string {
     .slice(0, MAX_RESUME_CHARS);
 }
 
+export interface ResumeFile {
+  name: string;
+  type: string;
+  bytes: Uint8Array;
+}
+
 /** Resume file → plain text. PDFs go through unpdf; text files are read as UTF-8. */
-export async function extractResumeText(file: File): Promise<{ text: string; pages: number | null }> {
-  if (file.size === 0) throw badRequest("That file is empty.");
-  if (file.size > MAX_RESUME_BYTES) throw new HttpError(413, "payload_too_large", "Resume must be 5 MB or smaller.");
+export async function extractResumeText(file: ResumeFile): Promise<{ text: string; pages: number | null }> {
+  const { bytes } = file;
+  if (bytes.length === 0) throw badRequest("That file is empty.");
+  if (bytes.length > MAX_RESUME_BYTES) throw new HttpError(413, "payload_too_large", "Resume must be 5 MB or smaller.");
   const name = file.name.toLowerCase();
-  const bytes = new Uint8Array(await file.arrayBuffer());
   const isPdf = name.endsWith(".pdf") || file.type === "application/pdf";
 
   let text: string;

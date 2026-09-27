@@ -13,11 +13,12 @@ import { BotReportView } from "@/components/bot/BotReportView";
 import { useAiAssistant } from "@/components/bot/useAiAssistant";
 import { fetchJudgeLanguages } from "@/lib/api";
 import { useJudge } from "@/lib/judge/useJudge";
+import { shortcutLabels, useIsApplePlatform } from "@/lib/keyboard";
 import type { ClientProblem } from "@/lib/types";
 import { ConfirmButton, StageTimer } from "./bits";
 import { CodeEditor } from "./CodeEditor";
 import { JudgeResults } from "./JudgeResults";
-import { codeStorageKey, LANGUAGE_STORAGE_KEY, safeStorage, STAGE_META, type CodeStageState } from "./session";
+import { canGiveUp, codeStorageKey, LANGUAGE_STORAGE_KEY, safeStorage, STAGE_META, type CodeStageState } from "./session";
 
 
 const EDITOR_HEIGHT = "clamp(20rem, 52vh, 34rem)";
@@ -189,7 +190,10 @@ export function CodeStagePanel({
     return () => window.removeEventListener("keydown", onKey);
   }, [onRun, onSubmit, onToggleAi]);
 
+  // Monaco binds CtrlCmd (⌘ on macOS) and toggles Tab focus with Ctrl+Shift+M there: label what actually works.
+  const keys = shortcutLabels(useIsApplePlatform());
   const pythonLoading = language === "python" && pythonStatus === "loading";
+  const giveUpAllowed = running === null && canGiveUp(state, saving);
   const meta = STAGE_META.code;
   const submitsLabel =
     state.submits === 0 ? "No submissions yet" : `${state.submits} submission${state.submits === 1 ? "" : "s"}${state.failedSubmits ? ` · ${state.failedSubmits} failed` : ""}`;
@@ -214,8 +218,8 @@ export function CodeStagePanel({
               type="button"
               onClick={onToggleAi}
               aria-pressed={aiOpen}
-              aria-keyshortcuts="Control+L Meta+L"
-              title={`${aiOpen ? "Hide" : "Show"} the AI assistant (Ctrl/⌘ L)`}
+              aria-keyshortcuts={keys.aria("L")}
+              title={`${aiOpen ? "Hide" : "Show"} the AI assistant (${keys.combo("L")})`}
               className={cn(
                 "inline-flex h-9 items-center gap-1.5 rounded-xl border px-3 text-sm font-medium transition-colors",
                 aiOpen ? "border-synapse bg-synapse/15 text-fg" : "border-line-strong bg-ink-900/80 text-fg-muted hover:border-synapse/60 hover:text-fg",
@@ -225,7 +229,7 @@ export function CodeStagePanel({
                 <path d="M8 1.5 9.4 5.6 13.5 7 9.4 8.4 8 12.5 6.6 8.4 2.5 7l4.1-1.4L8 1.5Zm4.5 8.5.6 1.6 1.6.6-1.6.6-.6 1.6-.6-1.6-1.6-.6 1.6-.6.6-1.6Z" />
               </svg>
               {aiOpen ? "Hide AI" : "Show AI"}
-              <span className="hidden font-mono text-[0.7rem] text-fg-subtle sm:inline">⌘L</span>
+              <span className="hidden font-mono text-[0.7rem] text-fg-subtle sm:inline">{keys.combo("L")}</span>
             </button>
           </div>
         </div>
@@ -238,18 +242,20 @@ export function CodeStagePanel({
             {runtimeLabel(language, pythonStatus, serverLanguages)}
           </span>
           <span className="hidden items-center gap-1.5 2xl:inline-flex">
-            <Kbd>Ctrl</Kbd>
+            <Kbd>{keys.mod}</Kbd>
             <Kbd>&apos;</Kbd> run
             <span className="mx-1 text-fg-faint" aria-hidden="true">
               ·
             </span>
-            <Kbd>Ctrl</Kbd>
+            <Kbd>{keys.mod}</Kbd>
             <Kbd>Enter</Kbd> submit
             <span className="mx-1 text-fg-faint" aria-hidden="true">
               ·
             </span>
-            <Kbd>Ctrl</Kbd>
-            <Kbd>M</Kbd> Tab moves focus
+            {keys.tabFocusKeys.map((key) => (
+              <Kbd key={key}>{key}</Kbd>
+            ))}{" "}
+            Tab moves focus
           </span>
           <ConfirmButton
             size="sm"
@@ -274,7 +280,7 @@ export function CodeStagePanel({
           onRun={onRun}
           onSubmit={onSubmit}
           onToggleAi={onToggleAi}
-          ariaLabel={`${LANGUAGE_LABELS[language]} solution for ${problem.title}. Press Control M to let Tab move focus.`}
+          ariaLabel={`${LANGUAGE_LABELS[language]} solution for ${problem.title}. Press ${keys.tabFocusSpoken} to let Tab move focus.`}
           height={EDITOR_HEIGHT}
           path={`file:///synapse/${problem.id}/solution.${LANGUAGE_EXTENSIONS[language]}`}
         />
@@ -288,8 +294,8 @@ export function CodeStagePanel({
               loading={running === "run"}
               loadingLabel="Running visible tests"
               disabled={running !== null}
-              aria-keyshortcuts="Control+'"
-              title="Run the visible tests (Ctrl+')"
+              aria-keyshortcuts={keys.aria("'")}
+              title={`Run the visible tests (${keys.combo("'")})`}
               leftIcon={
                 <svg aria-hidden="true" viewBox="0 0 12 12" className="h-3 w-3 fill-current">
                   <path d="M3 1.8v8.4a.6.6 0 0 0 .92.5l6.5-4.2a.6.6 0 0 0 0-1L3.92 1.3A.6.6 0 0 0 3 1.8Z" />
@@ -303,8 +309,8 @@ export function CodeStagePanel({
               loading={running === "submit" || saving}
               loadingLabel={saving ? "Saving your attempt" : "Submitting"}
               disabled={running !== null || saving}
-              aria-keyshortcuts="Control+Enter"
-              title="Run every test, hidden ones included (Ctrl+Enter)"
+              aria-keyshortcuts={keys.aria("Enter")}
+              title={`Run every test, hidden ones included (${keys.combo("Enter")})`}
             >
               Submit
             </Button>
@@ -378,7 +384,7 @@ export function CodeStagePanel({
                       Clear
                     </Button>
                   ) : null}
-                  <Button size="sm" variant="ghost" className="h-7 w-7 px-0" onClick={onToggleAi} aria-label="Hide the AI assistant" title="Hide (Ctrl/⌘ L)">
+                  <Button size="sm" variant="ghost" className="h-7 w-7 px-0" onClick={onToggleAi} aria-label="Hide the AI assistant" title={`Hide (${keys.combo("L")})`}>
                     <span aria-hidden="true">×</span>
                   </Button>
                 </>
@@ -464,8 +470,11 @@ export function CodeStagePanel({
             <ConfirmButton
               confirmLabel="Show the solution"
               prompt="Give up? This counts as a struggle and queues drills."
-              onConfirm={onGiveUp}
-              disabled={saving || running !== null}
+              onConfirm={() => {
+                // An open confirm must not record a give-up on top of a submit that is judging, saving or accepted.
+                if (giveUpAllowed) onGiveUp();
+              }}
+              disabled={!giveUpAllowed}
               leftIcon={<span aria-hidden="true">🏳️</span>}
             >
               Give up

@@ -36,9 +36,13 @@ export const PASSING_GRADE = 3;
 
 const MIN_RELEARN_MS = 15_000;
 
-/** 10 minutes at real scale (dayMs / 144), never below 15 s so demo-scale cards stay answerable. */
+/**
+ * 10 minutes at real scale (dayMs / 144), never below 15 s so demo-scale cards
+ * stay answerable, and never above a quarter SRS day, so a failed card always
+ * comes back before a passed one even at a very short SYNAPSE_DAY_MS.
+ */
 export function relearnMs(dayMs: number): number {
-  return Math.max(Math.round(dayMs / 144), MIN_RELEARN_MS);
+  return Math.min(Math.max(Math.round(dayMs / 144), MIN_RELEARN_MS), Math.round(dayMs / 4));
 }
 
 export function schedulerOptions(dayMs: number = DEFAULT_DAY_MS): SchedulerOptions {
@@ -81,17 +85,52 @@ function passingInterval(state: ReviewState, grade: Grade): number {
   const effortless = grade === 5;
   if (state.repetition === 0) return effortless ? EASY_GRADUATING_DAYS : 1;
   if (state.repetition === 1) return effortless ? Math.round(6 * EASY_BONUS) : 6;
-  const scaled = state.intervalDays * state.easeFactor;
-  return Math.round(effortless ? scaled * EASY_BONUS : scaled);
+  return Math.round(state.intervalDays * state.easeFactor * (effortless ? EASY_BONUS : 1));
 }
 
-/** Pure SM-2 step: the same (state, grade, now, opts) always yields the same result. */
+/**
+ * A pass on a learned card before it is due (an IDE drill pulled it forward, a
+ * re-solve, extra practice on a weak tag). As in Anki, an early pass never
+ * shortens the interval, and it only lengthens it by what the elapsed time
+ * proves (elapsed × ease, × 1.3 for Effortless), capped at the on-time step.
+ * Repetition, ease and lapses stay put, so repeated early ❤️s can't inflate
+ * the schedule: the card just restarts its current interval from now.
+ */
+function earlyPass(state: ReviewState, grade: Grade, now: number, opts: SchedulerOptions): ReviewState {
+  const elapsedDays = Math.max(0, now - (state.lastReviewedAt ?? now)) / opts.dayMs;
+  const bonus = grade === 5 ? EASY_BONUS : 1;
+  const earned = Math.min(passingInterval(state, grade), Math.round(elapsedDays * state.easeFactor * bonus));
+  const intervalDays = Math.max(state.intervalDays, earned);
+  return {
+    ...state,
+    intervalDays,
+    dueAt: Math.max(state.dueAt, now + intervalDays * opts.dayMs),
+    lastReviewedAt: now,
+  };
+}
+
+/**
+ * Reviewed before its interval has run out. Measured from the last review, not
+ * dueAt, because a drill (store.scheduleCardsAt) pulls dueAt forward.
+ */
+function isEarlyReview(state: ReviewState, now: number, dayMs: number): boolean {
+  if (state.phase !== "review" || state.lastReviewedAt === null || state.intervalDays <= 0) return false;
+  return Math.max(0, now - state.lastReviewedAt) / dayMs < state.intervalDays;
+}
+
+/**
+ * Pure SM-2 step: the same (state, grade, now, opts) always yields the same result.
+ * A pass before the card is due keeps its schedule (see earlyPass); a fail
+ * before it is due lapses as usual.
+ */
 export function gradeReview(
   state: ReviewState,
   grade: Grade,
   now: number,
   opts: SchedulerOptions = schedulerOptions(),
 ): ReviewState {
+  if (isPassingGrade(grade) && isEarlyReview(state, now, opts.dayMs)) return earlyPass(state, grade, now, opts);
+
   const easeFactor = nextEase(state.easeFactor, grade);
 
   if (isPassingGrade(grade)) {
@@ -127,11 +166,15 @@ const MINUTES_PER_DAY = 1440;
  * "10m", "6h", "4d", "1.5mo", "1.2y". Scale-independent by design.
  */
 export function formatInterval(days: number): string {
-  const minutes = days * MINUTES_PER_DAY;
-  if (minutes < 60) return `${Math.max(1, Math.round(minutes))}m`;
-  if (minutes < MINUTES_PER_DAY) return `${Math.round(minutes / 60)}h`;
-  if (days < 30) return `${Math.round(days)}d`;
-  if (days < 365) return `${trimDecimal(days / 30)}mo`;
+  // Round before picking the unit, so 59.6 minutes reads "1h" (not "60m") and 23h50m reads "1d".
+  const minutes = Math.round(days * MINUTES_PER_DAY);
+  if (minutes < 60) return `${Math.max(1, minutes)}m`;
+  const hours = Math.round(minutes / 60);
+  if (hours < 24) return `${hours}h`;
+  const wholeDays = Math.round(days);
+  if (wholeDays < 30) return `${Math.max(1, wholeDays)}d`;
+  const months = Math.round((days / 30) * 10) / 10;
+  if (days < 365 && months < 12) return `${months}mo`;
   return `${trimDecimal(days / 365)}y`;
 }
 

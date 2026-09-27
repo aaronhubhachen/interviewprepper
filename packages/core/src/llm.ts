@@ -81,7 +81,17 @@ export function resolveLlmProfiles(env: Env): LlmProfile[] {
   });
 }
 
+/**
+ * True inside any Vitest worker. Tests must never reach a real model, even when
+ * vitest runs without a workspace config (whose env sets SYNAPSE_DISABLE_LLM=1)
+ * and the repo .env holds a real key.
+ */
+function runningUnderTest(): boolean {
+  return Boolean(process.env.VITEST);
+}
+
 function activeProfiles(): LlmProfile[] {
+  if (runningUnderTest()) return [];
   loadEnv();
   return resolveLlmProfiles(process.env);
 }
@@ -116,30 +126,66 @@ function configuredTimeoutMs(): number {
   }
 }
 
-/** Pulls the first JSON object out of a model reply that may include code fences or prose. */
+/**
+ * Pulls a JSON object out of a model reply that may include code fences, prose
+ * (even prose with braces in it), <think> reasoning blocks, or trailing commas.
+ * Tries each balanced {...} in order and returns the first that parses.
+ */
 export function extractJson(reply: string): unknown {
   // Only strip a fence wrapping the whole reply: string values may contain Markdown code fences.
   const unfenced = reply
+    .replace(/<think(?:ing)?>[\s\S]*?<\/think(?:ing)?>/gi, "")
     .trim()
     .replace(/^```(?:json)?\s*/i, "")
     .replace(/\s*```$/, "")
     .trim();
+  const direct = parseLenient(unfenced);
+  if (direct !== undefined) return direct;
+  for (const candidate of balancedObjects(unfenced)) {
+    const parsed = parseLenient(candidate);
+    if (parsed !== undefined && parsed !== null && typeof parsed === "object") return parsed;
+  }
+  return undefined;
+}
+
+const TRAILING_COMMA = /,(\s*[}\]])/g;
+
+/** JSON.parse, then once more without trailing commas; undefined when neither parses. */
+function parseLenient(text: string): unknown {
+  if (!text) return undefined;
   try {
-    return JSON.parse(unfenced);
+    return JSON.parse(text);
   } catch {
-    const candidate = firstBalancedObject(unfenced);
-    if (!candidate) return undefined;
+    // Only strip commas outside strings would be exact; replies with ",}" inside a string are rare enough.
+    const repaired = text.replace(TRAILING_COMMA, "$1");
+    if (repaired === text) return undefined;
     try {
-      return JSON.parse(candidate);
+      return JSON.parse(repaired);
     } catch {
       return undefined;
     }
   }
 }
 
-function firstBalancedObject(text: string): string | undefined {
-  const start = text.indexOf("{");
-  if (start < 0) return undefined;
+/** Every top-level balanced {...} span, in order (string-aware, so braces inside JSON strings don't count). */
+function balancedObjects(text: string): string[] {
+  const spans: string[] = [];
+  let from = text.indexOf("{");
+  while (from >= 0 && spans.length < 20) {
+    const end = balancedEnd(text, from);
+    if (end < 0) {
+      from = text.indexOf("{", from + 1);
+      continue;
+    }
+    spans.push(text.slice(from, end + 1));
+    // A prose fragment such as "{hash map + list}" may hide the real object right after it,
+    // and a failed parse of an outer span may still contain a valid inner object.
+    from = text.indexOf("{", from + 1);
+  }
+  return spans;
+}
+
+function balancedEnd(text: string, start: number): number {
   let depth = 0;
   let inString = false;
   for (let i = start; i < text.length; i++) {
@@ -152,10 +198,10 @@ function firstBalancedObject(text: string): string | undefined {
     } else if (ch === "{") {
       depth++;
     } else if (ch === "}" && --depth === 0) {
-      return text.slice(start, i + 1);
+      return i;
     }
   }
-  return undefined;
+  return -1;
 }
 
 export interface CompleteJsonOptions {
@@ -170,9 +216,30 @@ export interface CompleteJsonOptions {
 
 const JSON_ONLY = "\n\nRespond with a single JSON object only: no markdown, no code fences, no commentary.";
 
-/** Muse is a reasoning model; gpt-4o and Groq's Llama reject the reasoning_effort parameter. */
-function acceptsReasoningEffort(profile: LlmProfile): boolean {
-  return profile.provider === "meta" && /^muse/i.test(profile.model);
+/**
+ * OpenAI's reasoning models (o1/o3/o4-mini…, gpt-5…) reject max_tokens (they
+ * take max_completion_tokens) and any non-default temperature.
+ */
+export function isOpenAiReasoningModel(profile: Pick<LlmProfile, "provider" | "model">): boolean {
+  return profile.provider === "openai" && /^(o\d|gpt-5)/i.test(profile.model);
+}
+
+/** Muse and OpenAI reasoning models take reasoning_effort; gpt-4o and Groq's Llama reject it. */
+function acceptsReasoningEffort(profile: Pick<LlmProfile, "provider" | "model">): boolean {
+  return (profile.provider === "meta" && /^muse/i.test(profile.model)) || isOpenAiReasoningModel(profile);
+}
+
+/** Sampling and length parameters in the shape the profile's model accepts. */
+export function completionParams(
+  profile: Pick<LlmProfile, "provider" | "model">,
+  options: Pick<CompleteJsonOptions, "temperature" | "maxTokens" | "reasoningEffort">,
+): Record<string, unknown> {
+  const maxTokens = options.maxTokens ?? 2500;
+  const reasoning = acceptsReasoningEffort(profile)
+    ? { reasoning_effort: options.reasoningEffort ?? "low" }
+    : {};
+  if (isOpenAiReasoningModel(profile)) return { max_completion_tokens: maxTokens, ...reasoning };
+  return { temperature: options.temperature ?? 0.3, max_tokens: maxTokens, ...reasoning };
 }
 
 /**
@@ -198,21 +265,15 @@ export async function completeJson<T>(
     const remaining = deadline - Date.now();
     if (remaining < 250) break;
     try {
-      const response = await clientFor(profile).chat.completions.create(
-        {
-          model: profile.model,
-          messages: [
-            { role: "system", content: system + JSON_ONLY },
-            { role: "user", content: user },
-          ],
-          temperature: options.temperature ?? 0.3,
-          max_tokens: options.maxTokens ?? 2500,
-          ...(acceptsReasoningEffort(profile)
-            ? { reasoning_effort: (options.reasoningEffort ?? "low") as OpenAI.ReasoningEffort }
-            : {}),
-        },
-        { timeout: remaining, maxRetries: 0 },
-      );
+      const body: OpenAI.ChatCompletionCreateParamsNonStreaming = {
+        model: profile.model,
+        messages: [
+          { role: "system", content: system + JSON_ONLY },
+          { role: "user", content: user },
+        ],
+        ...(completionParams(profile, options) as Partial<OpenAI.ChatCompletionCreateParamsNonStreaming>),
+      };
+      const response = await clientFor(profile).chat.completions.create(body, { timeout: remaining, maxRetries: 0 });
       const choice = response.choices[0];
       const parsed = schema.safeParse(extractJson(choice?.message?.content ?? ""));
       if (parsed.success) return parsed.data;

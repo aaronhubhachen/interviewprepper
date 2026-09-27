@@ -8,12 +8,14 @@ import { cn } from "@/lib/cn";
 import type { SparSessionSummary } from "@/lib/types";
 import {
   comparisonFor,
+  mergePracticeStats,
   mergeSessions,
   pickSurprise,
-  practiceStats,
+  practiceSummary,
   resultFromResponse,
   resultFromSession,
   sessionFromResult,
+  type PracticeTotals,
   type SparResultView,
 } from "@/lib/voice/sessions";
 import { useSpeechSynthesis } from "@/lib/voice/useSpeechSynthesis";
@@ -42,6 +44,8 @@ export interface SparStudioProps {
   questions: BehavioralQuestion[];
   /** Server-preloaded history (null: fetch on the client). */
   initialSessions: SparSessionSummary[] | null;
+  /** Per-question practice over every session (the history above is only the latest SESSION_LIMIT). */
+  initialTotals?: PracticeTotals | null;
   /** ?q= deep link. */
   initialQuestionId?: string;
   /** Server render time, so relative times hydrate identically. */
@@ -60,7 +64,7 @@ function syncUrl(questionId: string | null) {
   if (`${window.location.pathname}${window.location.search}` !== url) window.history.replaceState(null, "", url);
 }
 
-export function SparStudio({ questions, initialSessions, initialQuestionId, renderedAt }: SparStudioProps) {
+export function SparStudio({ questions, initialSessions, initialTotals = null, initialQuestionId, renderedAt }: SparStudioProps) {
   const tts = useSpeechSynthesis();
   const [voiceEnabled, setVoiceEnabled] = useStoredBoolean(VOICE_PREF_KEY, true);
   const [now, setNow] = useState(renderedAt);
@@ -82,7 +86,15 @@ export function SparStudio({ questions, initialSessions, initialQuestionId, rend
   const viewTopRef = useRef<HTMLDivElement>(null);
   const [announcement, setAnnouncement] = useState("");
 
-  const stats = useMemo(() => practiceStats(sessions), [sessions]);
+  // Page-load totals over every session, plus anything answered since: "New to you", best scores and
+  // Surprise me must not forget questions that scrolled out of the SESSION_LIMIT history window.
+  const stats = useMemo(() => mergePracticeStats(initialTotals, sessions), [initialTotals, sessions]);
+  const summary = useMemo(() => practiceSummary(stats), [stats]);
+  // Never read the question aloud into a live microphone (SparRoom reports recording / finishing).
+  const roomBusyRef = useRef(false);
+  const onRoomBusyChange = useCallback((busy: boolean) => {
+    roomBusyRef.current = busy;
+  }, []);
 
   // Relative times ("3 min ago") tick without a hydration mismatch.
   useEffect(() => {
@@ -222,7 +234,8 @@ export function SparStudio({ questions, initialSessions, initialQuestionId, rend
     const next = !voiceEnabled;
     setVoiceEnabled(next);
     if (!next) tts.cancel();
-    else if (view.kind === "room" && tts.supported) tts.speak(promptFor(view));
+    // Mid-take, only save the preference: speaking now would be transcribed into the answer.
+    else if (view.kind === "room" && tts.supported && !roomBusyRef.current) tts.speak(promptFor(view));
   };
 
   // ── render ───────────────────────────────────────────────────────────
@@ -235,6 +248,7 @@ export function SparStudio({ questions, initialSessions, initialQuestionId, rend
       onRetry={() => void loadSessions()}
       onOpen={openSession}
       activeId={view.kind === "results" ? view.result.sessionId : null}
+      totals={initialTotals ? summary : null}
       now={now}
     />
   );
@@ -315,6 +329,7 @@ export function SparStudio({ questions, initialSessions, initialQuestionId, rend
               onRetrySubmit={retrySubmit}
               onDismissError={() => setSubmitError(null)}
               onCancelEvaluation={cancelEvaluation}
+              onBusyChange={onRoomBusyChange}
               headingRef={headingRef}
             />
           ) : (

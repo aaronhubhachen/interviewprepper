@@ -8,6 +8,8 @@
  *
  * Grades with the LLM when a key is configured (unless --heuristic or
  * SYNAPSE_DISABLE_LLM=1); every scheduling step is deterministic either way.
+ * The scheduler ticks every 5 s of virtual time (the README demo's
+ * SYNAPSE_TICK_MS), so pushes land exactly when the live agent would send them.
  * Exits non-zero if a scripted check fails. (Not "--offline": npm swallows that
  * flag as its own config option.)
  */
@@ -30,13 +32,17 @@ import {
   type ReviewCard,
   type SynapseStore,
 } from "@synapse/core";
-import { StudyController, type ChatSpace, type Evaluator } from "./controller";
+import { StudyController, type ChatSpace, type Evaluator, type TickResult } from "./controller";
+import { dispatchSpectrumMessage, type InboundMessage } from "./dispatch";
 
 const TZ = "America/Chicago";
 const DAY_MS = 60_000;
 const SECOND = 1_000;
+/** SYNAPSE_TICK_MS in the README's demo settings. */
+const TICK_MS = 5 * SECOND;
 const HOUR = 3_600_000;
 const USER = "me";
+const HANDLE = "+15555550123";
 
 const args = new Set(process.argv.slice(2));
 const offline = args.has("--heuristic");
@@ -47,6 +53,9 @@ const verbose = args.has("--verbose");
 class VirtualClock {
   constructor(private current: number) {}
   now = (): number => this.current;
+  set(at: number): void {
+    this.current = at;
+  }
   advance(ms: number): number {
     this.current += ms;
     return this.current;
@@ -190,22 +199,43 @@ async function main(): Promise<void> {
     log: verbose ? (line) => console.log(`${" ".repeat(14)} ${"· log".padEnd(LABEL_WIDTH)} │ ${line}`) : () => undefined,
   });
 
+  // Inbound messages go through the same dispatch as the live agent (index.ts), as Spectrum-shaped events.
+  let inboundSeq = 0;
+  const deliver = (content: InboundMessage["content"]) =>
+    dispatchSpectrumMessage(
+      controller,
+      space,
+      { id: `sim-in-${++inboundSeq}`, direction: "inbound", sender: { id: HANDLE }, content },
+      { platform: "simulator" },
+    ).done;
+  // Virtual time only moves through wait(), which runs every scheduler tick on the way (like the live agent's timer).
+  let nextTickAt = Number.POSITIVE_INFINITY;
+  const startTicking = () => {
+    nextTickAt = clock.now() + TICK_MS;
+  };
+  const wait = async (ms: number): Promise<TickResult[]> => {
+    const target = clock.now() + ms;
+    const sent: TickResult[] = [];
+    while (nextTickAt <= target) {
+      clock.set(nextTickAt);
+      const mine = (await controller.tick(clock.now())).results.find((result) => result.userId === USER);
+      if (mine?.action === "sent") sent.push(mine);
+      if (verbose && mine && mine.reason !== "outstanding") console.log(`   (tick: ${mine.action}${mine.reason ? ` · ${mine.reason}` : ` · ${mine.cardId}`})`);
+      nextTickAt += TICK_MS;
+    }
+    clock.set(target);
+    return sent;
+  };
   const you = async (text: string, afterMs = 12 * SECOND) => {
-    clock.advance(afterMs);
+    await wait(afterMs);
     bubble(clock, "🙋 You", text);
-    await controller.handleText(space, text, { handle: "+15555550123" });
+    await deliver({ type: "text", text });
   };
   const tap = async (emoji: string, targetId: string | undefined, afterMs = 6 * SECOND) => {
-    clock.advance(afterMs);
+    await wait(afterMs);
     const target = targetId ? space.sent.get(targetId) : undefined;
     bubble(clock, "🙋 You", `(tapped ${emoji} on "${firstLine(target ?? "?")}")`);
-    await controller.handleReaction(space, emoji, targetId, { handle: "+15555550123" });
-  };
-  const tick = async (label: string) => {
-    const report = await controller.tick(clock.now());
-    const mine = report.results.find((result) => result.userId === USER);
-    if (verbose) console.log(`   (tick ${label}: ${mine?.action ?? "none"}${mine?.reason ? ` · ${mine.reason}` : ""})`);
-    return mine;
+    await deliver({ type: "reaction", emoji, target: targetId ? { id: targetId } : null });
   };
   const pendingCard = () => store.getPending(USER)?.cardId;
 
@@ -227,6 +257,7 @@ async function main(): Promise<void> {
   console.log(`   👍 ${lru.title}   ❤️ ${second.title}`);
 
   clock.advance(13 * HOUR);
+  startTicking();
   const code = store.stats(USER, clock.now()).link.linkCode;
   check(code, "dashboard shows a link code");
   narrate(`🌐 Monday morning. The dashboard shows iMessage link code ${code}`);
@@ -257,18 +288,18 @@ async function main(): Promise<void> {
   const relearning = store.getProgress(USER, second.id);
   check(relearning?.phase === "relearning" && relearning.lapses === 1, "'idk' reveals and schedules a relearn (lapse)");
 
-  // 5. The relearn step comes back on the next tick (15s floor at demo scale).
-  narrate("⏳ 20 seconds later, the scheduler ticks");
-  clock.advance(20 * SECOND);
-  const retry = await tick("relearn");
-  check(retry?.action === "sent" && retry.cardId === second.id, "the relearned card comes back on the next tick");
+  // 5. The relearn step comes back ~15 s later (the relearn floor at demo scale), on a 5 s scheduler tick.
+  narrate("⏳ The scheduler keeps ticking every 5 seconds");
+  const retried = await wait(20 * SECOND);
+  check(retried.some((result) => result.cardId === second.id), "the relearned card comes back ~15 s after 'idk'");
+  check(pendingCard() === second.id, "the relearned card is the open probe");
   await you(confidentAnswer(second), 30 * SECOND);
   await tap("👍", space.lastId);
   check(store.getProgress(USER, second.id)?.phase === "review", "👍 after the relearn puts it back in review");
 
   // 6. Deep practice in the browser IDE: a struggle flags weak tags and queues drills.
   if (problem) {
-    clock.advance(40 * SECOND);
+    await wait(40 * SECOND);
     const attempt = store.recordIdeAttempt({
       userId: USER,
       problemId: problem.id,
@@ -287,12 +318,12 @@ async function main(): Promise<void> {
 
     // 7. "Next morning" (one SRS day later at demo scale): briefing + the drill.
     narrate("🌅 One SRS day later (1 virtual minute): the next-morning drill arrives");
-    clock.advance(DAY_MS + SECOND);
-    const drill = await tick("drill");
+    const pushed = await wait(DAY_MS + TICK_MS); // the first tick at or after the drill time
     const drillIds = attempt.drills.map((entry) => entry.cardId);
+    const drill = pushed.find((result) => drillIds.includes(result.cardId ?? ""));
     if (drillIds.length > 0) {
-      check(drill?.action === "sent" && drill.morning === true, "the drill arrives with a Morning Prepr briefing");
-      check(drillIds.includes(drill?.cardId ?? ""), "the probe is the queued drill card");
+      check(drill?.morning === true, "the drill arrives with a Morning Prepr briefing");
+      check(drill !== undefined && pendingCard() === drill.cardId, "the open probe is the queued drill card");
       const drillCard = getCard(drill?.cardId ?? "");
       if (drillCard) {
         await you(drillAnswer(drillCard), 45 * SECOND);
@@ -320,6 +351,6 @@ async function main(): Promise<void> {
 }
 
 main().catch((error: unknown) => {
-  console.error("[prepr-simulate] failed", error);
+  console.error("[synapse-simulate] failed", error);
   process.exit(1);
 });

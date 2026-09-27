@@ -44,6 +44,20 @@ describe("local calendar helpers", () => {
     expect(dayKeyStart("2026-11-02", CHI) - dayKeyStart("2026-11-01", CHI)).toBe(25 * HOUR);
   });
 
+  it("resolves wall times inside a DST gap forward, in every hemisphere", () => {
+    // Zones whose DST starts at midnight: the day starts at 01:00, never on the previous day.
+    expect(localDayKey(dayKeyStart("2026-09-06", "America/Santiago"), "America/Santiago")).toBe("2026-09-06");
+    expect(dayKeyStart("2026-09-06", "America/Santiago")).toBe(Date.UTC(2026, 8, 6, 4)); // 01:00 -03
+    expect(localDayKey(dayKeyStart("2026-03-08", "America/Havana"), "America/Havana")).toBe("2026-03-08");
+    expect(localDayKey(dayKeyStart("2026-10-04", "America/Asuncion"), "America/Asuncion")).toBe("2026-10-04");
+    expect(zonedTimeToEpoch(CHI, 2027, 3, 14, 2, 30)).toBe(Date.UTC(2027, 2, 14, 8, 30)); // 03:30 CDT
+    expect(zonedTimeToEpoch("Europe/London", 2026, 3, 29, 1)).toBe(Date.UTC(2026, 2, 29, 1)); // 02:00 BST
+    expect(zonedTimeToEpoch("Australia/Sydney", 2026, 10, 4, 2, 30)).toBe(Date.UTC(2026, 9, 3, 16, 30)); // 03:30 AEDT
+    // Ordinary and ambiguous (fall-back) times are unchanged.
+    expect(zonedTimeToEpoch(CHI, 2026, 11, 1, 1, 30)).toBe(Date.UTC(2026, 10, 1, 6, 30)); // first 01:30 (CDT)
+    expect(zonedTimeToEpoch("Asia/Kolkata", 2026, 9, 26)).toBe(Date.UTC(2026, 8, 25, 18, 30));
+  });
+
   it("validates time zones", () => {
     expect(isValidTimeZone(CHI)).toBe(true);
     expect(isValidTimeZone("Mars/Olympus_Mons")).toBe(false);
@@ -59,6 +73,11 @@ describe("nextLocalTime", () => {
   it("finds tomorrow morning across the fall-back transition", () => {
     const saturdayEvening = Date.UTC(2026, 10, 1, 1); // Sat Oct 31, 20:00 CDT
     expect(nextLocalTime(saturdayEvening, CHI, 9)).toBe(Date.UTC(2026, 10, 1, 15)); // Sun 09:00 CST
+  });
+
+  it("never returns an hour that the spring-forward gap skipped as an earlier time", () => {
+    const saturdayNoon = zonedTimeToEpoch(CHI, 2027, 3, 13, 12);
+    expect(nextLocalTime(saturdayNoon, CHI, 2)).toBe(Date.UTC(2027, 2, 14, 8)); // Sun 03:00 CDT, not 01:00
   });
 
   it("returns later today when the hour has not passed, else tomorrow", () => {

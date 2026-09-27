@@ -26,6 +26,7 @@ import { SolutionPanel, type SolutionState } from "./SolutionPanel";
 import { StageStepper } from "./StageStepper";
 import { TextStageCard } from "./TextStageCard";
 import {
+  canGiveUp,
   codeAttemptRequest,
   drillMessage,
   LANGUAGE_STORAGE_KEY,
@@ -76,7 +77,8 @@ export function ProblemWorkspace({ problem }: { problem: ClientProblem }) {
   const [weak, setWeak] = useState<ReadonlySet<Tag>>(() => new Set());
   const [viewing, setViewing] = useState<StageKey | null>(null);
   const [evaluating, setEvaluating] = useState<TextStageKey | null>(null);
-  const [evalError, setEvalError] = useState<{ stage: TextStageKey; message: string } | null>(null);
+  /** `revealed`: the failed request was "I'm stuck", so Retry reveals again instead of grading the draft. */
+  const [evalError, setEvalError] = useState<{ stage: TextStageKey; message: string; revealed: boolean } | null>(null);
   const [saving, setSaving] = useState<{ stage: StageKey; rating?: Rating } | null>(null);
   const [saveError, setSaveError] = useState<SaveError | null>(null);
   const [solution, setSolution] = useState<SolutionState>({ status: "idle" });
@@ -244,7 +246,7 @@ export function ProblemWorkspace({ problem }: { problem: ClientProblem }) {
           },
         });
       } catch (error) {
-        setEvalError({ stage, message: errorMessage(error) });
+        setEvalError({ stage, message: errorMessage(error), revealed });
       } finally {
         setEvaluating(null);
       }
@@ -305,8 +307,11 @@ export function ProblemWorkspace({ problem }: { problem: ClientProblem }) {
     }
   }, [problem.id]);
 
+  // Synchronous "a code attempt is being saved" flag (state lags a render behind the click that races it).
+  const codeSavingRef = useRef(false);
   const saveCode = useCallback(
     async (request: PracticeAttemptRequest, meta: { completed: boolean; gaveUp: boolean; activeMs: number }): Promise<boolean> => {
+      codeSavingRef.current = true;
       setSaving({ stage: "code" });
       setSaveError(null);
       try {
@@ -335,6 +340,7 @@ export function ProblemWorkspace({ problem }: { problem: ClientProblem }) {
         });
         return false;
       } finally {
+        codeSavingRef.current = false;
         setSaving(null);
       }
     },
@@ -365,6 +371,8 @@ export function ProblemWorkspace({ problem }: { problem: ClientProblem }) {
 
   const giveUp = useCallback(async () => {
     const current = sessionRef.current;
+    // Never record a give-up while a save is in flight or on top of an accepted submit (saved or not).
+    if (!canGiveUp(current.code, codeSavingRef.current)) return;
     const last = current.code.lastSubmit ?? current.code.last;
     const activeMs = elapsed();
     const request = codeAttemptRequest(current, { passed: false, gaveUp: true, testsPassed: last?.passed, testsTotal: last?.total, activeMs });
@@ -526,6 +534,7 @@ export function ProblemWorkspace({ problem }: { problem: ClientProblem }) {
                     readOnly={session[displayed].sync !== null}
                     evaluating={evaluating === displayed}
                     evalError={evalError?.stage === displayed ? evalError.message : null}
+                    evalErrorRevealed={evalError?.stage === displayed && evalError.revealed}
                     saving={saving?.stage === displayed ? (saving.rating ?? null) : null}
                     saveError={saveError?.stage === displayed ? saveError.message : null}
                     getElapsed={elapsed}

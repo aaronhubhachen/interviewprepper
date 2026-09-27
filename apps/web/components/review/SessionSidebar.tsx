@@ -1,8 +1,8 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useId, useMemo } from "react";
-import { tagLabel, tagsWithContent, type Tag } from "@synapse/core/content";
+import { useId } from "react";
+import { TAG_IDS, tagLabel, type Tag } from "@synapse/core/tags";
 import { TAPBACK_EMOJI } from "@synapse/core/tapback";
 import { Card, CardHeader } from "@/components/ui/Card";
 import { Kbd } from "@/components/ui/Kbd";
@@ -17,12 +17,13 @@ export interface SessionSidebarProps {
   queue: QueueCounts | null;
   current: Turn | undefined;
   mode: "due" | "bonus";
+  /** Patterns offered in the picker (tags that have cards; computed on the server). */
+  tagOptions?: readonly Tag[];
 }
 
-export function SessionSidebar({ tag, tally, queue, current, mode }: SessionSidebarProps) {
+export function SessionSidebar({ tag, tally, queue, current, mode, tagOptions = TAG_IDS }: SessionSidebarProps) {
   const router = useRouter();
   const selectId = useId();
-  const tags = useMemo(() => tagsWithContent(), []);
   const reviewed = tally.love + tally.like + tally.dislike;
   const recalled = tally.love + tally.like;
 
@@ -86,7 +87,7 @@ export function SessionSidebar({ tag, tally, queue, current, mode }: SessionSide
           className="h-10 w-full rounded-xl border border-line-strong bg-ink-800 px-3 text-sm text-fg focus:border-synapse/70"
         >
           <option value="">All due cards</option>
-          {tags.map((entry) => (
+          {tagOptions.map((entry) => (
             <option key={entry} value={entry}>
               {tagLabel(entry)}
             </option>

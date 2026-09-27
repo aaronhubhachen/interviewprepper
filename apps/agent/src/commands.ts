@@ -39,7 +39,8 @@ const PHRASES: Readonly<Record<SimpleCommand, readonly string[]>> = {
     "hi synapse",
     "hello synapse",
   ],
-  start: ["start", "begin", "get started", "lets go", "lets start", "subscribe", "sign me up", "start prepr", "start synapse"],
+  // Literal only: "lets go" / "begin" are everyday texts on a shared line, and 'start' signs the texter up for pushes.
+  start: ["start", "start prepr", "start synapse"],
   more: [
     "more",
     "next",
@@ -107,18 +108,46 @@ export function normalizeCommandText(text: string): string {
 }
 
 /**
+ * "link", "link 482193", "link code 482193", "link 482 193". The remainder must be
+ * digits, so an answer like "Link the smaller head each step" stays an answer.
+ * Wrong-length codes still parse (the controller explains the 6-digit format).
+ */
+function parseLink(normalized: string): Command | undefined {
+  const match = /^link(?: (.+))?$/.exec(normalized);
+  if (!match) return undefined;
+  if (match[1] === undefined) return { type: "link", code: null };
+  const code = match[1].replace(/^code\b/, "").replace(/\s+/g, "");
+  if (code === "") return { type: "link", code: null };
+  return /^\d{1,12}$/.test(code) ? { type: "link", code } : undefined;
+}
+
+/**
  * Exact-phrase commands only, so a real answer is never mistaken for one.
  * Case-insensitive and tolerant of punctuation, emoji, "/more" slash syntax and
- * a leading "Prepr" (or legacy "Synapse").
+ * a leading "prepr" (or the legacy "synapse").
  */
 export function parseCommand(text: string): Command | undefined {
   const normalized = normalizeCommandText(text);
   if (!normalized) return undefined;
-  const link = /^link(?: (.+))?$/.exec(normalized);
-  if (link) return { type: "link", code: link[1]?.replace(/\s+/g, "") ?? null };
+  const link = parseLink(normalized);
+  if (link) return link;
   const type = PHRASE_TO_COMMAND.get(normalized);
   return type ? ({ type } as Command) : undefined;
 }
+
+/**
+ * Autocomplete entries for the terminal (tuichat) provider. Its config schema
+ * requires names that start with "/"; parseCommand strips the slash.
+ */
+export const TERMINAL_COMMANDS: readonly { name: `/${string}`; description: string }[] = [
+  { name: "/more", description: "Next flashcard" },
+  { name: "/hint", description: "A nudge for the open card" },
+  { name: "/idk", description: "Reveal the answer" },
+  { name: "/skip", description: "Skip the open card" },
+  { name: "/why", description: "Explain the last card" },
+  { name: "/stats", description: "Your progress" },
+  { name: "/help", description: "Everything Prepr can do" },
+];
 
 /**
  * A text that is really a tapback: an emoji-only message ("❤️", "?", "!!") or a

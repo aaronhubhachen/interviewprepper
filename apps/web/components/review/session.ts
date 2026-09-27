@@ -8,7 +8,16 @@
  * ReviewSession component; this module only decides what the UI shows.
  */
 import type { IntervalPreview, Rating } from "@synapse/core/sm2";
-import type { QueueCounts, ReviewEvaluateResponse, ReviewGradeResponse, ReviewNextCard, ReviewNextEmpty } from "@/lib/types";
+import type { BonusQuery, RequestOptions } from "@/lib/api";
+import type {
+  QueueCounts,
+  ReviewEvaluateResponse,
+  ReviewGradeResponse,
+  ReviewNextCard,
+  ReviewNextEmpty,
+  ReviewNextQuery,
+  ReviewNextResponse,
+} from "@/lib/types";
 
 export type SessionMode = "due" | "bonus";
 
@@ -65,7 +74,9 @@ export type SessionAction =
   | { type: "skip" }
   | { type: "error"; scope: SessionError["scope"]; message: string }
   | { type: "dismissError" }
-  | { type: "bonus" };
+  | { type: "bonus" }
+  /** "Review skipped cards": forget this session's skips and load again. */
+  | { type: "unskip" };
 
 export function initialSession(mode: SessionMode = "due"): SessionState {
   return {
@@ -194,9 +205,97 @@ export function sessionReducer(state: SessionState, action: SessionAction): Sess
     case "bonus":
       return { ...state, mode: "bonus", phase: "loading", empty: null, exhausted: false, error: null };
 
+    case "unskip":
+      if (state.skipped.length === 0) return state;
+      return { ...state, skipped: [], phase: "loading", empty: null, exhausted: false, error: null };
+
     default:
       return state;
   }
+}
+
+// ── waiting for cards (queue empty, or the last load failed) ──────────────
+
+/** Background re-check cadence while the queue is empty (new-card windows roll at demo scale). */
+export const IDLE_RECHECK_MS = 30_000;
+/** Wait this long past nextDueAt, so the card is due by the server's clock too. */
+export const DUE_SLACK_MS = 750;
+/** Floor for the due-time re-check (never a hot loop when clocks disagree). */
+export const MIN_RECHECK_MS = 1_000;
+/** setTimeout's ceiling (about 24.8 days); later due times are left to the idle re-check. */
+const MAX_TIMEOUT_MS = 2_147_483_647;
+
+/** The session has nothing to show and should look again by itself (done, or a failed "next" load). */
+export function awaitingCards(state: SessionState): boolean {
+  return state.phase === "done" || (state.phase === "error" && state.error?.scope === "next");
+}
+
+/** Milliseconds until the next scheduled card is due (plus slack), or null when nothing is scheduled. */
+export function dueRecheckDelay(nextDueAt: number | null | undefined, now: number): number | null {
+  if (nextDueAt === null || nextDueAt === undefined || !Number.isFinite(nextDueAt)) return null;
+  const delay = Math.max(MIN_RECHECK_MS, nextDueAt - now + DUE_SLACK_MS);
+  return delay > MAX_TIMEOUT_MS ? null : delay;
+}
+
+export interface CardFetchers {
+  next: (query: ReviewNextQuery, options?: RequestOptions) => Promise<ReviewNextResponse>;
+  bonus: (query: BonusQuery, options?: RequestOptions) => Promise<ReviewNextResponse>;
+}
+
+/**
+ * The next card for this session. Bonus mode ("Study new cards") still asks the
+ * regular queue first, so due reviews, IDE drills and 👎 relearns that come due
+ * mid-session win over unseen cards; bonus cards only fill the gaps.
+ */
+export async function fetchSessionCard(
+  mode: SessionMode,
+  query: { tag?: ReviewNextQuery["tag"]; exclude: string[] },
+  fetchers: CardFetchers,
+  options?: RequestOptions,
+): Promise<ReviewNextResponse> {
+  const next = await fetchers.next(query, options);
+  if (mode !== "bonus" || next.card !== null) return next;
+  return fetchers.bonus(query, options);
+}
+
+export interface DoneCopy {
+  icon: string;
+  title: string;
+  description: string;
+}
+
+/**
+ * Headline for the empty queue. Skipped cards are still due (the server just
+ * excludes them), so the copy says so instead of "All caught up".
+ */
+export function doneCopy(state: Pick<SessionState, "exhausted" | "skipped" | "empty" | "queue">, label: string | null): DoneCopy {
+  const nextIn = state.empty?.nextDueIn ?? null;
+  const skipped = state.skipped.length;
+  if (skipped > 0) {
+    return {
+      icon: "⏭️",
+      title: `You skipped ${skipped === 1 ? "1 card" : `${skipped} cards`}`,
+      description: `${skipped === 1 ? "It's" : "They're"} still in your queue: review ${skipped === 1 ? "it" : "them"} now, or come back later.`,
+    };
+  }
+  if (state.exhausted) {
+    const dueNow = state.queue?.dueNow ?? 0;
+    return {
+      icon: "🏆",
+      title: label ? `You've seen every ${label} card` : "You've seen every card",
+      description:
+        dueNow > 0 && !label
+          ? `${dueNow === 1 ? "A review is" : `${dueNow} reviews are`} due now and will appear here in a moment.`
+          : nextIn
+            ? `Your next review is due in ${nextIn}. It will appear here then.`
+            : "Reviews will appear here as they come due.",
+    };
+  }
+  return {
+    icon: "🎉",
+    title: label ? `Nothing due in ${label}` : "All caught up",
+    description: nextIn ? `Next card due in ${nextIn}. It will appear here then.` : "Nothing is scheduled yet.",
+  };
 }
 
 /** Cards graded this session. */

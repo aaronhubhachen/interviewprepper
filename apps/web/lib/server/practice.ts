@@ -23,6 +23,7 @@ import type {
   TextStage,
 } from "@/lib/types";
 import { forbidden, notFound } from "./http";
+import { withLlmBudget } from "./llm-budget";
 import { intervalLabel, ratingForGrade, tagRefs, toAttemptSummary, toClientProblem } from "./serialize";
 
 const STAGE_ORDER: readonly IdeStage[] = ["invariant", "edgeCase", "code"];
@@ -101,19 +102,18 @@ export function problemSolution(store: SynapseStore, userId: string, idOrSlug: s
   };
 }
 
-export async function evaluatePractice(input: {
-  problemId: string;
-  stage: TextStage;
-  answer: string;
-}): Promise<PracticeEvaluateResponse> {
+export async function evaluatePractice(
+  input: { problemId: string; stage: TextStage; answer: string },
+  now: number,
+): Promise<PracticeEvaluateResponse> {
   const problem = requireProblem(input.problemId);
   const stage = problem.stages[input.stage];
-  const evaluation = await evaluateAnswer({
-    question: stage.prompt,
-    answerKey: stage.answerKey,
-    keyPoints: stage.keyPoints,
-    answer: input.answer,
-  });
+  const evaluation = await withLlmBudget(now, (useLlm) =>
+    evaluateAnswer(
+      { question: stage.prompt, answerKey: stage.answerKey, keyPoints: stage.keyPoints, answer: input.answer },
+      { useLlm },
+    ),
+  );
   return {
     problemId: problem.id,
     stage: input.stage,
@@ -192,7 +192,9 @@ export function recordAttempt(store: SynapseStore, userId: string, now: number, 
       sentences.push(`Flagged ${joinLabels(flaggedTags.map((t) => t.label))} as ${spots}.`);
       sentences.push(`Prepr will text you ${drills} ${scheduled.dueLabel ?? "soon"}.`);
     } else {
-      sentences.push(`${scheduled.cardIds.length === 1 ? "A drill is" : "Drills are"} already queued for ${scheduled.dueLabel ?? "later"}.`);
+      // dueLabel reads "shortly", "in 1 min" or "tomorrow at 9 AM", so "will arrive …" fits every form.
+      const queued = scheduled.cardIds.length === 1 ? "A drill is already queued and will arrive" : "Drills are already queued and will arrive";
+      sentences.push(`${queued} ${scheduled.dueLabel ?? "soon"}.`);
     }
   } else if (result.struggled && problem.weakTags.length > 0) {
     sentences.push(`Noted: ${joinLabels(problem.weakTags.map(tagLabel))} needs more reps.`);

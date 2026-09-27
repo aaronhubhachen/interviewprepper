@@ -1,7 +1,7 @@
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { allCards, openStore, WEAK_MAX_SCORE, WEAK_THRESHOLD, zonedTimeToEpoch, type SynapseStore } from "@synapse/core";
-import { GET as activityGET } from "@/app/api/dashboard-review/activity/route";
-import { GET as bonusGET } from "@/app/api/dashboard-review/bonus/route";
+import { GET as activityGET } from "@/app/api/activity/route";
+import { GET as bonusGET } from "@/app/api/review/bonus/route";
 import { setClockForTests, setStoreForTests, setUserForTests } from "@/lib/server/store";
 import type { ApiErrorBody, ReviewNextCard, ReviewNextResponse } from "@/lib/types";
 import type { ReviewActivityResponse } from "./activity-data";
@@ -30,7 +30,7 @@ afterAll(() => {
 
 const get = (url: string) => new Request(`http://localhost${url}`);
 
-describe("GET /api/dashboard-review/activity", () => {
+describe("GET /api/activity", () => {
   it("splits reviews by surface per local day", async () => {
     const [a, b, c] = allCards();
     store.ensureUser("me", T0);
@@ -38,7 +38,7 @@ describe("GET /api/dashboard-review/activity", () => {
     store.gradeCard({ userId: "me", cardId: b!.id, grade: 1, source: "web", now: T0 - 60_000 });
     store.gradeCard({ userId: "me", cardId: c!.id, grade: 3, source: "ide", now: T0 - 30_000 });
 
-    const response = await activityGET(get("/api/dashboard-review/activity"), NO_CTX);
+    const response = await activityGET(get("/api/activity"), NO_CTX);
     expect(response.status).toBe(200);
     expect(response.headers.get("cache-control")).toBe("no-store");
     const body = (await response.json()) as ReviewActivityResponse;
@@ -59,20 +59,20 @@ describe("GET /api/dashboard-review/activity", () => {
   });
 
   it("returns empty buckets for a fresh user", async () => {
-    const body = (await (await activityGET(get("/api/dashboard-review/activity"), NO_CTX)).json()) as ReviewActivityResponse;
+    const body = (await (await activityGET(get("/api/activity"), NO_CTX)).json()) as ReviewActivityResponse;
     expect(body.totals.reviews).toBe(0);
     expect(body.buckets.every((bucket) => bucket.reviews === 0)).toBe(true);
   });
 });
 
-describe("GET /api/dashboard-review/bonus", () => {
+describe("GET /api/review/bonus", () => {
   it("serves unseen cards past the daily new-card cap", async () => {
     // Spend the cap (newPerDay = 2) via the normal queue.
     for (const card of allCards().slice(0, 2))
       store.gradeCard({ userId: "me", cardId: card.id, grade: 5, source: "web", now: T0 });
     expect(store.nextCard("me", T0)).toBeNull();
 
-    const response = await bonusGET(get("/api/dashboard-review/bonus"), NO_CTX);
+    const response = await bonusGET(get("/api/review/bonus"), NO_CTX);
     expect(response.status).toBe(200);
     const body = (await response.json()) as ReviewNextCard;
     expect(body.card).not.toBeNull();
@@ -92,19 +92,19 @@ describe("GET /api/dashboard-review/bonus", () => {
   it("honours tag and exclude, and reports exhaustion", async () => {
     const tagged = allCards().filter((card) => card.tags.includes("hashing"));
     expect(tagged.length).toBeGreaterThan(0);
-    const first = (await (await bonusGET(get("/api/dashboard-review/bonus?tag=hashing"), NO_CTX)).json()) as ReviewNextCard;
+    const first = (await (await bonusGET(get("/api/review/bonus?tag=hashing"), NO_CTX)).json()) as ReviewNextCard;
     expect(first.card.tags).toContain("hashing");
 
     const exclude = tagged.map((card) => card.id).join(",");
     const none = (await (
-      await bonusGET(get(`/api/dashboard-review/bonus?tag=hashing&exclude=${exclude}`), NO_CTX)
+      await bonusGET(get(`/api/review/bonus?tag=hashing&exclude=${exclude}`), NO_CTX)
     ).json()) as ReviewNextResponse;
     expect(none.card).toBeNull();
     expect(none).toHaveProperty("queue");
   });
 
   it("rejects unknown tags", async () => {
-    const response = await bonusGET(get("/api/dashboard-review/bonus?tag=nope"), NO_CTX);
+    const response = await bonusGET(get("/api/review/bonus?tag=nope"), NO_CTX);
     expect(response.status).toBe(400);
     const body = (await response.json()) as ApiErrorBody;
     expect(body.error.code).toBe("invalid_request");

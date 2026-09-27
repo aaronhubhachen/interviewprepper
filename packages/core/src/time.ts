@@ -104,7 +104,9 @@ function zoneOffsetMs(epoch: number, timeZone: string): number {
 
 /**
  * Epoch ms of a local wall-clock time. Ambiguous fall-back times resolve to one
- * of the two instants; nonexistent spring-forward times shift by the DST gap.
+ * of the two instants; nonexistent spring-forward times move forward by the DST
+ * gap (Chicago 02:30 → 03:30 CDT, Santiago's skipped midnight → 01:00), so the
+ * start of a day never lands on the previous day.
  */
 export function zonedTimeToEpoch(
   timeZone: string,
@@ -115,9 +117,15 @@ export function zonedTimeToEpoch(
   minute = 0,
 ): number {
   const wallClock = Date.UTC(year, month - 1, day, hour, minute);
-  const firstGuess = wallClock - zoneOffsetMs(wallClock, timeZone);
+  const firstOffset = zoneOffsetMs(wallClock, timeZone);
+  const firstGuess = wallClock - firstOffset;
   const correctedOffset = zoneOffsetMs(firstGuess, timeZone);
-  return wallClock - correctedOffset;
+  const resolved = wallClock - correctedOffset;
+  if (correctedOffset === firstOffset) return resolved;
+  const p = localParts(resolved, timeZone);
+  if (Date.UTC(p.year, p.month - 1, p.day, p.hour, p.minute) === wallClock) return resolved;
+  // The wall time falls in a DST gap: of the two candidate offsets, the later instant is past the gap.
+  return Math.max(wallClock - firstOffset, wallClock - correctedOffset);
 }
 
 export function startOfLocalDay(now: number, timeZone: string): number {

@@ -1,7 +1,7 @@
 /**
  * "Study new cards" after the queue is empty: pick the next never-seen card,
  * ignoring the daily new-card cap (like Anki's custom study). Pure and
- * browser-safe; the /api/dashboard-review/bonus route feeds it the store state.
+ * browser-safe; the /api/review/bonus route feeds it the store state.
  */
 import type { CardKind, Tag } from "@synapse/core/content";
 

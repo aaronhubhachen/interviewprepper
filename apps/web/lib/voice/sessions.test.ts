@@ -1,11 +1,15 @@
 import { analyzeTranscript, heuristicSparScores, overallScore } from "@synapse/core/transcript";
 import { describe, expect, it } from "vitest";
 import type { BehavioralFeedback, SparSessionSummary } from "@/lib/types";
+import { historySummary } from "@/components/spar/SessionHistory";
 import {
   comparisonFor,
+  mergePracticeStats,
   mergeSessions,
   pickSurprise,
   practiceStats,
+  practiceSummary,
+  practiceTotals,
   resultFromSession,
   scoreTrend,
   sessionFromResult,
@@ -83,6 +87,37 @@ describe("session view models", () => {
     expect(stats.get("bq-a")).toEqual({ count: 2, best: 75, lastAt: 3000 });
     expect(stats.get("bq-b")?.count).toBe(1);
     expect(stats.get("bq-c")).toBeUndefined();
+  });
+
+  it("keeps practice from sessions older than the history window", () => {
+    // 32 sessions over 16 questions (round 1 + follow-up each); the history list only holds the latest 30.
+    const all = Array.from({ length: 32 }, (_, index) => session(index + 1, `bq-${Math.floor(index / 2)}`, 1000 * (index + 1), 50 + (index % 7)));
+    const recent = [...all].reverse().slice(0, 30);
+    const totals = practiceTotals(all);
+    expect(totals.throughId).toBe(32);
+
+    // From the truncated list alone, the first question looks brand new.
+    expect(practiceStats(recent).has("bq-0")).toBe(false);
+    const stats = mergePracticeStats(totals, recent);
+    expect(stats.get("bq-0")).toEqual({ count: 2, best: 51, lastAt: 2000 });
+    expect(pickSurprise([{ id: "bq-0" }, { id: "bq-new" }], stats, () => 0)?.id).toBe("bq-new");
+    expect(practiceSummary(stats)).toEqual({ count: 32, best: 56 });
+
+    // A session answered after page load is added on top, once.
+    const fresh = session(33, "bq-0", 99_000, 90);
+    const after = mergePracticeStats(totals, mergeSessions(recent, fresh));
+    expect(after.get("bq-0")).toEqual({ count: 3, best: 90, lastAt: 99_000 });
+    expect(practiceSummary(after).count).toBe(33);
+
+    // Without server totals it falls back to the list.
+    expect(mergePracticeStats(null, recent)).toEqual(practiceStats(recent));
+  });
+
+  it("labels the history header with every answer, or as recent without totals", () => {
+    const recent = [session(2, "bq-a", 2000, 70), session(1, "bq-a", 1000, 40)];
+    expect(historySummary(recent, { count: 32, best: 88 })).toBe("32 answers · best 88");
+    expect(historySummary(recent, null)).toBe("2 recent answers · best 70");
+    expect(historySummary([], null)).toBeNull();
   });
 
   it("surprises with the least-practiced question and skips the current one", () => {

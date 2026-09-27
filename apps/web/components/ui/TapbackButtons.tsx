@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, type RefObject } from "react";
 import type { IntervalPreview, Rating } from "@synapse/core/sm2";
 import type { TextGrade } from "@synapse/core/tapback";
 import { cn } from "@/lib/cn";
+import { isWithinScope } from "@/lib/keyboard";
 import { Kbd } from "./Kbd";
 import { Spinner } from "./Spinner";
 
@@ -54,8 +55,13 @@ export interface TapbackButtonsProps {
   suggested?: Rating;
   /** Marks the rating the user picked (after submitting). */
   selected?: Rating;
-  /** Listen for 3 / 2 / 1 on the window (ignored while typing in inputs). Default true. */
+  /**
+   * 3 / 2 / 1 shortcuts (ignored while typing in inputs). Default true. They only fire while focus is
+   * inside `keyboardScope` (WCAG 2.1.4), so a stray key elsewhere on the page never records a grade.
+   */
   keyboard?: boolean;
+  /** Element that must contain focus for the shortcuts (e.g. the card around the buttons). Default: the button group. */
+  keyboardScope?: RefObject<HTMLElement | null>;
   size?: "md" | "lg";
   /** Accessible group label. */
   label?: string;
@@ -78,12 +84,14 @@ export function TapbackButtons({
   suggested,
   selected,
   keyboard = true,
+  keyboardScope,
   size = "md",
   label = "How confident was your recall?",
   className,
 }: TapbackButtonsProps) {
   const inactive = disabled || loading !== false;
   const onRateRef = useRef(onRate);
+  const groupRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     onRateRef.current = onRate;
   }, [onRate]);
@@ -93,6 +101,7 @@ export function TapbackButtons({
     const handler = (event: KeyboardEvent) => {
       if (event.defaultPrevented || event.repeat || event.altKey || event.ctrlKey || event.metaKey) return;
       if (isTypingTarget(event.target)) return;
+      if (!isWithinScope(keyboardScope?.current ?? groupRef.current, event.target)) return;
       const option = TAPBACK_OPTIONS.find((candidate) => candidate.key === event.key);
       if (!option) return;
       event.preventDefault();
@@ -100,10 +109,10 @@ export function TapbackButtons({
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [keyboard, inactive]);
+  }, [keyboard, inactive, keyboardScope]);
 
   return (
-    <div role="group" aria-label={label} className={cn("grid grid-cols-3 gap-2 sm:gap-3", className)}>
+    <div ref={groupRef} role="group" aria-label={label} className={cn("grid grid-cols-3 gap-2 sm:gap-3", className)}>
       {TAPBACK_OPTIONS.map((option) => {
         const tone = TONES[option.rating];
         const isLoading = loading === option.rating;

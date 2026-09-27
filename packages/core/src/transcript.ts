@@ -72,24 +72,51 @@ const LITERAL_LIKE_AFTER = new Set([
   "things", "stuff", "dont", "didnt", "doesnt", "not", "really", "just", "more", "much", "exactly",
 ]);
 
-const I_WORDS = new Set(["i", "im", "ive", "id", "ill", "my", "me", "myself", "mine"]);
+/**
+ * First-person subject forms only: "my team did X" and "my manager asked me" describe
+ * other people's actions, so my/me/mine don't count as ownership.
+ */
+const I_WORDS = new Set(["i", "im", "ive", "id", "ill"]);
 // "we're"/"we'll" are skipped: without apostrophes they collide with "were"/"well".
 const WE_WORDS = new Set(["we", "weve", "our", "us", "ourselves", "ours"]);
+/** "my team shipped it" credits the team, so it counts on the "we" side. */
+const MY_GROUP_PATTERN = /\bmy (team|teammates?|manager|lead|tech lead|boss|colleagues?|coworkers?|co-workers?|org|squad|group|peers?)\b/g;
+
+/** Adverbs that sit between "I" and the verb: "I also added", "I first profiled", "I quickly wrote". */
+const ACTION_ADVERBS = "(?:(?:also|then|first|just|quickly|actually|eventually|finally|personally|immediately|really|carefully|manually|\\w+ly) ){0,2}";
+const ACTION_VERBS =
+  "decided|built|implemented|wrote|designed|led|proposed|created|set up|organized|reached out|refactored|analyzed|debugged|investigated|scheduled|talked|met|started|introduced|migrated|added|automated|profiled|rewrote|pushed|drove|convinced|prototyped|benchmarked|documented|split|paired|escalated|rolled back|fixed|shipped|presented|suggested|asked|went|made|took|ran|set|put|got|found|gave|brought|sent|chose|broke|kept|held|told|spoke|did|began|caught|taught|sought|dug|cut|built out|spun up|wrapped|owned";
+/** Past-tense "-ed" verbs that state a goal, wish, feeling or background rather than an action. */
+const NON_ACTION_ED =
+  "needed|wanted|hoped|liked|loved|hated|expected|assumed|supposed|believed|worried|wished|seemed|used(?= to\\b)|joined|noticed|learned|realized|imagined|enjoyed|struggled|panicked";
 
 const STAR_CUES: Readonly<Record<StarPart, RegExp>> = {
   situation:
     /\b(when i was|while i was|at my (last |previous |current |first )?(job|company|internship|team|role|startup)|last (year|summer|semester|quarter|spring|fall)|during my|our team|my team|the situation|the context|for context|background|we were|i was working|i was an? |i was on|at (google|meta|amazon|microsoft|apple|a startup))/,
   task: /\b(my (goal|task|job|role|responsibility) was|i was (responsible|tasked|asked|assigned|in charge)|i (needed|had) to|the (goal|task|challenge|problem|ask) was|i owned|objective|we needed to|deadline)/,
-  action:
-    /\bi (decided|built|implemented|wrote|designed|led|proposed|created|set up|organized|reached out|refactored|analyzed|debugged|investigated|scheduled|talked|met|started|introduced|migrated|added|automated|profiled|rewrote|pushed|drove|convinced|prototyped|benchmarked|documented|split|paired|escalated|rolled back|fixed|shipped|presented|suggested|asked|went)\b/,
+  action: new RegExp(`\\bi ${ACTION_ADVERBS}(?:(?:${ACTION_VERBS})\\b|(?!(?:${NON_ACTION_ED})\\b)[a-z]{2,}ed\\b)`),
   result: /\b(as a result|the result|resulted in|in the end|ultimately|outcome|end result|now we|going forward|since then)\b/,
 };
 
-/** Outcome verbs also appear in goals ("my goal was to cut latency"), so they only count from the end. */
-const WEAK_RESULT_CUE = /\b(reduced|increased|improved|saved|shipped|launched|cut|dropped|fell|grew|doubled|halved|learned)\b/;
+/**
+ * Outcome verbs also appear in goals ("my goal was to cut latency") and in the
+ * problem statement ("p99 went from 200 ms to 2 s"), so they only count from the end.
+ */
+const WEAK_RESULT_CUE =
+  /\b(reduced|increased|improved|saved|shipped|launched|cut|dropped|fell|grew|doubled|halved|learned|stopped|went (from|down|up)|from \$?\d[\d,.]*\s?[a-z%]*\s+(down |up )?to \$?\d)/;
 
 const METRIC_PATTERN =
-  /(\$\s?\d[\d,.]*\s?[km]?|\b\d[\d,.]*\s?(%|percent|x\b|times\b|ms\b|milliseconds|seconds|minutes|hours|days|weeks|months|users|customers|requests|queries|engineers|dollars|k\b|million|thousand|hundred)|\b(doubled|tripled|halved)\b)/gi;
+  /(\$\s?\d[\d,.]*\s?[km]?|\b\d[\d,.]*\s?(%|percent|x\b|times\b|ms\b|milliseconds|seconds|minutes|hours|days|weeks|months|users|customers|requests|queries|engineers|people|developers|dollars|k\b|million|thousand|hundred)|\b(doubled|tripled|halved)\b)/gi;
+
+/** Headcounts describe the setting ("a team of 5 engineers"); they are impact only next to a change phrase. */
+const HEADCOUNT_METRIC = /\b(engineers|people|developers)$/i;
+
+/** A change phrase in the same sentence makes a number an outcome ("cut latency by 40%", "from 6 s to 2 s"). */
+const CHANGE_PHRASE =
+  /\b(reduc|cut|improv|increas|decreas|dropp|drop|fell|grew|grow|sav|sped|speed|faster|slower|lower|higher|shrank|halv|doubl|tripl|boost|went (from|down|up)|down to|from \$?\d[\d,.]*\s?[a-z%]*\s+(down |up )?to|by \$?\d)/;
+
+/** Non-global twin of METRIC_PATTERN for .test(). */
+const HAS_METRIC = new RegExp(METRIC_PATTERN.source, "i");
 
 const TRADEOFF_PATTERN =
   /\b(trade-?offs?|trade offs?|instead of|on the other hand|downside|at the cost of|versus|vs|pros and cons|we considered|i considered|alternatively|alternative|weighed|compromise)\b/g;
@@ -148,18 +175,55 @@ function clip(text: string, maxChars = 140): string {
   return single.length <= maxChars ? single : `${single.slice(0, maxChars - 1).trimEnd()}…`;
 }
 
-function detectStar(sentences: string[]): Record<StarPart, StarComponent> {
-  const normalized = sentences.map((sentence) => sentence.toLowerCase().replace(/['’]/g, ""));
-  const component = (index: number): StarComponent =>
-    index >= 0 ? { present: true, evidence: clip(sentences[index]!) } : { present: false, evidence: null };
+function normalizeSentence(sentence: string): string {
+  return sentence.toLowerCase().replace(/['’]/g, "");
+}
+
+/** Index of the sentence that best shows each STAR part (-1 when missing). */
+function starIndices(normalized: string[]): Record<StarPart, number> {
   const first = (cue: RegExp) => normalized.findIndex((sentence) => cue.test(sentence));
   const strongResult = first(STAR_CUES.result);
+  // A goal sentence ("my goal was to cut latency") is the Task, not a Result, even with an outcome verb.
+  const weakResult = normalized.findLastIndex((sentence) => WEAK_RESULT_CUE.test(sentence) && !STAR_CUES.task.test(sentence));
+  // Otherwise a number next to a change phrase in the last third ("now it's 3x faster") is the outcome.
+  const lastThird = Math.floor((normalized.length * 2) / 3);
+  const metricResult = normalized.findLastIndex(
+    (sentence, index) =>
+      index >= lastThird && CHANGE_PHRASE.test(sentence) && HAS_METRIC.test(sentence) && !STAR_CUES.task.test(sentence),
+  );
   return {
-    situation: component(first(STAR_CUES.situation)),
-    task: component(first(STAR_CUES.task)),
-    action: component(first(STAR_CUES.action)),
-    result: component(strongResult >= 0 ? strongResult : normalized.findLastIndex((sentence) => WEAK_RESULT_CUE.test(sentence))),
+    situation: first(STAR_CUES.situation),
+    task: first(STAR_CUES.task),
+    action: first(STAR_CUES.action),
+    result: strongResult >= 0 ? strongResult : weakResult >= 0 ? weakResult : metricResult,
   };
+}
+
+function detectStar(sentences: string[], indices: Record<StarPart, number>): Record<StarPart, StarComponent> {
+  const component = (index: number): StarComponent =>
+    index >= 0 ? { present: true, evidence: clip(sentences[index]!) } : { present: false, evidence: null };
+  return {
+    situation: component(indices.situation),
+    task: component(indices.task),
+    action: component(indices.action),
+    result: component(indices.result),
+  };
+}
+
+/**
+ * Numbers that measure impact: any number in or after the first Action or Result
+ * sentence (headcounts only with a change phrase), and anywhere a change phrase
+ * sits in the same sentence. "A team of 5 engineers for 3 months" in the setup is context.
+ */
+function impactMetrics(sentences: string[], normalized: string[], indices: Record<StarPart, number>): string[] {
+  const outcomeFrom = Math.min(...[indices.action, indices.result].filter((index) => index >= 0), Number.POSITIVE_INFINITY);
+  const found = sentences.flatMap((sentence, index) => {
+    const changed = CHANGE_PHRASE.test(normalized[index]!);
+    return (sentence.match(METRIC_PATTERN) ?? [])
+      .map((metric) => metric.trim())
+      .filter((metric) => changed || (index >= outcomeFrom && !HEADCOUNT_METRIC.test(metric)));
+  });
+  return [...new Set(found)];
 }
 
 function countMatches(text: string, pattern: RegExp): number {
@@ -175,9 +239,11 @@ export function analyzeTranscript(text: string, durationMs: number): TranscriptA
   const fillers = countFillers(words);
   const fillerCount = fillers.reduce((sum, filler) => sum + filler.count, 0);
   const iStatements = words.filter((word) => I_WORDS.has(word)).length;
-  const weStatements = words.filter((word) => WE_WORDS.has(word)).length;
-  const metrics = [...new Set((text.match(METRIC_PATTERN) ?? []).map((metric) => metric.trim()))];
-  const star = detectStar(sentences);
+  const weStatements = words.filter((word) => WE_WORDS.has(word)).length + countMatches(lower, MY_GROUP_PATTERN);
+  const normalized = sentences.map(normalizeSentence);
+  const indices = starIndices(normalized);
+  const star = detectStar(sentences, indices);
+  const metrics = impactMetrics(sentences, normalized, indices);
   const longestSentenceWords = punctuated
     ? Math.max(0, ...sentences.map((sentence) => sentence.split(/\s+/).filter(Boolean).length))
     : 0;

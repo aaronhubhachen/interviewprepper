@@ -124,6 +124,34 @@ const MIGRATIONS: readonly string[] = [
   );
   CREATE INDEX IF NOT EXISTS events_user_time ON events(user_id, created_at);
   `,
+  // 2: failed "link <code>" attempts, for per-sender lockout and code rotation.
+  `
+  CREATE TABLE IF NOT EXISTS link_failures (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    space_id TEXT NOT NULL,
+    handle TEXT,
+    failed_at INTEGER NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS link_failures_space ON link_failures(space_id, failed_at);
+  CREATE INDEX IF NOT EXISTS link_failures_handle ON link_failures(handle, failed_at);
+  CREATE INDEX IF NOT EXISTS link_failures_time ON link_failures(failed_at);
+  `,
+  // 3: when the current link code was issued, so codes expire (LINK_CODE_TTL_MS); older rows get NULL and a new code.
+  //    review_undo: the rows a review overwrote (the card's progress, its tags' weak_tags), so regradeReview can
+  //    replace the latest review of a card. One row per user and card: only the latest review can be replaced.
+  `
+  ALTER TABLE users ADD COLUMN link_code_issued_at INTEGER;
+
+  CREATE TABLE IF NOT EXISTS review_undo (
+    review_id INTEGER PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    card_id TEXT NOT NULL,
+    progress TEXT,
+    weak TEXT NOT NULL,
+    created_at INTEGER NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS review_undo_card ON review_undo(user_id, card_id);
+  `,
 ];
 
 export const SCHEMA_VERSION = MIGRATIONS.length;

@@ -6,6 +6,7 @@ import {
   analyzeTranscript,
   heuristicSparScores,
   overallScore,
+  type SparAxis,
   type SparScores,
   type StarPart,
   type TranscriptAnalysis,
@@ -68,6 +69,40 @@ function clipWords(text: string, maxWords: number): string {
   return words.length <= maxWords ? words.join(" ") : `${words.slice(0, maxWords).join(" ")}…`;
 }
 
+/**
+ * A transcript snippet reused as a sentence of the opening: disfluencies
+ * dropped, speech-recognition's lowercase "i" fixed, capitalized, and ended
+ * with a period unless it already ends in punctuation or an ellipsis.
+ */
+function asOpeningSentence(evidence: string, maxWords: number): string {
+  const cleaned = evidence
+    .replace(/\b(um+|uh+|uhm|erm?|hmm+)\b,?\s*/gi, "")
+    .replace(/\bi\b/g, "I")
+    .replace(/\s+/g, " ")
+    .trim();
+  const clipped = capitalize(clipWords(cleaned, maxWords));
+  if (/[.!?…]$/.test(clipped)) return clipped;
+  // The snippet was already cut mid-sentence (transcript clip): keep saying so.
+  return cleaned.endsWith("…") ? `${clipped}…` : `${clipped}.`;
+}
+
+const SITUATION_PLACEHOLDER = "At [team/company], [one line of context and stakes].";
+const TASK_PLACEHOLDER = "I owned [your specific goal], and [the constraint that made it hard].";
+/** When one sentence already sets the scene and names the task, the second sentence adds the stakes. */
+const STAKES_PLACEHOLDER = "The hard part was [the constraint or deadline that made it hard].";
+
+function heuristicOpening(star: TranscriptAnalysis["star"]): string {
+  const situation = star.situation.evidence;
+  const task = star.task.evidence;
+  // Situation and task cues often land in the same sentence ("Last year at my internship I was
+  // responsible for ..."), and always in the same 25-word chunk of unpunctuated speech: say it once.
+  if (situation && task && situation === task) return `${asOpeningSentence(situation, 24)} ${STAKES_PLACEHOLDER}`;
+  return [
+    situation ? asOpeningSentence(situation, 18) : SITUATION_PLACEHOLDER,
+    task ? asOpeningSentence(task, 18) : TASK_PLACEHOLDER,
+  ].join(" ");
+}
+
 function heuristicFollowUp(question: BehavioralQuestion | string, analysis: TranscriptAnalysis): string {
   if (!analysis.star.result.present || !analysis.hasMetrics) {
     return "What was the measurable outcome, and how did you know it worked?";
@@ -84,7 +119,10 @@ function heuristicFeedback(input: BehavioralInput, analysis: TranscriptAnalysis)
   const strengths: string[] = [];
   if (STAR_PARTS.every((part) => star[part].present)) strengths.push("Complete STAR arc: situation, task, action, and result are all there.");
   if (scores.ownership >= 70) strengths.push("Strong ownership: you describe your own actions with “I”.");
-  if (analysis.hasMetrics) strengths.push(`You quantified the impact (${analysis.metrics.slice(0, 2).join(", ")}).`);
+  // Numbers without a stated outcome are not "quantified impact" (the improvements ask for the Result).
+  if (analysis.hasMetrics && star.result.present) {
+    strengths.push(`You quantified the impact (${analysis.metrics.slice(0, 2).join(", ")}).`);
+  }
   if (analysis.tradeoffMentions > 0) strengths.push("You weighed trade-offs, which reads as senior judgment.");
   if (analysis.wordCount > 0 && scores.clarity >= 80) strengths.push("Clean delivery with few filler words.");
   if (strengths.length === 0 && analysis.wordCount > 0) strengths.push("You gave a complete story to build on.");
@@ -109,14 +147,7 @@ function heuristicFeedback(input: BehavioralInput, analysis: TranscriptAnalysis)
     ]),
   ) as Record<StarPart, StarBreakdownItem>;
 
-  const opening = [
-    star.situation.evidence
-      ? `${capitalize(clipWords(star.situation.evidence, 18))}.`
-      : "At [team/company], [one line of context and stakes].",
-    star.task.evidence
-      ? `${capitalize(clipWords(star.task.evidence, 18))}.`
-      : "I owned [your specific goal], and [the constraint that made it hard].",
-  ].join(" ");
+  const opening = heuristicOpening(star);
 
   return {
     scores,
@@ -143,7 +174,23 @@ Return JSON:
  "followUp": "the single probing follow-up question you would ask next"}
 Plain text only in every string: no markdown.`;
 
-const scoreSchema = z.coerce.number().transform((value) => Math.round(Math.min(100, Math.max(0, value))));
+/** A finite number, or a string that starts with one ("85", "85/100"); anything else is "no score". */
+function readScore(value: unknown): number | undefined {
+  if (typeof value === "number") return Number.isFinite(value) ? value : undefined;
+  if (typeof value !== "string") return undefined;
+  const match = /^\s*(-?\d+(?:\.\d+)?)/.exec(value);
+  return match ? Number(match[1]) : undefined;
+}
+
+/**
+ * 0-100, or undefined when the model sent null, "", "n/a" or another non-number
+ * for an axis. That axis then keeps the heuristic score instead of silently
+ * becoming 0 (z.coerce turned null into 0) or discarding the whole reply.
+ */
+const scoreSchema = z
+  .unknown()
+  .transform(readScore)
+  .transform((value) => (value === undefined ? undefined : Math.round(Math.min(100, Math.max(0, value)))));
 
 const starItemSchema = z.object({
   present: z.boolean(),
@@ -151,7 +198,25 @@ const starItemSchema = z.object({
   note: z.string().default(""),
 });
 
-const llmSparSchema = z.object({
+/**
+ * The model's axis scores, with the heuristic's for any axis the model left
+ * blank. Clarity always blends in the heuristic: pace and filler words are
+ * measured from audio timing, which the model cannot hear.
+ */
+export function mergeSparScores(model: Partial<Record<SparAxis, number | undefined>>, heuristic: SparScores): SparScores {
+  const axis = (key: SparAxis): number => model[key] ?? heuristic[key];
+  return {
+    conciseness: axis("conciseness"),
+    star: axis("star"),
+    ownership: axis("ownership"),
+    technicalDepth: axis("technicalDepth"),
+    impact: axis("impact"),
+    clarity: Math.round((axis("clarity") + heuristic.clarity) / 2),
+  };
+}
+
+/** Shape of the model's reply (exported for tests). */
+export const llmSparSchema = z.object({
   scores: z.object({
     conciseness: scoreSchema,
     star: scoreSchema,
@@ -214,11 +279,7 @@ export async function evaluateBehavioral(
   });
   if (!reply) return fallback;
 
-  // Pace and filler words are measured from audio timing, which the model cannot hear.
-  const scores: SparScores = {
-    ...reply.scores,
-    clarity: Math.round((reply.scores.clarity + fallback.scores.clarity) / 2),
-  };
+  const scores = mergeSparScores(reply.scores, fallback.scores);
 
   const starBreakdown = Object.fromEntries(
     STAR_PARTS.map((part) => {

@@ -3,6 +3,7 @@
  * All functions reject with ApiError on non-2xx responses or network failures,
  * and accept an optional AbortSignal.
  */
+import type { ReviewActivityResponse } from "@/components/dashboard/activity-data";
 import type {
   ApiErrorBody,
   BehavioralResponse,
@@ -36,6 +37,7 @@ import type {
   SparEvaluateResponse,
   SparSessionsResponse,
   StatsResponse,
+  Tag,
 } from "./types";
 
 export class ApiError extends Error {
@@ -113,6 +115,11 @@ export function fetchDue(options?: RequestOptions): Promise<DueResponse> {
   return get("/api/review/due", options);
 }
 
+/** GET /api/activity: reviews per day (30 buckets), split by surface (iMessage / web / IDE / voice). */
+export function fetchReviewActivity(options?: RequestOptions): Promise<ReviewActivityResponse> {
+  return get("/api/activity", options);
+}
+
 /** GET /api/link */
 export function fetchLink(options?: RequestOptions): Promise<LinkResponse> {
   return get("/api/link", options);
@@ -121,6 +128,11 @@ export function fetchLink(options?: RequestOptions): Promise<LinkResponse> {
 /** POST /api/link { paused } */
 export function setAgentPaused(paused: boolean, options?: RequestOptions): Promise<LinkResponse> {
   return post("/api/link", { paused }, options);
+}
+
+/** POST /api/link/unlink {}: drops the iMessage link (or, while unlinked, replaces the code) and returns the fresh code. */
+export function unlinkAgent(options?: RequestOptions): Promise<LinkResponse> {
+  return post("/api/link/unlink", {}, options);
 }
 
 // ── Flashcard review ─────────────────────────────────────────────────────
@@ -133,6 +145,23 @@ export function fetchNextCard(query: ReviewNextQuery = {}, options?: RequestOpti
   if (query.exclude?.length) params.set("exclude", query.exclude.join(","));
   const qs = params.toString();
   return get(`/api/review/next${qs ? `?${qs}` : ""}`, options);
+}
+
+export interface BonusQuery {
+  tag?: Tag;
+  exclude?: string[];
+}
+
+/**
+ * GET /api/review/bonus?tag=&exclude=: the next never-seen card, ignoring the daily
+ * new-card cap ("Study new cards" once the queue is empty). reason = "extra".
+ */
+export function fetchBonusCard(query: BonusQuery = {}, options?: RequestOptions): Promise<ReviewNextResponse> {
+  const params = new URLSearchParams();
+  if (query.tag) params.set("tag", query.tag);
+  if (query.exclude?.length) params.set("exclude", query.exclude.join(","));
+  const qs = params.toString();
+  return get(`/api/review/bonus${qs ? `?${qs}` : ""}`, options);
 }
 
 /** POST /api/review/evaluate: grade a free-text answer (may take a few seconds with an LLM). */
@@ -195,23 +224,16 @@ export function fetchSparSessions(limit?: number, options?: RequestOptions): Pro
 
 // ── Resume grill ─────────────────────────────────────────────────────────
 
-/** POST /api/grill/resume (multipart "file": PDF, .txt or .md) → extracted text. */
+function toBase64(bytes: Uint8Array): string {
+  let binary = "";
+  for (let i = 0; i < bytes.length; i += 0x8000) binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  return btoa(binary);
+}
+
+/** POST /api/grill/resume: a PDF, .txt or .md sent as base64 JSON → extracted text. */
 export async function uploadResume(file: File, options: RequestOptions = {}): Promise<GrillResumeResponse> {
-  const form = new FormData();
-  form.set("file", file);
-  let response: Response;
-  try {
-    response = await fetch("/api/grill/resume", { method: "POST", body: form, cache: "no-store", signal: options.signal });
-  } catch (error) {
-    if (error instanceof DOMException && error.name === "AbortError") throw new ApiError(0, "aborted", "Request was cancelled.");
-    throw new ApiError(0, "network", "Could not reach the Synapse server. Is it running?");
-  }
-  const payload: unknown = await response.json().catch(() => null);
-  if (!response.ok) {
-    if (isErrorBody(payload)) throw new ApiError(response.status, payload.error.code, payload.error.message, payload.error.details);
-    throw new ApiError(response.status, "http_error", `Upload failed (${response.status}).`);
-  }
-  return payload as GrillResumeResponse;
+  const dataBase64 = toBase64(new Uint8Array(await file.arrayBuffer()));
+  return post("/api/grill/resume", { fileName: file.name, mimeType: file.type, dataBase64 }, options);
 }
 
 /** POST /api/grill/next: the interviewer's next question (LLM, up to ~15 s). */
@@ -246,6 +268,11 @@ export function fetchJudgeLanguages(options?: RequestOptions): Promise<JudgeLang
 /** POST /api/judge/run: compile + run on the server; returns raw per-test output (compare with judgeResults). */
 export function runOnServer(body: JudgeRunRequest, options?: RequestOptions): Promise<JudgeRunResponse> {
   return post("/api/judge/run", body, options);
+}
+
+/** True for requests cancelled through their AbortSignal. */
+export function isAbort(error: unknown): boolean {
+  return error instanceof ApiError && error.code === "aborted";
 }
 
 /** User-facing message for any thrown value. */

@@ -15,6 +15,18 @@ const RETENTION_HINT = {
   weak: "Below target (85%)",
 } as const;
 
+/**
+ * The streak counts every active day (reviews, IDE attempts and spar sessions), so the hint must not ask
+ * for a review when today already counts. `activeToday` (today is one of the streak's active days) comes
+ * from the server's stats; a payload without it gets a neutral hint rather than a wrong one.
+ */
+export function streakHint(stats: Pick<StatsResponse, "reviewedToday" | "streakDays"> & { activeToday?: boolean }): string {
+  if (stats.reviewedToday > 0) return `✓ ${plural(stats.reviewedToday, "review")} today`;
+  if (stats.activeToday === true) return "✓ Practiced today";
+  if (stats.activeToday === false) return stats.streakDays > 0 ? "Practice today to keep it alive" : "Practice today to start one";
+  return "Reviews, IDE stages and spars all count";
+}
+
 /** KPI row: due now, 30-day retention, streak, cards learned. */
 export function StatsRow({ stats, now }: StatsRowProps) {
   const { queue } = stats;
@@ -54,7 +66,7 @@ export function StatsRow({ stats, now }: StatsRowProps) {
             <span className="ml-1.5 text-base font-medium text-fg-muted">{stats.streakDays === 1 ? "day" : "days"}</span>
           </>
         }
-        hint={stats.reviewedToday > 0 ? `✓ ${plural(stats.reviewedToday, "review")} today` : "Review today to keep it alive"}
+        hint={streakHint(stats)}
       />
       <StatTile
         label="Cards learned"

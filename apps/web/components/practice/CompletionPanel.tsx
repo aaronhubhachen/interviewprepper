@@ -11,6 +11,7 @@ import type { ClientProblem } from "@/lib/types";
 import { ConfirmButton, RATING_META, VERDICT_META } from "./bits";
 import {
   allSyncs,
+  bestSubmit,
   codeGrade,
   drillMessage,
   flaggedTags,
@@ -101,6 +102,7 @@ export function CompletionPanel({
       ? { emoji: "🧩", title: "Solved, with a fight", sub: "Prepr will keep this one close and drill the weak spots over iMessage." }
       : { emoji: "🎉", title: "Clean solve", sub: "Invariant, trap and code all landed. Prepr will space this one out." };
   const acceptedOn = code.submits > 0 && !code.gaveUp ? code.submits : null;
+  const best = bestSubmit(code);
 
   return (
     <Card glow as="article" aria-labelledby="completion-heading" className="motion-safe:animate-fade-up">
@@ -139,7 +141,7 @@ export function CompletionPanel({
           <p className="text-fg-subtle">
             {formatClock(code.activeMs)}
             {acceptedOn ? ` · ${acceptedOn === 1 ? "first submit" : `submit #${acceptedOn}`}` : ""}
-            {code.lastSubmit && code.gaveUp ? ` · best ${code.lastSubmit.passed}/${code.lastSubmit.total}` : ""}
+            {best && code.gaveUp ? ` · best ${best.passed}/${best.total}` : ""}
             {code.runs > 0 ? ` · ${plural(code.runs, "run")}` : ""}
           </p>
         </StageTile>

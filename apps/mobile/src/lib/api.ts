@@ -72,7 +72,7 @@ async function request<T>(method: 'GET' | 'POST', path: string, body?: BodyInit,
       signal: controller.signal,
     });
   } catch {
-    throw new ApiError(0, 'network', `Can't reach the Prepr server at ${baseUrl}. Is the web app running on the same Wi-Fi?`);
+    throw new ApiError(0, 'network', `Can't reach the Prepr server at ${baseUrl}. Is it running with npm run dev:lan and SYNAPSE_WEB_URL set to this address?`);
   } finally {
     clearTimeout(timer);
   }
@@ -128,11 +128,20 @@ export const evaluateSpar = (body: SparEvaluateRequest) => post<SparEvaluateResp
 export const fetchSparSessions = (limit = 20) => get<SparSessionsResponse>(`/api/spar/sessions?limit=${limit}`);
 
 // Resume grill
-export function uploadResume(file: { uri: string; name: string; mimeType?: string }) {
-  const form = new FormData();
-  // React Native's FormData streams a local file from { uri, name, type }.
-  form.append('file', { uri: file.uri, name: file.name, type: file.mimeType ?? 'application/octet-stream' } as unknown as Blob);
-  return request<GrillResumeResponse>('POST', '/api/grill/resume', form);
+function readAsBase64(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new ApiError(0, 'read_failed', "Couldn't read that file."));
+    reader.onload = () => resolve(String(reader.result).replace(/^data:[^,]*,/, ''));
+    reader.readAsDataURL(blob);
+  });
+}
+
+/** The server only accepts JSON on mutating routes (CSRF rule), so the file travels as base64. */
+export async function uploadResume(file: { uri: string; name: string; mimeType?: string }) {
+  const blob = await (await fetch(file.uri)).blob();
+  const dataBase64 = await readAsBase64(blob);
+  return post<GrillResumeResponse>('/api/grill/resume', { fileName: file.name, mimeType: file.mimeType ?? '', dataBase64 });
 }
 export const fetchGrillQuestion = (body: GrillSessionRequest) => post<GrillNextResponse>('/api/grill/next', body);
 export const fetchGrillReport = (body: GrillSessionRequest) => post<GrillReport>('/api/grill/report', body);

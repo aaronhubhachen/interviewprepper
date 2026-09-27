@@ -3,7 +3,6 @@
  * events carry { cardId, grade, source, nextLabel }; every other event kind is
  * rendered from its emoji-led title.
  */
-import { getCard } from "@synapse/core/content";
 import { ACTIVITY_SERIES, isActivitySource } from "./activity-data";
 
 export interface FeedEventLike {
@@ -90,11 +89,11 @@ export function describeEvent(event: FeedEventLike): FeedRow {
     const source = detail?.source;
     const series = isActivitySource(source) ? ACTIVITY_SERIES.find((entry) => entry.key === source) : undefined;
     const cardId = stringField(detail, "cardId");
-    const card = cardId ? getCard(cardId) : undefined;
     const nextLabel = stringField(detail, "nextLabel");
     const grade = detail?.grade;
-    // Fallback title: strip the store's " → 4d" suffix.
-    const title = card?.title ?? rest.replace(/\s*→\s*\S+$/u, "");
+    // The store titles reviews "🧠 <card title> → 4d"; drop the interval suffix.
+    // (No registry lookup: the content registry holds answer keys and must stay out of client bundles.)
+    const title = rest.replace(/\s*→\s*\S+$/u, "");
     const parts = [series ? `via ${series.label}` : null, nextLabel ? `returns in ${nextLabel}` : null].filter(Boolean);
     return {
       ...base,
@@ -103,7 +102,8 @@ export function describeEvent(event: FeedEventLike): FeedRow {
       title,
       detail: parts.length ? parts.join(" · ") : null,
       tapback: typeof grade === "number" ? tapbackForGrade(grade) : null,
-      href: card?.kind === "problem" && card.problemId ? `/practice/${encodeURIComponent(card.problemId)}` : null,
+      // Problem cards share their problem id ("p-…"), so their reviews link back to the IDE.
+      href: cardId?.startsWith("p-") ? `/practice/${encodeURIComponent(cardId)}` : null,
     };
   }
 

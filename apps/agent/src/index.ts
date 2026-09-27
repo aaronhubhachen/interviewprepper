@@ -9,27 +9,51 @@ import path from "node:path";
 import { Spectrum, type Message, type Space } from "spectrum-ts";
 import { imessage } from "spectrum-ts/providers/imessage";
 import { terminal } from "spectrum-ts/providers/terminal";
-import { evaluateAnswer, getConfig, llmStatus, openStore, type SynapseConfig, type SynapseStore } from "@synapse/core";
-import { agentPolicyFromConfig, preview, StudyController, type SenderInfo } from "./controller";
-import { ownerHello } from "./messages";
+import {
+  evaluateAnswer,
+  getConfig,
+  llmStatus,
+  normalizeHandle,
+  openStore,
+  type StorePolicy,
+  type SynapseConfig,
+} from "@synapse/core";
+import { TERMINAL_COMMANDS } from "./commands";
+import { agentPolicyFromConfig, StudyController, type SpaceHints } from "./controller";
+import { dispatchSpectrumMessage, type DispatchOptions } from "./dispatch";
+import { maskHandle, redact } from "./redact";
 
 const TAG = "[prepr-agent]";
 
+/** Every console line is redacted: DM space ids and handles embed phone numbers, and the console gets screen-shared. */
 function log(line: string): void {
-  console.info(`${TAG} ${line}`);
+  console.info(`${TAG} ${redact(line)}`);
 }
 
 function logError(line: string, error?: unknown): void {
-  console.error(`${TAG} ${line}`, ...(error === undefined ? [] : [error]));
+  const detail = error === undefined ? "" : `\n${redact(error instanceof Error ? (error.stack ?? error.message) : String(error))}`;
+  console.error(`${TAG} ${redact(line)}${detail}`);
+}
+
+/** SYNAPSE_VERBOSE=1 also logs message text (answers are otherwise logged as a length only). */
+function wantsVerbose(): boolean {
+  return ["1", "true", "yes"].includes(process.env.SYNAPSE_VERBOSE?.trim().toLowerCase() ?? "");
+}
+
+/**
+ * SYNAPSE_AGENT_HANDLE as an E.164 line for `space.create`, so the owner's DM
+ * comes from the Prepr number even when the project has several lines.
+ */
+function agentLine(): string | undefined {
+  const raw = process.env.SYNAPSE_AGENT_HANDLE?.trim();
+  if (!raw || raw.includes("@")) return undefined;
+  const line = normalizeHandle(raw);
+  return /^\+\d{7,15}$/.test(line) ? line : undefined;
 }
 
 /** `--terminal` (or SYNAPSE_AGENT_PROVIDER=terminal) chats locally through tuichat instead of iMessage. */
 function wantsTerminal(): boolean {
   return process.argv.includes("--terminal") || process.env.SYNAPSE_AGENT_PROVIDER?.trim().toLowerCase() === "terminal";
-}
-
-function maskHandle(handle: string): string {
-  return handle.length <= 4 ? "****" : `${"*".repeat(Math.max(0, handle.length - 4))}${handle.slice(-4)}`;
 }
 
 function describeScale(config: SynapseConfig): string {
@@ -40,26 +64,17 @@ function describeScale(config: SynapseConfig): string {
 interface Connection {
   messages: AsyncIterable<[Space, Message]>;
   stop(): Promise<void>;
-  /** Rebuilds a Space from a persisted id for proactive sends (iMessage only). */
-  getSpace?: (spaceId: string) => Promise<Space>;
+  /** Rebuilds a Space from a persisted id (and the line it was on) for proactive sends (iMessage only). */
+  getSpace?: (spaceId: string, hints: SpaceHints) => Promise<Space>;
   /** Opens a DM with a phone number or email (iMessage only). */
   openDm?: (handle: string) => Promise<Space>;
 }
 
-const TERMINAL_COMMANDS = [
-  { name: "more", description: "Next flashcard" },
-  { name: "hint", description: "A nudge for the open card" },
-  { name: "idk", description: "Reveal the answer" },
-  { name: "skip", description: "Skip the open card" },
-  { name: "why", description: "Explain the last card" },
-  { name: "stats", description: "Your progress" },
-  { name: "help", description: "Everything Prepr can do" },
-];
-
 async function connect(config: SynapseConfig, useTerminal: boolean): Promise<Connection> {
   const { projectId, projectSecret } = config.photon;
   if (useTerminal) {
-    const providers = [terminal.config({ commands: TERMINAL_COMMANDS })];
+    // tuichat's config schema requires "/"-prefixed command names (see commands.ts).
+    const providers = [terminal.config({ commands: TERMINAL_COMMANDS.map((command) => ({ ...command })) })];
     const app =
       projectId && projectSecret ? await Spectrum({ projectId, projectSecret, providers }) : await Spectrum({ providers });
     return { messages: app.messages, stop: () => app.stop() };
@@ -70,8 +85,18 @@ async function connect(config: SynapseConfig, useTerminal: boolean): Promise<Con
   return {
     messages: app.messages,
     stop: () => app.stop(),
-    getSpace: (spaceId) => platform.space.get(spaceId),
-    openDm: (handle) => platform.space.create(handle),
+    // With several dedicated lines, space.get needs the line the chat is on.
+    getSpace: (spaceId, hints) => platform.space.get(spaceId, hints.phone ? { phone: hints.phone } : {}),
+    openDm: async (handle) => {
+      const line = agentLine();
+      if (!line) return platform.space.create(handle);
+      try {
+        return await platform.space.create(handle, { phone: line });
+      } catch (error) {
+        logError(`could not open the DM from SYNAPSE_AGENT_HANDLE ${maskHandle(line)}, trying any line`, error);
+        return platform.space.create(handle);
+      }
+    },
   };
 }
 
@@ -90,26 +115,18 @@ class MissingPhotonCredentials extends Error {
 
 /**
  * SYNAPSE_OWNER_HANDLE: DM the owner first and bind that chat to the web user,
- * so pushes start without anyone texting "link 1234".
+ * so pushes start without anyone texting "link 482193". The controller says
+ * hello and delivers the first card under the chat's lock, so the first tick
+ * cannot race it.
  */
-async function bootstrapOwner(
-  connection: Connection,
-  store: SynapseStore,
-  controller: StudyController<Space>,
-  config: SynapseConfig,
-): Promise<void> {
+async function bootstrapOwner(connection: Connection, controller: StudyController<Space>, config: SynapseConfig): Promise<void> {
   const handle = config.ownerHandle;
   if (!handle || !connection.openDm) return;
-  const webUser = store.getUser(config.webUserId);
+  const webUser = controller.store.getUser(config.webUserId);
   if (!webUser || webUser.spaceId) return;
   try {
     const space = await connection.openDm(handle);
-    const code = store.createOrGetLinkCode(webUser.id);
-    const linked = store.linkByCode(code, { spaceId: space.id, handle, platform: "imessage" }, Date.now());
-    if (!linked) return;
-    controller.rememberSpace(space);
-    await space.send(ownerHello(config.webUrl));
-    log(`linked owner ${maskHandle(handle)} → ${linked.id} (space ${space.id})`);
+    await controller.linkOwner(space, handle);
   } catch (error) {
     logError(`could not open a DM with the owner ${maskHandle(handle)}`, error);
   }
@@ -121,12 +138,17 @@ async function main(): Promise<void> {
   if (!useTerminal && (!config.photon.projectId || !config.photon.projectSecret)) {
     throw new MissingPhotonCredentials(config.repoRoot);
   }
-  const store = openStore(config.dbPath, {
+  // ownerHandle / activeHours are optional store policy fields (owner-only code-free linking, drills moved out of
+  // quiet hours). Passed through a variable so this also compiles against a core without them.
+  const policy: Partial<StorePolicy> & Record<string, unknown> = {
     timezone: config.timezone,
     dayMs: config.dayMs,
     morningHour: config.morningHour,
     newPerDay: config.newPerDay,
-  });
+    ownerHandle: config.ownerHandle ?? null,
+    activeHours: config.activeHours,
+  };
+  const store = openStore(config.dbPath, policy);
   store.ensureUser(config.webUserId, Date.now());
 
   let connection: Connection;
@@ -137,12 +159,14 @@ async function main(): Promise<void> {
     throw error;
   }
 
+  const verbose = wantsVerbose();
   const controller = new StudyController<Space>({
     store,
     policy: agentPolicyFromConfig(config, useTerminal ? "terminal" : "imessage"),
     evaluate: (input) => evaluateAnswer(input, { timeoutMs: config.llmTimeoutMs }),
-    resolveSpace: connection.getSpace ? (spaceId) => connection.getSpace!(spaceId) : undefined,
+    resolveSpace: connection.getSpace ? (spaceId, _user, hints) => connection.getSpace!(spaceId, hints) : undefined,
     log,
+    logText: verbose,
   });
 
   const llm = llmStatus();
@@ -157,7 +181,7 @@ async function main(): Promise<void> {
     ].join(" · "),
   );
 
-  await bootstrapOwner(connection, store, controller, config);
+  await bootstrapOwner(connection, controller, config);
 
   let stopping = false;
   let ticking = false;
@@ -168,6 +192,8 @@ async function main(): Promise<void> {
       const report = await controller.tick(Date.now());
       for (const result of report.results) {
         if (result.expiredCardId) log(`⌛ expired unanswered ${result.expiredCardId} for ${result.userId}`);
+        if (result.gradedCardId) log(`⌛ logged unrated ${result.gradedCardId} for ${result.userId} with my grade`);
+        if (result.preemptedCardId) log(`🎯 set aside ${result.preemptedCardId} for ${result.userId}: a drill is due`);
         if (result.action === "sent") log(`⏰ pushed ${result.morning ? "☕ briefing + " : ""}${result.cardId} → ${result.userId}`);
       }
     } catch (error) {
@@ -202,9 +228,15 @@ async function main(): Promise<void> {
   process.once("SIGTERM", () => void shutdown("SIGTERM"));
   process.on("unhandledRejection", (error) => logError("unhandled rejection", error));
 
+  const dispatchOptions: DispatchOptions = {
+    platform: useTerminal ? "terminal" : "imessage",
+    log,
+    logText: verbose,
+    onError: (what, error) => logError(`${what} handler failed`, error),
+  };
   for await (const [space, message] of connection.messages) {
     try {
-      route(controller, space, message, useTerminal);
+      dispatchSpectrumMessage(controller, space, message, dispatchOptions);
     } catch (error) {
       logError("message failed", error);
     }
@@ -217,29 +249,6 @@ async function main(): Promise<void> {
   await Promise.race([controller.idle(), new Promise((resolve) => setTimeout(resolve, 3_000))]);
   store.close();
   process.exit(1);
-}
-
-/** Dispatches without awaiting: the controller serializes per chat, so one slow LLM grade never blocks other users. */
-function route(controller: StudyController<Space>, space: Space, message: Message, useTerminal: boolean): void {
-  if (message.direction === "outbound" || message.sender?.kind === "agent") return;
-  const who = message.sender?.id ?? "unknown";
-  const sender: SenderInfo = { handle: message.sender?.id ?? null, platform: useTerminal ? "terminal" : "imessage" };
-  const content = message.content;
-
-  if (content.type === "text") {
-    log(`← ${who}: ${preview(content.text)}`);
-    void controller.handleText(space, content.text, sender).catch((error) => logError("text handler failed", error));
-    return;
-  }
-  if (content.type === "reaction") {
-    const targetId = content.target?.id;
-    log(`← ${who} tapped ${content.emoji} on ${targetId ?? "?"}`);
-    void controller
-      .handleReaction(space, content.emoji, targetId, sender)
-      .catch((error) => logError("reaction handler failed", error));
-    return;
-  }
-  log(`← ${who}: ${content.type} (ignored)`);
 }
 
 main().catch((error: unknown) => {

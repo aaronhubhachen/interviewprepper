@@ -8,14 +8,26 @@ import type { StorePolicy } from "./types";
 
 export { SynapseStore, isIdeStruggle } from "./store";
 export { SCHEMA_VERSION } from "./schema";
-export { LINK_CODE_PATTERN, normalizeHandle, parseLinkCode } from "./identity";
+export { isGroupSpace, LINK_CODE_LENGTH, LINK_CODE_PATTERN, normalizeHandle, parseLinkCode } from "./identity";
 export { WEAK_HALF_LIFE_DAYS, WEAK_MAX_SCORE, WEAK_THRESHOLD, WEAKNESS_WEIGHTS, decayScore } from "./weakness";
+export {
+  LINK_CODE_ROTATE_AFTER_FAILURES,
+  LINK_CODE_ROTATE_MIN_AGE_MS,
+  LINK_CODE_TTL_MS,
+  LINK_FAILURE_WINDOW_MS,
+  MAX_LINK_FAILURES_PER_SENDER,
+} from "./store";
 export * from "./types";
 
+/**
+ * A policy that names timezone, dayMs, morningHour and newPerDay is used as is
+ * (no env loading); the optional ownerHandle / activeHours then apply only when
+ * passed. Otherwise every missing field comes from the env config.
+ */
 function resolvePolicy(overrides: Partial<StorePolicy>): StorePolicy {
-  const { timezone, dayMs, morningHour, newPerDay } = overrides;
+  const { timezone, dayMs, morningHour, newPerDay, ownerHandle, activeHours } = overrides;
   if (timezone !== undefined && dayMs !== undefined && morningHour !== undefined && newPerDay !== undefined) {
-    return { timezone, dayMs, morningHour, newPerDay };
+    return { timezone, dayMs, morningHour, newPerDay, ownerHandle: ownerHandle ?? null, activeHours: activeHours ?? null };
   }
   const config = getConfig();
   return {
@@ -23,6 +35,8 @@ function resolvePolicy(overrides: Partial<StorePolicy>): StorePolicy {
     dayMs: dayMs ?? config.dayMs,
     morningHour: morningHour ?? config.morningHour,
     newPerDay: newPerDay ?? config.newPerDay,
+    ownerHandle: ownerHandle !== undefined ? ownerHandle : (config.ownerHandle ?? null),
+    activeHours: activeHours !== undefined ? activeHours : config.activeHours,
   };
 }
 

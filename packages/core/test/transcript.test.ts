@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { evaluateBehavioral } from "../src/spar";
+import { evaluateBehavioral, llmSparSchema, mergeSparScores } from "../src/spar";
 import { analyzeTranscript, heuristicSparScores, overallScore } from "../src/transcript";
 
 const STRONG =
@@ -28,6 +28,17 @@ describe("analyzeTranscript", () => {
     expect(analysis.technicalTerms).toBeGreaterThanOrEqual(5);
     expect(analysis.wpm).toBe(analysis.wordCount);
     expect(analysis.fillerCount).toBe(0);
+  });
+
+  it("does not mistake a goal with an outcome verb for the Result", () => {
+    const goalOnly = analyzeTranscript("My goal was to cut p99 latency before launch. I profiled the service and rewrote the query.", 20_000);
+    expect(goalOnly.star.task.present).toBe(true);
+    expect(goalOnly.star.result.present).toBe(false);
+    const withOutcome = analyzeTranscript(
+      "My goal was to cut p99 latency before launch. I profiled the service and rewrote the query. Latency dropped to 120 ms.",
+      20_000,
+    );
+    expect(withOutcome.star.result.evidence).toContain("Latency dropped");
   });
 
   it("counts fillers but not literal uses of like / kind of", () => {
@@ -85,7 +96,8 @@ describe("evaluateBehavioral (heuristic)", () => {
     expect(feedback.improvements.join(" ")).toMatch(/Task|Result|Action/);
     expect(feedback.followUp).toBe("What was the measurable outcome, and how did you know it worked?");
     expect(feedback.starBreakdown.result.present).toBe(false);
-    expect(feedback.rewrittenOpening.split(/(?<=\.)\s/).length).toBeGreaterThanOrEqual(2);
+    expect(feedback.rewrittenOpening.split(/(?<=[.…])\s/).length).toBeGreaterThanOrEqual(2);
+    expect(feedback.rewrittenOpening).not.toMatch(/…\.|\bum\b|\buh\b/);
     expect(feedback.overall).toBe(overallScore(feedback.scores));
   });
 
@@ -113,5 +125,100 @@ describe("evaluateBehavioral (heuristic)", () => {
   it("uses the heuristic path when no model is configured", async () => {
     const feedback = await evaluateBehavioral({ question: "Q", transcript: STRONG, durationMs: 60_000 });
     expect(feedback.source).toBe("heuristic");
+  });
+
+  it("says a sentence that sets both the scene and the task once", async () => {
+    const punctuated =
+      "Last year at my internship I was responsible for our flaky payments API. I profiled the service and found a slow query. As a result p99 dropped by 40%.";
+    const once = (await evaluateBehavioral({ question: "Q", transcript: punctuated, durationMs: 30_000 }, { useLlm: false })).rewrittenOpening;
+    expect(once.match(/Last year at my internship/g)).toHaveLength(1);
+    expect(once).toMatch(/^Last year at my internship I was responsible for our flaky payments API\. /);
+
+    const spoken =
+      "last summer at my internship i was responsible for the payments api which kept timing out under load so um i profiled it and added a cache and it got a lot faster";
+    const opening = (await evaluateBehavioral({ question: "Q", transcript: spoken, durationMs: 30_000 }, { useLlm: false })).rewrittenOpening;
+    expect(opening.match(/Last summer at my internship/g)).toHaveLength(1);
+    expect(opening).toMatch(/^Last summer at my internship I was responsible/);
+    expect(opening).not.toMatch(/…\.|\bum\b/);
+  });
+
+  it("keeps strengths and follow-ups consistent with the detected Result", async () => {
+    const noOutcome = "I was on a team of 5 engineers for 3 months and we worked on a migration for 2 weeks and then the project got cancelled";
+    const feedback = await evaluateBehavioral({ question: "Q", transcript: noOutcome, durationMs: 20_000 }, { useLlm: false });
+    expect(feedback.analysis.metrics).toEqual([]);
+    expect(feedback.strengths.join(" ")).not.toMatch(/quantified/);
+    expect(feedback.followUp).toBe("What was the measurable outcome, and how did you know it worked?");
+  });
+});
+
+describe("STAR, ownership and impact heuristics", () => {
+  it("detects actions with any past-tense verb and with adverbs before the verb", () => {
+    const measured = analyzeTranscript(
+      "At my last job our checkout page was slow. I owned fixing it before Black Friday. I measured the bundle, I removed two heavy libraries and I tested it on low end phones. Page load dropped from 6 seconds to 2 seconds.",
+      40_000,
+    );
+    expect(measured.star.action.present).toBe(true);
+    expect(heuristicSparScores(measured).star).toBe(100);
+    const adverbs = analyzeTranscript("At my last job the build was slow. I first profiled it, I also added caching, I quickly wrote a script.", 20_000);
+    expect(adverbs.star.action.present).toBe(true);
+    // Goals and feelings are not actions.
+    expect(analyzeTranscript("I needed a new job. I wanted to learn Rust. I used to work at a bank.", 10_000).star.action.present).toBe(false);
+  });
+
+  it("detects spoken outcomes such as went from X to Y", () => {
+    const spoken = analyzeTranscript(
+      "at my last company our nightly job took forever my task was to speed it up so i parallelized the stages and moved the heavy joins into the warehouse and after that the job went from 40 minutes to 3 minutes",
+      40_000,
+    );
+    expect(spoken.star.result.present).toBe(true);
+    expect(spoken.metrics).toEqual(["40 minutes", "3 minutes"]);
+    const faster = analyzeTranscript("Our API was slow. I profiled it and rewrote the hot loop. Now the endpoint is 3x faster.", 20_000);
+    expect(faster.star.result.present).toBe(true);
+  });
+
+  it("counts only first-person subjects as ownership, and my team as the team", () => {
+    const team = analyzeTranscript(
+      "At my last company my team owned the billing service. My manager asked my team to cut costs. My teammates rewrote the batch jobs and my lead picked the new database. In the end my team reduced the bill by 30 percent.",
+      30_000,
+    );
+    expect(team.iStatements).toBe(0);
+    expect(team.weStatements).toBeGreaterThanOrEqual(5);
+    expect(heuristicSparScores(team).ownership).toBeLessThan(50);
+  });
+
+  it("treats headcounts and durations in the setup as context, not impact", () => {
+    const setup = analyzeTranscript("I was on a team of 5 engineers for 3 months. We were migrating billing.", 10_000);
+    expect(setup.metrics).toEqual([]);
+    expect(setup.hasMetrics).toBe(false);
+    const outcome = analyzeTranscript("I was on a team of 5 engineers. I rewrote the importer. It now runs in 20 minutes instead of 3 hours.", 10_000);
+    expect(outcome.metrics).toEqual(["20 minutes", "3 hours"]);
+    expect(analyzeTranscript("We hired 3 engineers and cut onboarding by 2 weeks.", 5_000).metrics).toEqual(["3 engineers", "2 weeks"]);
+  });
+});
+
+describe("LLM spar reply", () => {
+  const reply = (scores: Record<string, unknown>) => ({
+    scores,
+    strengths: ["a"],
+    improvements: ["b"],
+    starBreakdown: Object.fromEntries(["situation", "task", "action", "result"].map((part) => [part, { present: true }])),
+    rewrittenOpening: "x",
+    followUp: "y",
+  });
+
+  it("keeps the heuristic score for an axis the model left null or blank instead of recording 0", () => {
+    const parsed = llmSparSchema.safeParse(
+      reply({ conciseness: 80, star: "85/100", ownership: null, technicalDepth: "", impact: "n/a", clarity: 150 }),
+    );
+    expect(parsed.success).toBe(true);
+    const heuristic = { conciseness: 50, star: 50, ownership: 60, technicalDepth: 40, impact: 30, clarity: 70 };
+    expect(mergeSparScores(parsed.data!.scores, heuristic)).toEqual({
+      conciseness: 80,
+      star: 85,
+      ownership: 60,
+      technicalDepth: 40,
+      impact: 30,
+      clarity: 85,
+    });
   });
 });

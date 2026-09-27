@@ -10,7 +10,7 @@ const EVENT_SCAN_LIMIT = 5000;
 const DAYS = 30;
 
 /**
- * GET /api/dashboard-review/activity → ReviewActivityResponse
+ * GET /api/activity → ReviewActivityResponse
  * Reviews per day for the last 30 days (local calendar days, or SRS days at
  * demo scale), split by surface: iMessage / web / IDE / voice.
  */

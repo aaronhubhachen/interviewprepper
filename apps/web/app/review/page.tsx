@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { isTag } from "@synapse/core/content";
+import { isTag, tagsWithContent } from "@synapse/core/content";
 import { ReviewSession } from "@/components/review/ReviewSession";
 
 export const metadata: Metadata = { title: "Review" };
@@ -20,5 +20,5 @@ export default async function ReviewPage({
   const tag = value && isTag(value) ? value : undefined;
   const invalidTag = value && !tag ? value : undefined;
 
-  return <ReviewSession key={tag ?? "all"} tag={tag} invalidTag={invalidTag} />;
+  return <ReviewSession key={tag ?? "all"} tag={tag} invalidTag={invalidTag} tagOptions={tagsWithContent()} />;
 }

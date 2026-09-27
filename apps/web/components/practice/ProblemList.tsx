@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useId, useMemo, useState } from "react";
-import { TAG_IDS, tagLabel, type ProblemDifficulty, type Tag } from "@synapse/core/content";
+import { TAG_IDS, tagLabel, type ProblemDifficulty, type Tag } from "@synapse/core/tags";
 import { Button, ButtonLink } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -43,7 +43,16 @@ const RECOMMEND_COPY: Record<Recommendation["reason"], string> = {
   due: "Due for review: the problem card came back around.",
   weak: "Drills a current weak spot",
   new: "A fresh problem to add to your deck",
+  unfinished: "Pick up where you left off: you haven't solved this one yet",
   review: "Everything is solved: revisit the one due soonest",
+};
+
+const RECOMMEND_ICON: Record<Recommendation["reason"], string> = {
+  due: "⏰",
+  weak: "‼️",
+  new: "✨",
+  unfinished: "🧩",
+  review: "🔁",
 };
 
 export function ProblemList({ initialFilters }: { initialFilters: ProblemFilters }) {
@@ -326,7 +335,7 @@ function UpNext({ recommendation }: { recommendation: Recommendation }) {
             <DifficultyPill difficulty={problem.difficulty} />
           </p>
           <p className="mt-1.5 text-sm text-fg-muted">
-            <span aria-hidden="true">{reason === "due" ? "⏰ " : reason === "weak" ? "‼️ " : reason === "new" ? "✨ " : "🔁 "}</span>
+            <span aria-hidden="true">{RECOMMEND_ICON[reason]} </span>
             {why}
           </p>
         </div>

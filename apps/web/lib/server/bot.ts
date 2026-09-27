@@ -15,6 +15,8 @@ import {
 } from "@synapse/core";
 import type { BotChatResponse, BotReportResponse } from "@/lib/types";
 import { badRequest, notFound, type JsonObject } from "./http";
+import { withLlmBudget } from "./llm-budget";
+import { now } from "./store";
 import { fields, type Fields } from "./validate";
 
 const MAX_MESSAGES = 60;
@@ -78,7 +80,8 @@ export async function chatWithBot(body: JsonObject): Promise<BotChatResponse> {
   const messages = readMessages(f);
   if (messages.at(-1)?.role !== "user") throw badRequest("Invalid request: the last message must be from the user.");
   const problem = requireProblem(problemId);
-  const reply = await botChat({ problem, language, code, messages, plantTrap: shouldPlantTrap(trapMode, trapsUsed) });
+  const plantTrap = shouldPlantTrap(trapMode, trapsUsed);
+  const reply = await withLlmBudget(now(), (useLlm) => botChat({ problem, language, code, messages, plantTrap }, { useLlm }));
   return {
     reply: reply.reply,
     source: reply.source,
@@ -133,5 +136,5 @@ export async function reportBotSession(body: JsonObject): Promise<BotReportRespo
     item.done();
   }
   const problem = requireProblem(problemId);
-  return evaluateBotSession({ problem, language, finalCode, durationMs, messages, events, traps, lastResult });
+  return withLlmBudget(now(), (useLlm) => evaluateBotSession({ problem, language, finalCode, durationMs, messages, events, traps, lastResult }, { useLlm }));
 }
