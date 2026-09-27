@@ -7,10 +7,10 @@ type TrendKey = keyof StatsResponse["trends"];
 
 const ROWS: ReadonlyArray<{ key: TrendKey; label: string; href: string; empty: string }> = [
   { key: "bot", label: "AI-assisted coding", href: "/practice", empty: "Open a problem's code stage and press Review in the AI panel." },
-  { key: "grill", label: "Resume grill", href: "/grill", empty: "Upload a resume and defend it." },
+  { key: "grill", label: "Resume grill", href: "/grill#past", empty: "Upload a resume and defend it." },
   { key: "spar", label: "Behavioral", href: "/behavioral", empty: "Answer a behavioral question." },
-  { key: "mock", label: "Mock interview loop", href: "/mock", empty: "Run a full timed loop." },
-  { key: "design", label: "System design", href: "/design", empty: "Design a system with an AI interviewer." },
+  { key: "mock", label: "Mock interview loop", href: "/mock#past", empty: "Run a full timed loop." },
+  { key: "design", label: "System design", href: "/design#past", empty: "Design a system with an AI interviewer." },
 ];
 
 /** "30 → 72" plus a direction, from the first and latest score in the window. */
@@ -30,6 +30,11 @@ export function TrendsCard({ trends, className }: { trends: StatsResponse["trend
     <Card className={className} aria-labelledby="trends-title">
       <CardHeader
         title={<span id="trends-title">Interview rounds</span>}
+        actions={
+          <Link href="/report" className="text-sm font-medium text-fg-subtle hover:text-fg">
+            Weekly report →
+          </Link>
+        }
       />
       <ul className="space-y-4">
         {rows.map((row) => {

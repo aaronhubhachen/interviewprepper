@@ -5,6 +5,9 @@ import { Banner, Button, Card, CardHeader, ChatBubble, Pill, PageHeader, Spinner
 import { ApiError, errorMessage, fetchDesignQuestion, fetchDesignReport } from "@/lib/api";
 import { cn } from "@/lib/cn";
 import type { DesignComponentKind, DesignDiagram, DesignNextResponse, DesignPrompt, DesignReport, DesignTurn } from "@/lib/types";
+import { LaptopNotice } from "@/components/shared/LaptopNotice";
+import { PastSessions } from "@/components/shared/PastSessions";
+import { useLeaveGuard } from "@/lib/useLeaveGuard";
 import { DiagramBoard } from "./DiagramBoard";
 
 const INTERVIEW_MINUTES = 45;
@@ -55,6 +58,8 @@ export function DesignStudio({
   }, [stage]);
 
   useEffect(() => () => abortRef.current?.abort(), []);
+
+  useLeaveGuard(stage === "interview" && (turns.length > 0 || diagram.nodes.length > 0));
 
   useEffect(() => {
     threadRef.current?.scrollTo({ top: threadRef.current.scrollHeight, behavior: "smooth" });
@@ -144,6 +149,7 @@ export function DesignStudio({
               <button
                 type="button"
                 onClick={() => {
+                  if ((turns.length > 0 || diagram.nodes.length > 0) && !window.confirm("Quit this interview? Your board and answers will be lost.")) return;
                   abortRef.current?.abort();
                   setThinking(null);
                   setError(null);
@@ -159,6 +165,8 @@ export function DesignStudio({
       />
 
       {stage === "pick" ? (
+        <>
+        <LaptopNotice />
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           {prompts.map((choice) => (
             <button
@@ -175,6 +183,25 @@ export function DesignStudio({
             </button>
           ))}
         </div>
+        <PastSessions
+          kind="design"
+          title="Past designs"
+          describe={(session) => {
+            const saved = session.report as { report?: DesignReport; diagram?: DesignDiagram };
+            return { title: session.subject ?? "System design", meta: `${saved.diagram?.nodes.length ?? 0} components` };
+          }}
+          onOpen={(session) => {
+            const saved = session.report as { report?: DesignReport; promptId?: string; diagram?: DesignDiagram };
+            const choice = prompts.find((candidate) => candidate.id === saved.promptId);
+            if (!saved.report || !choice) return;
+            setPrompt(choice);
+            setDiagram(saved.diagram ?? EMPTY);
+            setReport(saved.report);
+            setStage("report");
+            window.scrollTo({ top: 0, behavior: "smooth" });
+          }}
+        />
+        </>
       ) : null}
 
       {stage === "interview" && prompt ? (

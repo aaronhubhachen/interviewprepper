@@ -1,15 +1,15 @@
-# 🧠 Prepr
+# Prepr
 
-**Anki for LeetCode, delivered by iMessage.** Prepr texts you bite-size DSA flashcards right before you would
-forget them. It grades your one-sentence answer Socratically with an LLM, and your ❤️ / 👍 / 👎 tapback drives SM-2
-scheduling. When you want to go deeper, the web app adds a card-flip LeetCode IDE, voice behavioral sparring, a
-resume grill, system design interviews, and a full mock onsite. If you struggle in the IDE, your phone drills that
-exact pattern the next morning.
+**Prep for every part of the SWE interview, not just LeetCode.** Prepr texts you bite-size DSA flashcards over
+iMessage right before you would forget them, grades your one-sentence answer Socratically with an LLM, and lets your
+❤️ / 👍 / 👎 tapback drive SM-2 scheduling. The web app covers the rest of the loop: a card-flip coding IDE for the
+whole Blind 75, behavioral practice, a resume grill, system design on a whiteboard, and a full mock onsite. If you
+struggle in the IDE, your phone drills that exact pattern the next morning.
 
 - **Card-flip IDE:** 84 LeetCode problems covering the **entire Blind 75**, each in three flips (name the invariant,
   dodge the edge-case trap, code it against hidden tests) in **Python, JavaScript, TypeScript, Java, C++, or Go**,
   with tested reference solutions in all six. Trees, linked lists, graphs, and design classes run on real nodes.
-- **Study plans:** Blind 75 and NeetCode 150 progress by roadmap category (**Practice → Blind 75**, and on the landing page).
+- **Study plans:** Blind 75 and NeetCode 150 progress by roadmap category (**Practice → Study plan: Blind 75**, and on the landing page).
 - **Prepr Bot:** a Cursor-style AI assistant docked inside every problem (**Show AI**, or ⌘L / Ctrl+L) to practice
   **AI-assisted coding interviews**. It can plant a subtle bug in code it writes, and **Review** scores how you used
   it: framing, prompting, verification, catching its mistakes, and ownership.
@@ -18,27 +18,31 @@ exact pattern the next morning.
 - **Resume grill:** upload your resume (PDF) and defend every line against a skeptical interviewer, then get a
   held-up / shaky / cracked verdict per claim. Over iMessage, text `grill` and paste your resume. Every round is saved,
   and the dashboard's **Interview rounds** card shows your score trends.
-- **Voice sparring:** answer behavioral questions out loud with live STAR, filler, and pace metrics.
+- **Behavioral:** answer behavioral questions out loud or typed, with live STAR, filler, and pace metrics, then an
+  Engineering Manager's scores and follow-up (**/behavioral**).
 - **System design:** draw the architecture on a whiteboard (components, labeled arrows) while an AI interviewer
   reads the diagram and walks requirements → API → high level → deep dive → scale, then scores six dimensions.
 - **Mock loop:** one timed sitting that chains a coding round (classic or AI-assisted), a behavioral story, and a
   resume grill, ending in a **hiring-committee packet** with a hire / no-hire decision and what would flip it.
 - **Weekly report card:** every Sunday evening (or text `report`) the agent sends your streak, reviews and accuracy
   versus last week, AI-use trend, rounds, and weak spots. **/report** renders it as a shareable PNG.
-- **Mobile app** (Expo): review, practice stages, spar, and grill from your phone against the same data.
+- **Mobile app** (Expo): review, practice stages, Blind 75 / NeetCode 150 progress, behavioral, grill, interview-round
+  trends, and the weekly report card, all against the same data.
+- **iMessage extras:** text `grill` to defend your resume, `report` for the weekly card, or `blind 75`, `design`,
+  `mock`, `behavioral` to get a link to that part of the web app.
 
 Built for the HackWashU 2026 Photon track.
 
 ```
             📱 iPhone / iMessage                              💻 Browser  ·  📱 Expo app (apps/mobile)
-   🧠 probe → answer → ✅ feedback → ❤️ 👍 👎    Dashboard · Review · IDE + Prepr Bot · Spar · Grill · Design · Mock
+   🧠 probe → answer → ✅ feedback → ❤️ 👍 👎    Dashboard · Review · IDE + Prepr Bot · Behavioral · Grill · Design · Mock
                     ▲    │                                     ▲    │
       Photon        │    │ spectrum-ts                   fetch │    │ Web Speech, Monaco,
       spectrum-ts   │    ▼                                     │    ▼ Pyodide judge (worker)
    ┌────────────────┴──────────────────┐        ┌──────────────┴──────────────────────┐
    │ apps/agent  (tsx)                 │        │ apps/web  (Next.js 16, App Router)  │
    │ dispatch → StudyController        │        │ /api/* route handlers               │
-   │ scheduler tick · morning briefing │        │ IDE · Prepr Bot · spar · grill      │
+   │ scheduler tick · morning briefing │        │ IDE · Bot · behavioral · grill · …  │
    └────────────────┬──────────────────┘        └──────────────┬──────────────────────┘
                     │        @synapse/core (TypeScript source)  │
                     │  SM-2 · tapbacks · content · grading ·    │
@@ -102,7 +106,7 @@ iMessage line), in an `agent_state` table, so a restart picks up where it left o
 
 ### LAN access
 
-There is no login: the dashboard, the link code and your spar transcripts are open to anyone who can reach the server.
+There is no login: the dashboard, the link code and your behavioral transcripts are open to anyone who can reach the server.
 So `dev` and `start` bind to 127.0.0.1, and every page and API route answers only a loopback `Host` (or the host of
 `SYNAPSE_WEB_URL`), which also blocks DNS rebinding. To open the dashboard from a phone or another machine, opt in
 explicitly: set `SYNAPSE_WEB_URL` in `.env` to the LAN URL (for example `http://192.168.1.20:3000`) and run
@@ -135,7 +139,7 @@ to that address and run `dev:lan`. The app's ⚙︎ screen shows and tests the a
 3. **IDE struggle (0:45).** **Practice → Partition to K Equal Sum Subsets.** In Stage 1 click *I'm stuck* and rate 👎.
    A banner says Bitmask DP is flagged and Prepr will text you a drill in 1 min.
 4. **AI-assisted round (1:05).** Open **Two Sum**, pass Stages 1 and 2, and land on the code stage with Prepr Bot
-   docked beside the editor (⌘L toggles it). Ask *"Write a complete solution"*, click **Use in editor**, then **Run**.
+   docked beside the editor (⌘L toggles it). Ask *"Write a complete solution"*, click **Apply**, then **Accept** in the diff, then **Run**.
    Ask a pointed follow-up (*"Are you sure this handles [3,3]?"*), then press **Review**: a score for framing,
    prompting, verification, catching AI mistakes, and ownership, with any bug the bot planted revealed.
    Switch the language to **Java** and Submit: it compiles and runs on the server against the same hidden tests.
@@ -149,7 +153,7 @@ to that address and run `dev:lan`. The app's ⚙︎ screen shows and tests the a
 
 **If you have more time (or for a longer recording):**
 
-- **Blind 75 (30 s).** **Practice → Blind 75**: every category, solved / total bars, all 75 problems playable.
+- **Blind 75 (30 s).** **Practice → Study plan → Blind 75** (or the Blind 75 card on the landing page): every category, solved / total bars, all 75 problems playable.
   Open **Clone Graph** or **Merge k Sorted Lists** to show node-based problems in any of the six languages.
 - **System design (60 s).** **Design → URL shortener.** Drop Client, Load balancer, API server, Database; select one
   and press **Connect →** to draw arrows. Answer the requirements question with numbers; the next question reacts
@@ -157,7 +161,7 @@ to that address and run `dev:lan`. The app's ⚙︎ screen shows and tests the a
 - **Mock loop (60 s to show).** **Mock → AI-assisted round → Start.** Show the 25-minute timer and the docked bot,
   press **Finish coding round**, type a short STAR story, answer the grill questions, and end on the committee packet
   (decision, per-round scores, "what would move the decision up"). Packets land in the dashboard's trends.
-- **Voice sparring.** **Spar**: live STAR checklist, filler highlighting, and an EM follow-up.
+- **Behavioral.** **Behavioral**: live STAR checklist, filler highlighting, and an EM follow-up.
 
 No phone handy? `npm run agent:simulate` plays the iMessage part in the terminal in a few seconds.
 
@@ -223,7 +227,7 @@ All variables live in `.env` at the repo root, which is gitignored. Both apps lo
 
 ## Troubleshooting
 
-- **Voice sparring says speech isn't supported.** The Web Speech API needs Chrome or Edge. Firefox and blocked
+- **Behavioral says speech isn't supported.** The Web Speech API needs Chrome or Edge. Firefox and blocked
   microphones get a typed-answer mode with the same live metrics. Prepr never uploads audio. Chrome's recognizer
   does send audio to Google to transcribe it.
 - **The editor is a plain textarea, or Python says "runtime unavailable".** Monaco and Pyodide load from
@@ -261,7 +265,8 @@ packages/core   @synapse/core: SM-2, tapbacks, content registry (87 micro-cards,
                 mock loop packet, weekly report card, transcript metrics. TS source, no build.
 apps/agent      @synapse/agent: Photon iMessage agent (dispatch.ts → controller.ts), scheduler, simulator
 apps/web        @synapse/web: Next.js 16 app (landing, dashboard, review, card-flip IDE + Prepr Bot, study plans,
-                voice sparring, resume grill, system design, mock loop, weekly report) + API routes
-apps/mobile     @synapse/mobile: Expo (React Native) app for review, practice stages, spar, and grill
+                behavioral, resume grill, system design, mock loop, weekly report) + API routes
+apps/mobile     @synapse/mobile: Expo (React Native) app: review, practice stages, study plans, behavioral, grill,
+                interview-round trends, weekly report card
 data/           SQLite database (gitignored)
 ```

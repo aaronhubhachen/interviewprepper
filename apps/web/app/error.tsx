@@ -25,7 +25,7 @@ export default function RouteError({
       action={
         <>
           <Button onClick={() => unstable_retry()}>Try again</Button>
-          <ButtonLink href="/" variant="secondary">
+          <ButtonLink href="/dashboard" variant="secondary">
             Dashboard
           </ButtonLink>
         </>

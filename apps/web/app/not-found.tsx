@@ -8,7 +8,7 @@ export default function NotFound() {
       level={1}
       title="Page not found"
       description="That page doesn't exist."
-      action={<ButtonLink href="/">Back to dashboard</ButtonLink>}
+      action={<ButtonLink href="/dashboard">Back to dashboard</ButtonLink>}
     />
   );
 }

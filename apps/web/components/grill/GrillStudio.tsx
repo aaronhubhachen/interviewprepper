@@ -5,6 +5,7 @@ import { Card, PageHeader, Spinner } from "@/components/ui";
 import { ApiError, errorMessage, fetchGrillQuestion, fetchGrillReport } from "@/lib/api";
 import type { GrillNextResponse, GrillReport, GrillTurn } from "@/lib/types";
 import { useSpeechSynthesis } from "@/lib/voice/useSpeechSynthesis";
+import { useLeaveGuard } from "@/lib/useLeaveGuard";
 import { useStoredBoolean } from "@/lib/voice/useStoredBoolean";
 import { GrillReportView } from "./GrillReportView";
 import { GrillRoom } from "./GrillRoom";
@@ -51,6 +52,7 @@ export function GrillStudio() {
   };
 
   const total = asked[0]?.total ?? DEFAULT_TOTAL;
+  useLeaveGuard(stage === "interview" && turns.length > 0);
 
   const askNext = useCallback(
     async (history: GrillTurn[]) => {

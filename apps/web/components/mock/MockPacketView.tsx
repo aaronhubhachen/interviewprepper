@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Button, Card, CardHeader, Pill, type PillTone } from "@/components/ui";
+import { Button, ButtonLink, Card, CardHeader, Pill, type PillTone } from "@/components/ui";
 import { useToast } from "@/components/ui/Toast";
 import type { MockLoopInput, MockPacket } from "@/lib/types";
 
@@ -138,6 +138,9 @@ export function MockPacketView({ packet, input, onAgain }: { packet: MockPacket;
         <Button variant="secondary" onClick={() => window.print()}>
           Print / save PDF
         </Button>
+        <ButtonLink href="/report" variant="ghost">
+          Weekly report
+        </ButtonLink>
       </div>
     </div>
   );

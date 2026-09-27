@@ -1,7 +1,7 @@
 import { formatReportCardText } from "@synapse/core";
 import type { Metadata } from "next";
 import { ReportCardView } from "@/components/report/ReportCardView";
-import { PageHeader } from "@/components/ui";
+import { ButtonLink, PageHeader } from "@/components/ui";
 import { reportCardFor } from "@/lib/server/report";
 import { currentUserId, getStore, now } from "@/lib/server/store";
 
@@ -12,7 +12,16 @@ export default function ReportPage() {
   const card = reportCardFor(getStore(), currentUserId(), now());
   return (
     <>
-      <PageHeader eyebrow="Weekly report card" title={`This week: ${card.grade}`} description={card.headline} />
+      <PageHeader
+        eyebrow="Weekly report card"
+        title={`This week: ${card.grade}`}
+        description={card.headline}
+        actions={
+          <ButtonLink href="/dashboard" variant="secondary">
+            Dashboard
+          </ButtonLink>
+        }
+      />
       <ReportCardView card={card} text={formatReportCardText(card)} />
     </>
   );

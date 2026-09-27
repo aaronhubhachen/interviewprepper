@@ -70,6 +70,24 @@ function stringField(detail: Record<string, unknown> | null, key: string): strin
   return typeof value === "string" && value ? value : null;
 }
 
+/** Saved interview rounds open their page's past-rounds list (AI-assisted rounds reopen the problem). */
+function sessionHref(kind: string, subject: string | null): string | null {
+  switch (kind) {
+    case "grill":
+      return "/grill#past";
+    case "mock":
+      return "/mock#past";
+    case "design":
+      return "/design#past";
+    case "spar":
+      return "/behavioral";
+    case "bot":
+      return subject?.startsWith("p-") ? `/practice/${encodeURIComponent(subject)}` : null;
+    default:
+      return null;
+  }
+}
+
 export function describeEvent(event: FeedEventLike): FeedRow {
   const detail = event.detail;
   const { emoji, rest } = splitLeadingEmoji(event.title);
@@ -81,7 +99,7 @@ export function describeEvent(event: FeedEventLike): FeedRow {
     title: rest || event.title,
     detail: null,
     tapback: null,
-    href: problemId ? `/practice/${encodeURIComponent(problemId)}` : null,
+    href: problemId ? `/practice/${encodeURIComponent(problemId)}` : sessionHref(event.kind, stringField(detail, "subject")),
     createdAt: event.createdAt,
   };
 

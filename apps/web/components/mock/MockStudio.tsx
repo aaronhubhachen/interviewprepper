@@ -18,7 +18,18 @@ import type {
 import { BEHAVIORAL_MINUTES, MockBehavioralRound } from "./MockBehavioralRound";
 import { CODING_MINUTES, MockCodingRound } from "./MockCodingRound";
 import { MOCK_GRILL_QUESTIONS, MockGrillRound } from "./MockGrillRound";
+import { LaptopNotice } from "@/components/shared/LaptopNotice";
+import { PastSessions } from "@/components/shared/PastSessions";
+import { useLeaveGuard } from "@/lib/useLeaveGuard";
 import { MockPacketView } from "./MockPacketView";
+
+const DECISION_LABELS: Record<MockPacket["decision"], string> = {
+  strong_hire: "Strong hire",
+  hire: "Hire",
+  lean_hire: "Lean hire",
+  lean_no_hire: "Lean no hire",
+  no_hire: "No hire",
+};
 
 const RESUME_KEY = "prepr.grill.resume";
 const SETUP_KEY = "prepr.mock.setup";
@@ -107,6 +118,7 @@ export function MockStudio({ problems, questions }: { problems: MockProblemRef[]
   }, []);
 
   const withGrill = resume.trim().length >= MIN_RESUME_CHARS;
+  useLeaveGuard(stage === "coding" || stage === "behavioral" || stage === "grill");
   const languages: CodeLanguage[] = ["python", "javascript", ...serverLanguages];
   const effectiveLanguage = isNativeLanguage(language) && !serverLanguages.includes(language) ? "python" : language;
   const pool = problems.filter((item) => item.difficulty === difficulty);
@@ -227,6 +239,8 @@ export function MockStudio({ problems, questions }: { problems: MockProblemRef[]
       ) : null}
 
       {stage === "setup" ? (
+        <>
+        <LaptopNotice what="The mock loop" />
         <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_20rem]">
           <Card>
             <h2 className="text-lg font-semibold text-fg">Setup</h2>
@@ -317,6 +331,26 @@ export function MockStudio({ problems, questions }: { problems: MockProblemRef[]
             </ol>
           </Card>
         </div>
+        <PastSessions
+          kind="mock"
+          title="Past packets"
+          describe={(session) => {
+            const saved = session.report as { packet?: MockPacket; input?: MockLoopInput };
+            const decision = saved.packet ? DECISION_LABELS[saved.packet.decision] : "Packet";
+            return { title: `${decision}${session.subject ? ` · ${session.subject}` : ""}`, meta: saved.input?.coding?.aiAllowed ? "AI-assisted" : "Classic" };
+          }}
+          onOpen={(session) => {
+            const saved = session.report as { packet?: MockPacket; input?: MockLoopInput };
+            if (!saved.packet || !saved.input) return;
+            loopRef.current = "";
+            setResults(saved.input);
+            setPacket(saved.packet);
+            setError(null);
+            setStage("packet");
+            window.scrollTo({ top: 0, behavior: "smooth" });
+          }}
+        />
+        </>
       ) : null}
 
       {stage === "coding" && problem ? <MockCodingRound problem={problem} language={effectiveLanguage} aiAllowed={aiAllowed} scope={scope} onDone={(result) => onCoding(scope, result)} /> : null}
