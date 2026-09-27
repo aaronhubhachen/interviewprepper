@@ -90,6 +90,25 @@ export function CodeStagePanel({
   const getCode = useCallback(() => codeRef.current[language], [language]);
   /** An AI edit under review: the editor's code when it was opened, and the suggestion. */
   const [suggestion, setSuggestion] = useState<{ base: string; code: string; language: CodeLanguage } | null>(null);
+  /** Cmd+K prompt: the selected lines, the instruction being typed, and the request state. */
+  const [inline, setInline] = useState<{ startLine: number; endLine: number; text: string; busy: boolean; error: string | null } | null>(null);
+
+  const openInlineEdit = useCallback((selection: { startLine: number; endLine: number }) => {
+    setInline({ ...selection, text: "", busy: false, error: null });
+  }, []);
+
+  const submitInlineEdit = async () => {
+    if (!inline || !inline.text.trim() || inline.busy) return;
+    setInline({ ...inline, busy: true, error: null });
+    const base = codeRef.current[language];
+    try {
+      const updated = await ai.inlineEdit({ startLine: inline.startLine, endLine: inline.endLine }, inline.text.trim());
+      setInline(null);
+      setSuggestion({ base, code: updated, language });
+    } catch (error) {
+      setInline((current) => (current ? { ...current, busy: false, error: error instanceof Error ? error.message : "The edit failed." } : current));
+    }
+  };
   const ai = useAiAssistant({ problemId: problem.id, language, getCode });
 
   const visibleCount = useMemo(() => stage.tests.filter((test) => !test.hidden).length || stage.tests.length, [stage.tests]);
@@ -261,6 +280,10 @@ export function CodeStagePanel({
             ))}{" "}
             Tab moves focus
           </span>
+          <span className="hidden items-center gap-1 lg:inline-flex" title="Select code, then press this to edit it with Prepr Bot">
+            <Kbd>{keys.mod}</Kbd>
+            <Kbd>K</Kbd> AI edit
+          </span>
           <ConfirmButton
             size="sm"
             confirmLabel="Reset to starter"
@@ -274,6 +297,42 @@ export function CodeStagePanel({
           </ConfirmButton>
         </div>
 
+        {inline ? (
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              void submitInlineEdit();
+            }}
+            className="flex flex-wrap items-center gap-2 border-b border-synapse/40 bg-synapse/10 px-4 py-2"
+          >
+            <label htmlFor="inline-edit" className="shrink-0 text-sm font-semibold text-fg">
+              <span aria-hidden="true" className="text-synapse">
+                ✦{" "}
+              </span>
+              Edit {inline.startLine === inline.endLine ? `line ${inline.startLine}` : `lines ${inline.startLine}–${inline.endLine}`}
+            </label>
+            <input
+              id="inline-edit"
+              autoFocus
+              value={inline.text}
+              disabled={inline.busy}
+              onChange={(event) => setInline({ ...inline, text: event.target.value })}
+              onKeyDown={(event) => {
+                if (event.key === "Escape") setInline(null);
+              }}
+              maxLength={1000}
+              placeholder="Describe the change, e.g. handle an empty array"
+              className="h-8 min-w-[12rem] flex-1 rounded-lg border border-line bg-ink-900 px-3 text-sm text-fg placeholder:text-fg-faint focus:border-synapse focus:outline-none"
+            />
+            <Button type="submit" size="sm" loading={inline.busy} loadingLabel="Editing…" disabled={!inline.text.trim()}>
+              Edit
+            </Button>
+            <Button type="button" size="sm" variant="ghost" onClick={() => setInline(null)}>
+              Cancel
+            </Button>
+            {inline.error ? <p className="basis-full text-xs text-danger">{inline.error}</p> : null}
+          </form>
+        ) : null}
         {suggestion && suggestion.language === language ? (
           <DiffReview
             original={suggestion.base}
@@ -301,6 +360,7 @@ export function CodeStagePanel({
           onRun={onRun}
           onSubmit={onSubmit}
           onToggleAi={onToggleAi}
+          onInlineEdit={openInlineEdit}
           ariaLabel={`${LANGUAGE_LABELS[language]} solution for ${problem.title}. Press ${keys.tabFocusSpoken} to let Tab move focus.`}
           height={EDITOR_HEIGHT}
           path={`file:///synapse/${problem.id}/solution.${LANGUAGE_EXTENSIONS[language]}`}

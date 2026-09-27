@@ -519,3 +519,23 @@ export type PracticeSessionSummary = Omit<PracticeSession, "userId">;
 export interface PracticeSessionsResponse {
   sessions: PracticeSessionSummary[];
 }
+
+export interface BotInlineEditRequest {
+  problemId: string;
+  language: CodeLanguage;
+  code: string;
+  /** 1-based inclusive selection. */
+  startLine: number;
+  endLine: number;
+  instruction: string;
+  trapMode: boolean;
+  trapsUsed: number;
+}
+
+export interface BotInlineEditResponse {
+  /** The complete updated file; null when no model answered. */
+  code: string | null;
+  explanation: string;
+  source: "llm" | "heuristic";
+  trapToken: string | null;
+}

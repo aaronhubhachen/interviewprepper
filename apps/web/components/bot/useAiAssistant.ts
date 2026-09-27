@@ -2,7 +2,8 @@
 
 import type { CodeLanguage } from "@synapse/core/judge";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { errorMessage, fetchBotReport, fetchPracticeSessions, sendBotMessage } from "@/lib/api";
+import { errorMessage, fetchBotReport, fetchPracticeSessions, requestInlineEdit, sendBotMessage } from "@/lib/api";
+import { LANGUAGE_EXTENSIONS } from "@synapse/core/judge";
 import type { BotEvent, BotMessage, BotReport } from "@/lib/types";
 
 /** An edit that adds this many characters at once is logged as a paste. */
@@ -44,6 +45,8 @@ export interface AiAssistant {
   /** Call on every editor change; detects pastes (inserts are excluded). */
   noteEdit: (previous: string, next: string) => void;
   noteRun: (mode: "run" | "submit", passed: number, total: number, status: string) => void;
+  /** Cmd+K: asks for an edit of the selected lines; resolves with the complete updated file, or throws. */
+  inlineEdit: (selection: { startLine: number; endLine: number }, instruction: string) => Promise<string>;
   review: () => void;
   reviewing: boolean;
   report: BotReport | null;
@@ -182,6 +185,36 @@ export function useAiAssistant({ problemId, language, getCode }: { problemId: st
     }
   }, []);
 
+  const inlineEdit = useCallback(
+    async (selection: { startLine: number; endLine: number }, instruction: string): Promise<string> => {
+      const range = selection.startLine === selection.endLine ? `line ${selection.startLine}` : `lines ${selection.startLine}–${selection.endLine}`;
+      log({ kind: "prompt", detail: `inline edit (${range}): ${instruction.slice(0, 400)}` });
+      const response = await requestInlineEdit({
+        problemId,
+        language,
+        code: getCode(),
+        startLine: selection.startLine,
+        endLine: selection.endLine,
+        instruction,
+        trapMode,
+        trapsUsed: traps.length,
+      });
+      if (response.code === null) throw new Error(response.explanation);
+      // Record the exchange in the transcript so it shows in the chat and the review sees it.
+      const withEdit: BotMessage[] = [
+        ...messages,
+        { role: "user", content: `✦ Edit ${range}: ${instruction}` },
+        { role: "assistant", content: `${response.explanation}\n\n\`\`\`${LANGUAGE_EXTENSIONS[language]}\n${response.code}\n\`\`\`` },
+      ];
+      const nextTraps = response.trapToken ? [...traps, { messageIndex: withEdit.length - 1, token: response.trapToken }] : traps;
+      setMessages(withEdit);
+      setTraps(nextTraps);
+      persist(withEdit, nextTraps);
+      return response.code;
+    },
+    [getCode, language, log, messages, persist, problemId, trapMode, traps],
+  );
+
   const review = useCallback(() => {
     setReviewing(true);
     setReviewError(null);
@@ -230,6 +263,7 @@ export function useAiAssistant({ problemId, language, getCode }: { problemId: st
     noteCopy,
     noteEdit,
     noteRun,
+    inlineEdit,
     review,
     reviewing,
     report,

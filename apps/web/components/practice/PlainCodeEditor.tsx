@@ -8,7 +8,7 @@ import type { CodeEditorProps } from "./editorTypes";
  * Fallback editor (Monaco failed to load, e.g. offline). Tab indents; press
  * Escape first to let Tab move focus instead, matching Monaco's behaviour.
  */
-export function PlainCodeEditor({ value, language, onChange, onRun, onSubmit, onToggleAi, ariaLabel, height, readOnly, notice }: CodeEditorProps & { notice?: string }) {
+export function PlainCodeEditor({ value, language, onChange, onRun, onSubmit, onToggleAi, onInlineEdit, ariaLabel, height, readOnly, notice }: CodeEditorProps & { notice?: string }) {
   const escaped = useRef(false);
   const indent = language === "go" ? "\t" : language === "javascript" || language === "typescript" ? "  " : "    ";
 
@@ -21,6 +21,13 @@ export function PlainCodeEditor({ value, language, onChange, onRun, onSubmit, on
     if ((event.metaKey || event.ctrlKey) && event.key === "'") {
       event.preventDefault();
       onRun();
+      return;
+    }
+    if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k" && onInlineEdit) {
+      event.preventDefault();
+      const area = event.currentTarget;
+      const lineAt = (offset: number) => area.value.slice(0, offset).split("\n").length;
+      onInlineEdit({ startLine: lineAt(area.selectionStart), endLine: lineAt(Math.max(area.selectionStart, area.selectionEnd - 1)) });
       return;
     }
     if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "l" && onToggleAi) {

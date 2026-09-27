@@ -9,6 +9,8 @@ import type {
   BehavioralResponse,
   BotChatRequest,
   BotChatResponse,
+  BotInlineEditRequest,
+  BotInlineEditResponse,
   BotReportRequest,
   BotReportResponse,
   GrillNextResponse,
@@ -259,6 +261,11 @@ export function fetchPracticeSessions(kind: "grill" | "bot" | "mock" | "design",
 /** POST /api/bot/chat (LLM, up to ~20 s). */
 export function sendBotMessage(body: BotChatRequest, options?: RequestOptions): Promise<BotChatResponse> {
   return post("/api/bot/chat", body, options);
+}
+
+/** POST /api/bot/edit: a Cmd+K inline edit, returned as the complete updated file (LLM, up to ~20 s). */
+export function requestInlineEdit(body: BotInlineEditRequest, options?: RequestOptions): Promise<BotInlineEditResponse> {
+  return post("/api/bot/edit", body, options);
 }
 
 /** POST /api/bot/report (LLM, up to ~35 s). */

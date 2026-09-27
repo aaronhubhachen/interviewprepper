@@ -10,6 +10,8 @@ resume grill. If you struggle in the IDE, your phone drills that exact pattern t
 - **Prepr Bot:** a Cursor-style AI assistant docked inside every problem (**Show AI**, or ⌘L / Ctrl+L) to practice
   **AI-assisted coding interviews**. It can plant a subtle bug in code it writes, and **Review** scores how you used
   it: framing, prompting, verification, catching its mistakes, and ownership.
+  Like Cursor, it suggests edits as reviewable diffs (**Apply**, then Accept or Reject), and **⌘K / Ctrl+K** on a
+  selection asks for an inline edit of just those lines.
 - **Resume grill:** upload your resume (PDF) and defend every line against a skeptical interviewer, then get a
   held-up / shaky / cracked verdict per claim. Over iMessage, text `grill` and paste your resume. Every round is saved,
   and the dashboard's **Interview rounds** card shows your score trends.

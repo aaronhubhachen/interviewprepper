@@ -3,6 +3,7 @@ import "server-only";
 import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
 import {
   botChat,
+  botInlineEdit,
   CODE_LANGUAGES,
   evaluateBotSession,
   getProblem,
@@ -13,7 +14,7 @@ import {
   type CodeLanguage,
   type Problem,
 } from "@synapse/core";
-import type { BotChatResponse, BotReportResponse } from "@/lib/types";
+import type { BotChatResponse, BotInlineEditResponse, BotReportResponse } from "@/lib/types";
 import { badRequest, notFound, type JsonObject } from "./http";
 import { withLlmBudget } from "./llm-budget";
 import { currentUserId, getStore, now } from "./store";
@@ -86,6 +87,31 @@ export async function chatWithBot(body: JsonObject): Promise<BotChatResponse> {
     reply: reply.reply,
     source: reply.source,
     trapToken: reply.trap.planted && reply.trap.description ? sealTrap(reply.trap.description) : null,
+  };
+}
+
+export async function inlineEdit(body: JsonObject): Promise<BotInlineEditResponse> {
+  const f = fields(body);
+  const problemId = f.string("problemId", { max: 120 });
+  const language = f.oneOf("language", CODE_LANGUAGES as readonly CodeLanguage[]);
+  const code = f.string("code", { min: 1, max: 50_000, trim: false });
+  const instruction = f.string("instruction", { max: 1_000 });
+  const startLine = f.number("startLine", { integer: true, min: 1, max: 5_000 });
+  const endLine = f.number("endLine", { integer: true, min: 1, max: 5_000 });
+  const trapMode = f.boolean("trapMode");
+  const trapsUsed = f.number("trapsUsed", { integer: true, min: 0, max: 10 });
+  if (endLine < startLine) f.fail("endLine", "must be >= startLine");
+  f.done();
+  const problem = requireProblem(problemId);
+  const plantTrap = shouldPlantTrap(trapMode, trapsUsed);
+  const result = await withLlmBudget(now(), (useLlm) =>
+    botInlineEdit({ problem, language, code, selection: { startLine, endLine }, instruction, plantTrap }, { useLlm }),
+  );
+  return {
+    code: result.code,
+    explanation: result.explanation,
+    source: result.source,
+    trapToken: result.trap.planted && result.trap.description ? sealTrap(result.trap.description) : null,
   };
 }
 

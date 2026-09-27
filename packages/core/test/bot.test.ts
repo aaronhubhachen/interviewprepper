@@ -110,3 +110,15 @@ describe("fenceCode", () => {
     expect(nonce).not.toBe("deadbeef0000");
   });
 });
+
+describe("botInlineEdit", () => {
+  it("needs a model: offline it returns no code and says so", async () => {
+    const { botInlineEdit } = await import("../src/bot");
+    const result = await botInlineEdit(
+      { problem, language: "python", code: "def isValid(s):\n    return True\n", selection: { startLine: 2, endLine: 2 }, instruction: "use a stack", plantTrap: true },
+      { useLlm: false },
+    );
+    expect(result).toMatchObject({ code: null, source: "heuristic", trap: { planted: false } });
+    expect(result.explanation).toMatch(/need a model/);
+  });
+});

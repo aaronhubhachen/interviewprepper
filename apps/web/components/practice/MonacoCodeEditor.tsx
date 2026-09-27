@@ -150,13 +150,13 @@ function EditorLoading({ height }: { height: string }) {
 }
 
 export default function MonacoCodeEditor(props: CodeEditorProps) {
-  const { value, language, onChange, onRun, onSubmit, onToggleAi, ariaLabel, height, path, readOnly } = props;
+  const { value, language, onChange, onRun, onSubmit, onToggleAi, onInlineEdit, ariaLabel, height, path, readOnly } = props;
   const [failed, setFailed] = useState(false);
   const [editorTheme, setEditorTheme] = useState(THEME_DARK);
-  const handlers = useRef({ onRun, onSubmit, onToggleAi });
+  const handlers = useRef({ onRun, onSubmit, onToggleAi, onInlineEdit });
   useEffect(() => {
-    handlers.current = { onRun, onSubmit, onToggleAi };
-  }, [onRun, onSubmit, onToggleAi]);
+    handlers.current = { onRun, onSubmit, onToggleAi, onInlineEdit };
+  }, [onRun, onSubmit, onToggleAi, onInlineEdit]);
 
   useEffect(() => {
     const syncTheme = () => setEditorTheme(document.documentElement.dataset.theme === "light" ? THEME_LIGHT : THEME_DARK);
@@ -191,6 +191,14 @@ export default function MonacoCodeEditor(props: CodeEditorProps) {
     editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, () => handlers.current.onSubmit());
     editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Quote, () => handlers.current.onRun());
     editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyL, () => handlers.current.onToggleAi?.());
+    // Cursor-style inline edit. A selection ending at column 1 of the next line doesn't include that line.
+    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyK, () => {
+      const selection = editor.getSelection();
+      if (!selection || !handlers.current.onInlineEdit) return;
+      const endLine =
+        selection.endLineNumber > selection.startLineNumber && selection.endColumn === 1 ? selection.endLineNumber - 1 : selection.endLineNumber;
+      handlers.current.onInlineEdit({ startLine: selection.startLineNumber, endLine });
+    });
     // Code autosaves; keep Ctrl+S from opening the browser's "Save page" dialog.
     editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => undefined);
     if (typeof document !== "undefined" && document.fonts?.ready) {

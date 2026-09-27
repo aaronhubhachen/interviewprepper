@@ -12,6 +12,7 @@ import {
 import { GET as behavioralGET } from "@/app/api/behavioral/route";
 import { GET as sessionsListGET } from "@/app/api/sessions/route";
 import { POST as botChatPOST } from "@/app/api/bot/chat/route";
+import { POST as botEditPOST } from "@/app/api/bot/edit/route";
 import { POST as botReportPOST } from "@/app/api/bot/report/route";
 import { openTrap, sealTrap } from "@/lib/server/bot";
 import { POST as grillNextPOST } from "@/app/api/grill/next/route";
@@ -35,6 +36,7 @@ import { setClockForTests, setStoreForTests, setUserForTests } from "@/lib/serve
 import type {
   ApiErrorBody,
   BotChatResponse,
+  BotInlineEditResponse,
   BotReport,
   GrillNextResponse,
   GrillReport,
@@ -669,5 +671,19 @@ describe("saved interview rounds", () => {
     expect(stats.trends.bot).toHaveLength(1);
 
     await body<ApiErrorBody>(await sessionsListGET(get("/api/sessions?kind=nope"), NO_CTX), 400);
+  });
+});
+
+describe("inline edits", () => {
+  const base = { problemId: "p-two-sum", language: "python", code: "def twoSum(nums, target):\n    return []\n", instruction: "use a hash map", trapMode: true, trapsUsed: 0 };
+
+  it("returns no code when no model answers (tests run offline)", async () => {
+    const result = await body<BotInlineEditResponse>(await botEditPOST(post("/api/bot/edit", { ...base, startLine: 2, endLine: 2 }), NO_CTX));
+    expect(result).toMatchObject({ code: null, source: "heuristic", trapToken: null });
+  });
+
+  it("validates the selection", async () => {
+    const bad = await body<ApiErrorBody>(await botEditPOST(post("/api/bot/edit", { ...base, startLine: 3, endLine: 1 }), NO_CTX), 400);
+    expect(bad.error.details?.endLine).toBeDefined();
   });
 });
