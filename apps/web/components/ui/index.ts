@@ -15,6 +15,7 @@ export { Kbd } from "./Kbd";
 export { PageHeader, type PageHeaderProps } from "./PageHeader";
 export { Pill, TagPill, type PillProps, type PillTone, type TagPillProps } from "./Pill";
 export { ProgressBar, type ProgressBarProps, type ProgressTone } from "./ProgressBar";
+export { Select, type SelectOption } from "./Select";
 export { Skeleton } from "./Skeleton";
 export { Spinner, type SpinnerProps } from "./Spinner";
 export { StatTile, type StatTileProps, type StatTone } from "./StatTile";

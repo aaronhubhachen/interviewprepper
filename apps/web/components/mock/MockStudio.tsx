@@ -3,7 +3,7 @@
 import { LANGUAGE_LABELS, isNativeLanguage, type CodeLanguage, type NativeLanguage } from "@synapse/core/judge";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { MIN_RESUME_CHARS } from "@/components/grill/ResumeSetup";
-import { Banner, Button, Card, PageHeader, Spinner } from "@/components/ui";
+import { Banner, Button, Card, PageHeader, Select, Spinner } from "@/components/ui";
 import { errorMessage, fetchJudgeLanguages, fetchMockPacket, fetchProblem } from "@/lib/api";
 import { cn } from "@/lib/cn";
 import type {
@@ -233,34 +233,22 @@ export function MockStudio({ problems, questions }: { problems: MockProblemRef[]
             <fieldset className="mt-5">
               <legend className="text-sm font-semibold text-fg">Coding round</legend>
               <div className="mt-2 grid gap-3 sm:grid-cols-2">
-                <label className="text-sm text-fg-muted">
-                  Difficulty
-                  <select
+                <div className="text-sm text-fg-muted">
+                  <span className="mb-1 block">Difficulty</span>
+                  <Select
+                    label="Difficulty"
                     value={difficulty}
-                    onChange={(event) => setDifficulty(event.target.value as Difficulty)}
-                    className="mt-1 block w-full rounded-lg border border-line bg-ink-900/60 px-3 py-2 text-fg"
-                  >
-                    {(["easy", "medium", "hard"] as const).map((level) => (
-                      <option key={level} value={level} disabled={!problems.some((item) => item.difficulty === level)}>
-                        {level[0]!.toUpperCase() + level.slice(1)} ({problems.filter((item) => item.difficulty === level).length})
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label className="text-sm text-fg-muted">
-                  Language
-                  <select
-                    value={effectiveLanguage}
-                    onChange={(event) => setLanguage(event.target.value as CodeLanguage)}
-                    className="mt-1 block w-full rounded-lg border border-line bg-ink-900/60 px-3 py-2 text-fg"
-                  >
-                    {languages.map((lang) => (
-                      <option key={lang} value={lang}>
-                        {LANGUAGE_LABELS[lang]}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                    onChange={setDifficulty}
+                    options={(["easy", "medium", "hard"] as const).map((level) => {
+                      const count = problems.filter((item) => item.difficulty === level).length;
+                      return { value: level, label: level[0]!.toUpperCase() + level.slice(1), hint: String(count), disabled: count === 0 };
+                    })}
+                  />
+                </div>
+                <div className="text-sm text-fg-muted">
+                  <span className="mb-1 block">Language</span>
+                  <Select label="Language" value={effectiveLanguage} onChange={setLanguage} options={languages.map((lang) => ({ value: lang, label: LANGUAGE_LABELS[lang] }))} />
+                </div>
               </div>
               <div className="mt-3 grid gap-2 sm:grid-cols-2" role="radiogroup" aria-label="AI policy">
                 {[

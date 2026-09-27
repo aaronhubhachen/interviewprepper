@@ -122,3 +122,23 @@ export function tagOptions(problems: readonly ProblemSummary[], order: readonly 
   }
   return order.filter((tag) => counts.has(tag)).map((tag) => ({ tag, label: tagLabel(tag), count: counts.get(tag)! }));
 }
+
+export interface TopicSection {
+  tag: Tag;
+  label: string;
+  problems: ProblemSummary[];
+}
+
+/**
+ * Problems grouped under their primary topic (the first tag), in `order`. With a topic in focus,
+ * everything lands in that one section.
+ */
+export function groupByTopic(problems: readonly ProblemSummary[], order: readonly Tag[], focus: Tag | null = null): TopicSection[] {
+  const byTag = new Map<Tag, ProblemSummary[]>();
+  for (const problem of problems) {
+    const tag = focus ?? problem.tags[0];
+    if (!tag) continue;
+    byTag.set(tag, [...(byTag.get(tag) ?? []), problem]);
+  }
+  return order.filter((tag) => byTag.has(tag)).map((tag) => ({ tag, label: tagLabel(tag), problems: byTag.get(tag)! }));
+}

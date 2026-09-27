@@ -185,7 +185,7 @@ describe("practice components render", () => {
       />,
     );
     expect(code).toContain(`${problem.stages.code.functionName}(`);
-    expect(code).toContain('<option value="java">Java</option>');
+    expect(code).toContain('role="combobox" aria-label="Language"');
     expect(code).toContain("Finish without saving");
     expect(code).toContain("Hide AI");
     expect(code).toContain("Prepr Bot");

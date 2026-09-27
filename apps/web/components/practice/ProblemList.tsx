@@ -22,6 +22,7 @@ import {
   EMPTY_FILTERS,
   filterProblems,
   filtersToQuery,
+  groupByTopic,
   hasActiveFilters,
   problemStatus,
   recommendProblem,
@@ -134,8 +135,8 @@ function ProblemBrowser({
   onFilters: (filters: ProblemFilters) => void;
 }) {
   const searchId = useId();
-  const tagId = useId();
   const visible = useMemo(() => filterProblems(problems, filters, weak), [problems, filters, weak]);
+  const sections = useMemo(() => groupByTopic(visible, TAG_IDS, filters.tag), [visible, filters.tag]);
   const recommendation = useMemo(() => recommendProblem(problems, weak), [problems, weak]);
   const tags = useMemo(() => tagOptions(problems, TAG_IDS), [problems]);
   const solved = problems.filter((problem) => problem.progress.solved).length;
@@ -205,23 +206,6 @@ function ProblemBrowser({
               options={[{ value: "all", label: "All" }, ...DIFFICULTIES.map((value) => ({ value, label: value[0]!.toUpperCase() + value.slice(1) }))]}
               onChange={(value) => set({ difficulty: value === "all" ? null : value })}
             />
-            <label htmlFor={tagId} className="sr-only">
-              Topic
-            </label>
-            <select
-              id={tagId}
-              value={filters.tag ?? ""}
-              onChange={(event) => set({ tag: (event.target.value || null) as Tag | null })}
-              className="h-10 rounded-xl border border-line-strong bg-ink-900/80 px-3 text-sm text-fg focus-visible:border-synapse/60"
-            >
-              <option value="">All topics</option>
-              {tags.map((option) => (
-                <option key={option.tag} value={option.tag}>
-                  {weak.has(option.tag) ? "‼️ " : ""}
-                  {option.label} ({option.count})
-                </option>
-              ))}
-            </select>
             <button
               type="button"
               aria-pressed={filters.weakOnly}
@@ -243,6 +227,28 @@ function ProblemBrowser({
           </div>
         </Card>
 
+        <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 pr-8 scrollbar-thin [mask-image:linear-gradient(to_right,black_calc(100%-3rem),transparent)]" role="group" aria-label="Topic">
+          {[{ tag: null as Tag | null, label: "All topics", count: problems.length }, ...tags].map((option) => {
+            const active = filters.tag === option.tag;
+            return (
+              <button
+                key={option.tag ?? "all"}
+                type="button"
+                aria-pressed={active}
+                onClick={() => set({ tag: option.tag })}
+                className={cn(
+                  "inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-medium transition-colors",
+                  active ? "border-synapse bg-synapse/15 text-fg" : "border-line-strong bg-ink-900/60 text-fg-muted hover:border-synapse/50 hover:text-fg",
+                )}
+              >
+                {option.tag && weak.has(option.tag) ? <span aria-hidden="true">‼️</span> : null}
+                {option.label}
+                <span className="text-xs tabular-nums text-fg-subtle">{option.count}</span>
+              </button>
+            );
+          })}
+        </div>
+
         {plan ? (
           <StudyPlanView plan={plan} problems={problems} filters={filters} weak={weak} onClear={clear} />
         ) : visible.length === 0 ? (
@@ -258,11 +264,28 @@ function ProblemBrowser({
             }
           />
         ) : (
-          <ul className="space-y-2.5">
-            {visible.map((problem) => (
-              <ProblemRow key={problem.id} problem={problem} now={now} weak={weak} />
-            ))}
-          </ul>
+          <div className="space-y-8">
+            {sections.map((section) => {
+              const solvedHere = section.problems.filter((problem) => problem.progress.solved).length;
+              return (
+                <section key={section.tag} aria-labelledby={`topic-${section.tag}`} className="space-y-3">
+                  <div className="flex items-baseline justify-between gap-3 border-b border-line pb-2">
+                    <h3 id={`topic-${section.tag}`} className="text-lg font-semibold text-fg">
+                      {section.label}
+                    </h3>
+                    <span className="text-xs tabular-nums text-fg-subtle">
+                      {solvedHere}/{section.problems.length} solved
+                    </span>
+                  </div>
+                  <ul className="space-y-2.5">
+                    {section.problems.map((problem) => (
+                      <ProblemRow key={problem.id} problem={problem} now={now} weak={weak} />
+                    ))}
+                  </ul>
+                </section>
+              );
+            })}
+          </div>
         )}
       </section>
     </div>

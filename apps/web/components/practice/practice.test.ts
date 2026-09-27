@@ -24,7 +24,7 @@ import {
   type SessionAction,
   type TextStageResult,
 } from "./session";
-import { filterProblems, parseFilters, filtersToQuery, recommendProblem, problemStatus } from "./filters";
+import { filterProblems, groupByTopic, parseFilters, filtersToQuery, recommendProblem, problemStatus } from "./filters";
 import type { ProblemSummary } from "@/lib/types";
 
 describe("parseMarkdown", () => {
@@ -332,6 +332,20 @@ describe("problem filters", () => {
       },
     }),
   ];
+
+  it("groups problems into topic sections by primary tag", () => {
+    const list = [
+      summary({ id: "a", tags: ["dp_1d", "arrays"] }),
+      summary({ id: "b", tags: ["arrays"] }),
+      summary({ id: "c", tags: ["arrays", "hashing"] }),
+    ];
+    const sections = groupByTopic(list, ["arrays", "hashing", "dp_1d"]);
+    expect(sections.map((section) => [section.tag, section.problems.map((problem) => problem.id)])).toEqual([
+      ["arrays", ["b", "c"]],
+      ["dp_1d", ["a"]],
+    ]);
+    expect(groupByTopic(list, ["arrays", "dp_1d"], "arrays")).toHaveLength(1);
+  });
 
   it("parses and serializes URL filters", () => {
     const filters = parseFilters({ tag: "dp_1d", difficulty: "hard", weak: "1", q: " coin ", junk: "x" });

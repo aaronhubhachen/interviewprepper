@@ -1,12 +1,12 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useId } from "react";
 import { TAG_IDS, tagLabel, type Tag } from "@synapse/core/tags";
 import { TAPBACK_EMOJI } from "@synapse/core/tapback";
 import { Card, CardHeader } from "@/components/ui/Card";
 import { Kbd } from "@/components/ui/Kbd";
 import { ProgressBar } from "@/components/ui/ProgressBar";
+import { Select } from "@/components/ui/Select";
 import { formatPercent, plural } from "@/lib/format";
 import type { QueueCounts } from "@/lib/types";
 import type { Turn } from "./session";
@@ -23,7 +23,6 @@ export interface SessionSidebarProps {
 
 export function SessionSidebar({ tag, tally, queue, current, mode, tagOptions = TAG_IDS }: SessionSidebarProps) {
   const router = useRouter();
-  const selectId = useId();
   const reviewed = tally.love + tally.like + tally.dislike;
   const recalled = tally.love + tally.like;
 
@@ -74,25 +73,12 @@ export function SessionSidebar({ tag, tally, queue, current, mode, tagOptions = 
 
       <Card>
         <CardHeader title="Drill a pattern" level={2} className="mb-3" />
-        <label htmlFor={selectId} className="sr-only">
-          Pattern to drill
-        </label>
-        <select
-          id={selectId}
+        <Select
+          label="Pattern to drill"
           value={tag ?? ""}
-          onChange={(event) => {
-            const value = event.target.value;
-            router.push(value ? `/review?tag=${encodeURIComponent(value)}` : "/review");
-          }}
-          className="h-10 w-full rounded-xl border border-line-strong bg-ink-800 px-3 text-sm text-fg focus:border-synapse/70"
-        >
-          <option value="">All due cards</option>
-          {tagOptions.map((entry) => (
-            <option key={entry} value={entry}>
-              {tagLabel(entry)}
-            </option>
-          ))}
-        </select>
+          onChange={(value) => router.push(value ? `/review?tag=${encodeURIComponent(value)}` : "/review")}
+          options={[{ value: "", label: "All due cards" }, ...tagOptions.map((entry) => ({ value: entry as string, label: tagLabel(entry) }))]}
+        />
 
         <h3 className="mt-5 text-xs font-semibold uppercase tracking-[0.12em] text-fg-subtle">Keyboard</h3>
         <ul className="mt-2 space-y-1.5 text-sm text-fg-muted">

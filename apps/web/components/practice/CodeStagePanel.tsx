@@ -6,6 +6,7 @@ import { Banner } from "@/components/ui/Banner";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Kbd } from "@/components/ui/Kbd";
+import { Select } from "@/components/ui/Select";
 import { cn } from "@/lib/cn";
 import type { JudgeMode, JudgeOutcome } from "@/lib/judge";
 import { BotChat } from "@/components/bot/BotChat";
@@ -616,23 +617,18 @@ function LanguagePicker({
 }) {
   const unavailable = (language: CodeLanguage) => isNativeLanguage(language) && serverLanguages !== null && !serverLanguages.includes(language);
   return (
-    <label className="relative inline-flex items-center">
-      <span className="sr-only">Language</span>
-      <select
-        value={value}
-        onChange={(event) => onChange(event.target.value as CodeLanguage)}
-        className="h-9 appearance-none rounded-xl border border-line-strong bg-ink-900/80 py-1 pl-3 pr-8 text-sm font-medium text-fg transition-colors hover:border-synapse/60 focus:border-synapse focus:outline-none"
-      >
-        {CODE_LANGUAGES.map((language) => (
-          <option key={language} value={language} disabled={unavailable(language) && language !== value}>
-            {LANGUAGE_LABELS[language]}
-            {unavailable(language) ? " (not installed)" : ""}
-          </option>
-        ))}
-      </select>
-      <svg aria-hidden="true" viewBox="0 0 12 12" className="pointer-events-none absolute right-3 h-3 w-3 text-fg-subtle" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
-        <path d="m3 4.5 3 3 3-3" />
-      </svg>
-    </label>
+    <Select
+      label="Language"
+      value={value}
+      onChange={onChange}
+      buttonClassName="h-9 min-w-[8.5rem] font-medium"
+      options={CODE_LANGUAGES.map((language) => ({
+        value: language,
+        label: LANGUAGE_LABELS[language],
+        text: LANGUAGE_LABELS[language],
+        hint: unavailable(language) ? "not installed" : undefined,
+        disabled: unavailable(language) && language !== value,
+      }))}
+    />
   );
 }
