@@ -49,7 +49,7 @@ const KIND_ICONS: Record<string, { icon: string; label: string }> = {
   ide_attempt: { icon: "🧩", label: "IDE" },
   weak_flag: { icon: "⚠️", label: "Weak spot" },
   drill_scheduled: { icon: "🎯", label: "Drill" },
-  spar: { icon: "🎙️", label: "Sparring" },
+  spar: { icon: "🎙️", label: "Behavioral" },
   linked: { icon: "📱", label: "iMessage" },
   paused: { icon: "⏸️", label: "Paused" },
   resumed: { icon: "▶️", label: "Resumed" },

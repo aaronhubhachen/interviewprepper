@@ -15,7 +15,7 @@ export default function SparLayout() {
         contentStyle: { backgroundColor: p.bg },
       }}
     >
-      <Stack.Screen name="index" options={{ title: 'Spar' }} />
+      <Stack.Screen name="index" options={{ title: 'Behavioral' }} />
       <Stack.Screen name="[id]" options={{ title: '', headerLargeTitle: false }} />
     </Stack>
   );

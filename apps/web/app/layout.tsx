@@ -21,7 +21,7 @@ export const metadata: Metadata = {
     template: "%s · Prepr",
   },
   description:
-    "Anki for LeetCode: micro DSA flashcards over iMessage, a card-flip coding IDE, and voice behavioral sparring, all scheduled with SM-2.",
+    "Anki for LeetCode: micro DSA flashcards over iMessage, a coding IDE, behavioral practice, system design, and mock onsites.",
   applicationName: "Prepr",
 };
 

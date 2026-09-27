@@ -60,7 +60,7 @@ function promptFor(view: Extract<View, { kind: "room" }>): string {
 }
 
 function syncUrl(questionId: string | null) {
-  const url = questionId ? `/spar?q=${encodeURIComponent(questionId)}` : "/spar";
+  const url = questionId ? `/behavioral?q=${encodeURIComponent(questionId)}` : "/behavioral";
   if (`${window.location.pathname}${window.location.search}` !== url) window.history.replaceState(null, "", url);
 }
 
@@ -258,8 +258,8 @@ export function SparStudio({ questions, initialSessions, initialTotals = null, i
   return (
     <>
       <PageHeader
-        eyebrow="Behavioral"
-        title="Voice sparring"
+        eyebrow="STAR practice"
+        title="Behavioral"
         description="Answer out loud. Get STAR feedback and a follow-up."
         actions={
           <>
@@ -307,7 +307,7 @@ export function SparStudio({ questions, initialSessions, initialTotals = null, i
         </div>
       ) : (
         <>
-          <nav aria-label="Sparring" className="mb-4 flex flex-wrap items-center justify-between gap-2">
+          <nav aria-label="Behavioral" className="mb-4 flex flex-wrap items-center justify-between gap-2">
             <Button variant="ghost" size="sm" onClick={() => go({ kind: "pick" })} leftIcon={<span aria-hidden="true">←</span>}>
               All questions
             </Button>

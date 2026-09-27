@@ -7,8 +7,8 @@ import type { SparSessionSummary } from "@/lib/types";
 import { practiceTotals, type PracticeTotals } from "@/lib/voice/sessions";
 
 export const metadata: Metadata = {
-  title: "Spar",
-  description: "Voice behavioral sparring: live STAR, filler and ownership metrics, then Engineering Manager feedback.",
+  title: "Behavioral",
+  description: "Behavioral questions with live STAR, filler, and ownership metrics, then Engineering Manager feedback.",
 };
 
 const SESSION_LIMIT = 30;
@@ -16,7 +16,7 @@ const SESSION_LIMIT = 30;
 const TOTALS_LIMIT = 10_000;
 
 /**
- * /spar: voice behavioral sparring. Questions and recent sessions are loaded on
+ * /behavioral: behavioral interview practice, spoken or typed. Questions and recent sessions are loaded on
  * the server so the first paint has no loading flash; if the store is unavailable
  * the client fetches history itself (and shows its own error state).
  * Per-question totals ("New to you", best scores, Surprise me) cover every

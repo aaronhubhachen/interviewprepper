@@ -18,7 +18,7 @@ function joinText(base: string, addition: string): string {
   return base.trim() ? `${base.trimEnd()} ${extra}` : extra;
 }
 
-/** One STAR story, typed or dictated, graded by the same Engineering Manager as /spar. */
+/** One STAR story, typed or dictated, graded by the same Engineering Manager as /behavioral. */
 export function MockBehavioralRound({ question, onDone }: { question: BehavioralQuestion; onDone: (result: MockBehavioralResult) => void }) {
   const speech = useSpeechRecognition();
   const { snapshot } = speech;

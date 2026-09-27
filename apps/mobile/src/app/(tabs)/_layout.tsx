@@ -18,7 +18,7 @@ export default function TabsLayout() {
         <NativeTabs.Trigger.Icon sf="chevron.left.forwardslash.chevron.right" md="code" />
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="spar">
-        <NativeTabs.Trigger.Label>Spar</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Label>Behavioral</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon sf={{ default: 'mic', selected: 'mic.fill' }} md="mic" />
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="grill">

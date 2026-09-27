@@ -6,7 +6,7 @@ import { hostRejection, type WebUrlSource } from "./guard";
 /**
  * Host allowlist for every path, for apps/web/proxy.ts. route() already checks
  * the Host on /api, but pages render private data into their HTML and RSC
- * payload (/spar embeds recent transcripts, the dashboard shows the link
+ * payload (/behavioral embeds recent transcripts, the dashboard shows the link
  * code), and Next's own cross-site dev check only covers /_next and /__nextjs.
  * Without this a DNS-rebinding page could read those pages.
  *

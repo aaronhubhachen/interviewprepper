@@ -11,7 +11,7 @@ import { cn } from "@/lib/cn";
 const ROUNDS = [
   { href: "/practice", label: "Coding", icon: "⌨️" },
   { href: "/design", label: "System design", icon: "🏗️" },
-  { href: "/spar", label: "Behavioral", icon: "🎙️" },
+  { href: "/behavioral", label: "Behavioral", icon: "🎙️" },
   { href: "/grill", label: "Resume deep-dive", icon: "🔥" },
   { href: "/review", label: "Flashcards over iMessage", icon: "💬" },
 ] as const;

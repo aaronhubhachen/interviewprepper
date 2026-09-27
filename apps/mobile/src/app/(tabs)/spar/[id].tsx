@@ -89,7 +89,7 @@ export default function SparRoom() {
 
   return (
     <>
-      <Stack.Screen options={{ title: question?.competency ?? 'Spar' }} />
+      <Stack.Screen options={{ title: question?.competency ?? 'Behavioral' }} />
       <Screen>
         {questions.error ? <ErrorCard message={questions.error} onRetry={questions.reload} /> : null}
         {!questions.data && !questions.error ? <Loading /> : null}

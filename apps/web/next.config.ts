@@ -73,6 +73,10 @@ const nextConfig: NextConfig = {
   outputFileTracingRoot: repoRoot,
   poweredByHeader: false,
   allowedDevOrigins: lanDevOrigins(),
+  // Voice sparring became "Behavioral"; keep old links working.
+  async redirects() {
+    return [{ source: "/spar", destination: "/behavioral", permanent: true }];
+  },
 };
 
 // Serves JUDGE_WORKER_CSP on /judge-worker.js (appended after any other header rules).

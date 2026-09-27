@@ -66,7 +66,7 @@ describe("package.json scripts", () => {
 
 describe("proxy.ts", () => {
   it("refuses a foreign Host on every path, including the judge worker", async () => {
-    for (const pathname of ["/", "/spar", JUDGE_WORKER_URL, "/api/stats"]) {
+    for (const pathname of ["/", "/behavioral", JUDGE_WORKER_URL, "/api/stats"]) {
       const response = proxy(new Request(`http://evil.example${pathname}`, { headers: { host: "evil.example" } }));
       expect(response?.status, pathname).toBe(403);
       expect(((await response?.json()) as { error: { code: string } }).error.code).toBe("forbidden_host");

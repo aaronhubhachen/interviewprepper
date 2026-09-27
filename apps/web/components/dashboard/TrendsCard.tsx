@@ -8,7 +8,7 @@ type TrendKey = keyof StatsResponse["trends"];
 const ROWS: ReadonlyArray<{ key: TrendKey; label: string; href: string; empty: string }> = [
   { key: "bot", label: "AI-assisted coding", href: "/practice", empty: "Open a problem's code stage and press Review in the AI panel." },
   { key: "grill", label: "Resume grill", href: "/grill", empty: "Upload a resume and defend it." },
-  { key: "spar", label: "Voice sparring", href: "/spar", empty: "Answer a behavioral question out loud." },
+  { key: "spar", label: "Behavioral", href: "/behavioral", empty: "Answer a behavioral question." },
   { key: "mock", label: "Mock interview loop", href: "/mock", empty: "Run a full timed loop." },
   { key: "design", label: "System design", href: "/design", empty: "Design a system with an AI interviewer." },
 ];

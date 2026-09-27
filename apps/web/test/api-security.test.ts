@@ -96,25 +96,25 @@ describe("proxy Host allowlist (pages, RSC payloads, assets)", () => {
   });
 
   it("refuses a foreign Host on every path, not just /api", async () => {
-    // /spar server-renders recent transcripts, and Next's own dev check only covers /_next and /__nextjs.
-    for (const path of ["/", "/spar", "/spar?_rsc=1", "/review?tag=graphs", "/_next/static/chunks/main.js", "/api/spar/sessions"]) {
+    // /behavioral server-renders recent transcripts, and Next's own dev check only covers /_next and /__nextjs.
+    for (const path of ["/", "/behavioral", "/spar?_rsc=1", "/review?tag=graphs", "/_next/static/chunks/main.js", "/api/spar/sessions"]) {
       const rejected = proxyRejection(request(path, { headers: { Host: "attacker.example:3000" } }), () => null);
       expect(rejected?.status, path).toBe(403);
       expect(rejected?.headers.get("cache-control")).toBe("no-store");
       expect(((await rejected!.json()) as ApiErrorBody).error.code).toBe("forbidden_host");
     }
     for (const host of ["localhost:3000", "127.0.0.1:3000", "[::1]:3000"]) {
-      expect(proxyRejection(request("/spar", { headers: { Host: host } }), () => null), host).toBeUndefined();
+      expect(proxyRejection(request("/behavioral", { headers: { Host: host } }), () => null), host).toBeUndefined();
     }
   });
 
   it("reads the opt-in SYNAPSE_WEB_URL host from process.env", () => {
-    const lan = () => request("/spar", { headers: { Host: "synapse.lan:3000" } });
+    const lan = () => request("/behavioral", { headers: { Host: "synapse.lan:3000" } });
     vi.stubEnv("SYNAPSE_WEB_URL", "");
     expect(proxyRejection(lan())?.status).toBe(403);
     vi.stubEnv("SYNAPSE_WEB_URL", "http://synapse.lan:3000");
     expect(proxyRejection(lan())).toBeUndefined();
-    expect(proxyRejection(request("/spar", { headers: { Host: "other.lan:3000" } }))?.status).toBe(403);
+    expect(proxyRejection(request("/behavioral", { headers: { Host: "other.lan:3000" } }))?.status).toBe(403);
     vi.stubEnv("SYNAPSE_WEB_URL", "not a url");
     expect(proxyRejection(lan())?.status).toBe(403);
   });

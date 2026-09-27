@@ -126,7 +126,7 @@ export const fetchProblem = (id: string) => get<ProblemResponse>(`/api/problems/
 export const evaluateStageAnswer = (body: PracticeEvaluateRequest) => post<PracticeEvaluateResponse>('/api/practice/evaluate', body);
 export const recordAttempt = (body: PracticeAttemptRequest) => post<PracticeAttemptResponse>('/api/practice/attempt', body);
 
-// Behavioral sparring
+// Behavioral practice
 export const fetchBehavioral = () => get<BehavioralResponse>('/api/behavioral');
 export const evaluateSpar = (body: SparEvaluateRequest) => post<SparEvaluateResponse>('/api/spar/evaluate', body);
 export const fetchSparSessions = (limit = 20) => get<SparSessionsResponse>(`/api/spar/sessions?limit=${limit}`);

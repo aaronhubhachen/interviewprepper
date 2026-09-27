@@ -22,7 +22,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
   { href: "/dashboard", label: "Dashboard", Icon: DashboardIcon },
   { href: "/review", label: "Review", Icon: ReviewIcon, badge: "due" },
   { href: "/practice", label: "Practice", Icon: PracticeIcon },
-  { href: "/spar", label: "Spar", Icon: SparIcon },
+  { href: "/behavioral", label: "Behavioral", Icon: SparIcon },
   { href: "/grill", label: "Grill", Icon: GrillIcon },
   { href: "/design", label: "Design", Icon: DesignIcon, desktopOnly: true },
   { href: "/mock", label: "Mock", Icon: MockIcon, desktopOnly: true },
