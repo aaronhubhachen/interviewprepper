@@ -17,6 +17,7 @@ import type {
 } from "./types";
 
 export * from "./types";
+export { nativeReference } from "./native-references";
 
 const MICROCARDS: readonly MicroCard[] = [...MICROCARDS_A, ...MICROCARDS_B, ...MICROCARDS_C];
 const PROBLEMS: readonly Problem[] = [...PROBLEMS_A, ...PROBLEMS_B, ...PROBLEMS_C];

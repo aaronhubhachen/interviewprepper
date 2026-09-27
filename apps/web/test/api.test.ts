@@ -384,6 +384,8 @@ describe("card-flip IDE", () => {
       await solutionGET(get(`/api/problems/${problem.id}/solution`), idCtx(problem.id)),
     );
     expect(solution.reference.javascript).toBe(problem.stages.code.reference.javascript);
+    expect(Object.keys(solution.reference).sort()).toEqual(["cpp", "go", "java", "javascript", "python", "typescript"]);
+    expect(solution.reference.java).toContain("class Solution");
 
     const detail = await body<ProblemResponse>(await problemGET(get(`/api/problems/${problem.id}`), idCtx(problem.id)));
     expect(detail.solutionAvailable).toBe(true);

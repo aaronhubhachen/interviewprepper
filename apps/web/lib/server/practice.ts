@@ -22,6 +22,8 @@ import type {
   ProblemsResponse,
   TextStage,
 } from "@/lib/types";
+import { nativeReference } from "@synapse/core/content";
+import { NATIVE_LANGUAGES } from "@synapse/core/judge";
 import { forbidden, notFound } from "./http";
 import { withLlmBudget } from "./llm-budget";
 import { intervalLabel, ratingForGrade, tagRefs, toAttemptSummary, toClientProblem } from "./serialize";
@@ -96,7 +98,13 @@ export function problemSolution(store: SynapseStore, userId: string, idOrSlug: s
   if (!attempted) throw forbidden("Attempt the code stage (or give up) before viewing the reference solution.");
   return {
     problemId: problem.id,
-    reference: { ...problem.stages.code.reference },
+    reference: {
+      ...problem.stages.code.reference,
+      ...Object.fromEntries(NATIVE_LANGUAGES.flatMap((language) => {
+        const code = nativeReference(problem.id, language);
+        return code ? [[language, code]] : [];
+      })),
+    },
     invariantAnswer: problem.stages.invariant.answerKey,
     edgeCaseAnswer: problem.stages.edgeCase.answerKey,
   };

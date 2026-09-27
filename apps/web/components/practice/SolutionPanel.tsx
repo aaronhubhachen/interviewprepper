@@ -1,8 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { JudgeLanguage } from "@synapse/core/content";
-import { isNativeLanguage, type CodeLanguage } from "@synapse/core/judge";
+import { CODE_LANGUAGES, LANGUAGE_LABELS, type CodeLanguage } from "@synapse/core/judge";
 import { Banner } from "@/components/ui/Banner";
 import { Button } from "@/components/ui/Button";
 import { Card, CardHeader } from "@/components/ui/Card";
@@ -16,19 +15,16 @@ export type SolutionState =
   | { status: "ready"; data: ProblemSolutionResponse }
   | { status: "error"; message: string; locked: boolean };
 
-const LANGUAGES: ReadonlyArray<{ value: JudgeLanguage; label: string }> = [
-  { value: "javascript", label: "JavaScript" },
-  { value: "python", label: "Python" },
-];
 
-/** References exist in JavaScript and Python; compiled-language users see the closer match (TypeScript → JavaScript, others → Python). */
-function referenceLanguage(language: CodeLanguage): JudgeLanguage {
-  if (!isNativeLanguage(language)) return language;
-  return language === "typescript" ? "javascript" : "python";
+function languagesFor(data: ProblemSolutionResponse): ReadonlyArray<{ value: CodeLanguage; label: string }> {
+  return CODE_LANGUAGES.filter((language) => data.reference[language]).map((language) => ({
+    value: language,
+    label: language === "javascript" ? "JS" : language === "typescript" ? "TS" : LANGUAGE_LABELS[language],
+  }));
 }
 
 export function SolutionPanel({ state, initialLanguage, onRetry }: { state: SolutionState; initialLanguage: CodeLanguage; onRetry: () => void }) {
-  const [language, setLanguage] = useState<JudgeLanguage>(referenceLanguage(initialLanguage));
+  const [language, setLanguage] = useState<CodeLanguage>(initialLanguage);
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
@@ -38,6 +34,8 @@ export function SolutionPanel({ state, initialLanguage, onRetry }: { state: Solu
   }, [copied]);
 
   if (state.status === "idle") return null;
+  // Fall back to Python if a language has no reference.
+  const shown: CodeLanguage = state.status === "ready" && state.data.reference[language] ? language : "python";
 
   const copy = async (text: string) => {
     try {
@@ -54,7 +52,7 @@ export function SolutionPanel({ state, initialLanguage, onRetry }: { state: Solu
         title={<span id="solution-heading">Reference solution</span>}
         eyebrow="Unlocked"
         description="Compare it with yours: the invariant from Stage 1 should be visible in the loop."
-        actions={state.status === "ready" ? <Segmented label="Solution language" value={language} options={LANGUAGES} onChange={setLanguage} /> : undefined}
+        actions={state.status === "ready" ? <Segmented label="Solution language" value={shown} options={languagesFor(state.data)} onChange={setLanguage} /> : undefined}
       />
       {state.status === "loading" ? (
         <div className="space-y-2" aria-busy="true" aria-label="Loading the reference solution">
@@ -81,10 +79,10 @@ export function SolutionPanel({ state, initialLanguage, onRetry }: { state: Solu
         <div className="space-y-5">
           <div className="relative">
             <pre className="scrollbar-thin max-h-[28rem] overflow-auto rounded-2xl border border-line bg-ink-900 p-4 pr-20 font-mono text-[0.8125rem] leading-relaxed text-fg">
-              <code>{state.data.reference[language]}</code>
+              <code>{state.data.reference[shown]}</code>
             </pre>
             <div className="absolute right-3 top-3">
-              <Button size="sm" variant="secondary" onClick={() => void copy(state.data.reference[language])} aria-label={copied ? "Copied to clipboard" : "Copy the reference solution"}>
+              <Button size="sm" variant="secondary" onClick={() => void copy(state.data.reference[shown] ?? "")} aria-label={copied ? "Copied to clipboard" : "Copy the reference solution"}>
                 {copied ? "Copied ✓" : "Copy"}
               </Button>
             </div>

@@ -312,7 +312,8 @@ export interface ProblemResponse {
 
 export interface ProblemSolutionResponse {
   problemId: string;
-  reference: Record<JudgeLanguage, string>;
+  /** JavaScript and Python always; Java, C++, Go, and TypeScript for every problem with a server reference. */
+  reference: Record<JudgeLanguage, string> & Partial<Record<NativeLanguage, string>>;
   invariantAnswer: string;
   edgeCaseAnswer: string;
 }
