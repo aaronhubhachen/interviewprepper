@@ -21,7 +21,7 @@ export interface AdapterSpec {
 
 // ── Trees ──────────────────────────────────────────────────────────────────
 
-const TREE_NODE: Record<AdapterLanguage, string> = {
+export const TREE_NODE: Record<AdapterLanguage, string> = {
   javascript: `class TreeNode {
   constructor(val = 0, left = null, right = null) {
     this.val = val;
@@ -181,7 +181,7 @@ function ${wrapper}(values: (number | null)[]): ${returns.typescript} {
 
 // ── Linked lists ───────────────────────────────────────────────────────────
 
-const LIST_NODE: Record<AdapterLanguage, string> = {
+export const LIST_NODE: Record<AdapterLanguage, string> = {
   javascript: `class ListNode {
   constructor(val = 0, next = null) {
     this.val = val;

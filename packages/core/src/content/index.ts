@@ -5,6 +5,11 @@ import { MICROCARDS_C } from "./microcards-c";
 import { PROBLEMS as PROBLEMS_A } from "./problems";
 import { PROBLEMS_B } from "./problems-b";
 import { PROBLEMS_C } from "./problems-c";
+import { PROBLEMS_D } from "./problems-d";
+import { PROBLEMS_E } from "./problems-e";
+import { PROBLEMS_F } from "./problems-f";
+import { PROBLEMS_G } from "./problems-g";
+import { PROBLEMS_H } from "./problems-h";
 import { TAG_IDS } from "./types";
 import type {
   BehavioralQuestion,
@@ -20,7 +25,7 @@ export * from "./types";
 export { nativeReference } from "./native-references";
 
 const MICROCARDS: readonly MicroCard[] = [...MICROCARDS_A, ...MICROCARDS_B, ...MICROCARDS_C];
-const PROBLEMS: readonly Problem[] = [...PROBLEMS_A, ...PROBLEMS_B, ...PROBLEMS_C];
+const PROBLEMS: readonly Problem[] = [...PROBLEMS_A, ...PROBLEMS_B, ...PROBLEMS_C, ...PROBLEMS_D, ...PROBLEMS_E, ...PROBLEMS_F, ...PROBLEMS_G, ...PROBLEMS_H];
 
 const PROBLEM_DIFFICULTY: Record<ProblemDifficulty, CardDifficulty> = { easy: 1, medium: 2, hard: 3 };
 

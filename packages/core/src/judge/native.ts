@@ -49,7 +49,10 @@ export type ValueType =
   | "char[][]"
   | "list<list<int>>"
   | "int?[]"
-  | "list<bool?>";
+  | "list<bool?>"
+  | "long"
+  | "list<list<string>>"
+  | "list<double?>";
 
 export interface Signature {
   params: ValueType[];
@@ -71,6 +74,9 @@ const JAVA_TYPES: Record<ValueType, string> = {
   "list<list<int>>": "List<List<Integer>>",
   "int?[]": "Integer[]",
   "list<bool?>": "List<Boolean>",
+  long: "long",
+  "list<list<string>>": "List<List<String>>",
+  "list<double?>": "List<Double>",
 };
 
 const CPP_TYPES: Record<ValueType, string> = {
@@ -84,6 +90,9 @@ const CPP_TYPES: Record<ValueType, string> = {
   "list<list<int>>": "vector<vector<int>>",
   "int?[]": "vector<optional<int>>",
   "list<bool?>": "vector<optional<bool>>",
+  long: "long long",
+  "list<list<string>>": "vector<vector<string>>",
+  "list<double?>": "vector<optional<double>>",
 };
 
 const GO_TYPES: Record<ValueType, string> = {
@@ -97,6 +106,9 @@ const GO_TYPES: Record<ValueType, string> = {
   "list<list<int>>": "[][]int",
   "int?[]": "[]*int",
   "list<bool?>": "[]*bool",
+  long: "int64",
+  "list<list<string>>": "[][]string",
+  "list<double?>": "[]*float64",
 };
 
 const TS_TYPES: Record<ValueType, string> = {
@@ -110,6 +122,9 @@ const TS_TYPES: Record<ValueType, string> = {
   "list<list<int>>": "number[][]",
   "int?[]": "(number | null)[]",
   "list<bool?>": "(boolean | null)[]",
+  long: "number",
+  "list<list<string>>": "string[][]",
+  "list<double?>": "(number | null)[]",
 };
 
 const JAVA_DEFAULTS: Record<ValueType, string> = {
@@ -123,6 +138,9 @@ const JAVA_DEFAULTS: Record<ValueType, string> = {
   "list<list<int>>": "new ArrayList<>()",
   "int?[]": "new Integer[0]",
   "list<bool?>": "new ArrayList<>()",
+  long: "0L",
+  "list<list<string>>": "new ArrayList<>()",
+  "list<double?>": "new ArrayList<>()",
 };
 
 const GO_DEFAULTS: Record<ValueType, string> = {
@@ -136,6 +154,9 @@ const GO_DEFAULTS: Record<ValueType, string> = {
   "list<list<int>>": "nil",
   "int?[]": "nil",
   "list<bool?>": "nil",
+  long: "0",
+  "list<list<string>>": "nil",
+  "list<double?>": "nil",
 };
 
 const TS_DEFAULTS: Record<ValueType, string> = {
@@ -149,7 +170,16 @@ const TS_DEFAULTS: Record<ValueType, string> = {
   "list<list<int>>": "[]",
   "int?[]": "[]",
   "list<bool?>": "[]",
+  long: "0",
+  "list<list<string>>": "[]",
+  "list<double?>": "[]",
 };
+
+/** A value type's spelling in a server-compiled language (used by the node adapters). */
+export function nativeTypeName(language: NativeLanguage, type: ValueType): string {
+  const table = { java: JAVA_TYPES, cpp: CPP_TYPES, go: GO_TYPES, typescript: TS_TYPES }[language];
+  return table[type];
+}
 
 function cppParam(type: ValueType, name: string): string {
   const cpp = CPP_TYPES[type];
@@ -234,6 +264,9 @@ const JAVA_DECODERS: Record<ValueType, string> = {
   "list<list<int>>": "toIntListList",
   "int?[]": "toNullableIntArray",
   "list<bool?>": "toBoolList",
+  long: "toLong",
+  "list<list<string>>": "toStrListList",
+  "list<double?>": "toDoubleList",
 };
 
 const JAVA_PRELUDE = "import java.util.*;\nimport java.util.function.*;\nimport java.util.stream.*;\n";
@@ -310,6 +343,7 @@ public class Main {
 
   // ---- decoders ----
   static int toInt(Object o) { return ((Number) o).intValue(); }
+  static long toLong(Object o) { return ((Number) o).longValue(); }
   static boolean toBool(Object o) { return (Boolean) o; }
   static String toStr(Object o) { return (String) o; }
   static List<?> list(Object o) { return (List<?>) o; }
@@ -328,6 +362,12 @@ public class Main {
   }
   static Integer[] toNullableIntArray(Object o) { List<?> l = list(o); Integer[] r = new Integer[l.size()]; for (int i = 0; i < r.length; i++) r[i] = l.get(i) == null ? null : toInt(l.get(i)); return r; }
   static List<Boolean> toBoolList(Object o) { List<Boolean> r = new ArrayList<>(); for (Object x : list(o)) r.add((Boolean) x); return r; }
+  static List<List<String>> toStrListList(Object o) {
+    List<List<String>> r = new ArrayList<>();
+    for (Object row : list(o)) { List<String> inner = new ArrayList<>(); for (Object x : list(row)) inner.add(toStr(x)); r.add(inner); }
+    return r;
+  }
+  static List<Double> toDoubleList(Object o) { List<Double> r = new ArrayList<>(); for (Object x : list(o)) r.add(x == null ? null : ((Number) x).doubleValue()); return r; }
 
   // ---- encoder (by runtime type) ----
   static void enc(StringBuilder b, Object v) {

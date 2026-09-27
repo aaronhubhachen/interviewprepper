@@ -7,6 +7,20 @@ import { nativeStarter, type NativeLanguage } from "../judge/native";
 import { PROBLEMS } from "./problems";
 import { PROBLEMS_B } from "./problems-b";
 import { NODE_REFERENCES, PROBLEMS_C } from "./problems-c";
+import { NATIVE_REFERENCES_D } from "./problems-d";
+import { NATIVE_REFERENCES_E } from "./problems-e";
+import { NATIVE_REFERENCES_F } from "./problems-f";
+import { NATIVE_REFERENCES_G } from "./problems-g";
+import { NATIVE_REFERENCES_H } from "./problems-h";
+
+/** Batches D-H (the Blind 75 expansion) keep their native references next to the problems. */
+const BATCHES: Record<string, Record<NativeLanguage, string>> = {
+  ...NATIVE_REFERENCES_D,
+  ...NATIVE_REFERENCES_E,
+  ...NATIVE_REFERENCES_F,
+  ...NATIVE_REFERENCES_G,
+  ...NATIVE_REFERENCES_H,
+};
 
 const ALL = [...PROBLEMS, ...PROBLEMS_B, ...PROBLEMS_C];
 
@@ -1621,6 +1635,8 @@ func kClosest(points [][]int, k int) [][]int {
 
 /** The reference solution for `problemId` in a server-compiled language, or undefined. */
 export function nativeReference(problemId: string, language: NativeLanguage): string | undefined {
+  const batch = BATCHES[problemId];
+  if (batch) return batch[language];
   const node = (NODE_REFERENCES as Record<string, Record<NativeLanguage, string>>)[problemId];
   if (node) return node[language];
   const more = MORE[language][problemId];
