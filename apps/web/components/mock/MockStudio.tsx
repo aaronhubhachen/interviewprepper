@@ -204,7 +204,7 @@ export function MockStudio({ problems, questions }: { problems: MockProblemRef[]
       <PageHeader
         eyebrow="Mock interview loop"
         title="The full onsite, in one sitting"
-        description="A timed coding round, a behavioral story, and a resume deep-dive, then a hiring-committee packet with a decision."
+        description="Coding, behavioral, and resume rounds, then a hire decision."
         actions={
           stage !== "setup" && stage !== "packet" ? (
             <button
@@ -229,7 +229,7 @@ export function MockStudio({ problems, questions }: { problems: MockProblemRef[]
       {stage === "setup" ? (
         <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_20rem]">
           <Card>
-            <h2 className="text-lg font-semibold text-fg">Set up the loop</h2>
+            <h2 className="text-lg font-semibold text-fg">Setup</h2>
             <fieldset className="mt-5">
               <legend className="text-sm font-semibold text-fg">Coding round</legend>
               <div className="mt-2 grid gap-3 sm:grid-cols-2">
@@ -264,8 +264,8 @@ export function MockStudio({ problems, questions }: { problems: MockProblemRef[]
               </div>
               <div className="mt-3 grid gap-2 sm:grid-cols-2" role="radiogroup" aria-label="AI policy">
                 {[
-                  { value: false, title: "Classic round", body: "No AI. Judged on correctness and pace." },
-                  { value: true, title: "AI-assisted round", body: "Prepr Bot docked beside the editor. Your AI use is reviewed and scored." },
+                  { value: false, title: "Classic round", body: "No AI" },
+                  { value: true, title: "AI-assisted round", body: "AI use is scored" },
                 ].map((option) => (
                   <button
                     key={String(option.value)}
@@ -285,8 +285,7 @@ export function MockStudio({ problems, questions }: { problems: MockProblemRef[]
               </div>
             </fieldset>
             <fieldset className="mt-6">
-              <legend className="text-sm font-semibold text-fg">Resume for the grill round</legend>
-              <p className="mt-1 text-xs text-fg-subtle">Shared with the /grill page. Leave it empty to skip the grill.</p>
+              <legend className="text-sm font-semibold text-fg">Resume (optional)</legend>
               <label htmlFor="mock-resume" className="sr-only">
                 Resume text
               </label>
@@ -313,21 +312,19 @@ export function MockStudio({ problems, questions }: { problems: MockProblemRef[]
             ) : null}
           </Card>
           <Card>
-            <h2 className="text-sm font-semibold text-fg">How it runs</h2>
-            <ol className="mt-3 space-y-3 text-sm text-fg-muted">
+            <h2 className="text-sm font-semibold text-fg">Rounds</h2>
+            <ol className="mt-3 space-y-2 text-sm text-fg-muted">
               <li>
-                <span className="font-semibold text-fg">1 · Coding</span>, {CODING_MINUTES} min. A random {difficulty} problem you haven&apos;t been told in advance. The last submit
-                counts.
+                <span className="font-semibold text-fg">Coding</span> · {CODING_MINUTES} min
               </li>
               <li>
-                <span className="font-semibold text-fg">2 · Behavioral</span>, {BEHAVIORAL_MINUTES} min. One STAR story, typed or dictated.
+                <span className="font-semibold text-fg">Behavioral</span> · {BEHAVIORAL_MINUTES} min
               </li>
               <li className={cn(!withGrill && "opacity-50")}>
-                <span className="font-semibold text-fg">3 · Resume grill</span>, {MOCK_GRILL_QUESTIONS} questions on your own claims.
-                {!withGrill ? " Skipped: add a resume." : ""}
+                <span className="font-semibold text-fg">Resume grill</span> · {MOCK_GRILL_QUESTIONS} questions{!withGrill ? " (needs a resume)" : ""}
               </li>
               <li>
-                <span className="font-semibold text-fg">Packet</span>: score per round, a hire decision, and what would flip it. Saved to your dashboard trends.
+                <span className="font-semibold text-fg">Packet</span> · hire decision
               </li>
             </ol>
           </Card>

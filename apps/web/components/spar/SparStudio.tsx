@@ -260,7 +260,7 @@ export function SparStudio({ questions, initialSessions, initialTotals = null, i
       <PageHeader
         eyebrow="Behavioral"
         title="Voice sparring"
-        description="Answer out loud. Prepr tracks STAR structure, filler words and ownership live, then an Engineering Manager scores you and asks a follow-up."
+        description="Answer out loud. Get STAR feedback and a follow-up."
         actions={
           <>
             <Pill tone="neutral" icon="🔒" size="md" title="Speech is transcribed by your browser. Only the text is sent.">

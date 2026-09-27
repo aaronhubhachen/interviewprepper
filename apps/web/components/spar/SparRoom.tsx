@@ -320,14 +320,13 @@ export function SparRoom({
       "Starting the microphone…"
     ) : recording ? (
       <>
-        Listening… open with one sentence of context. <span className="text-fg-subtle">Filler words will be highlighted.</span>
+        Listening…
       </>
     ) : speech.supported === null ? (
       "Checking microphone support…"
     ) : (
       <>
-        Press <strong className="font-semibold text-fg-muted">Start answering</strong> and talk. Your words appear here as you
-        speak, with filler words highlighted.
+        Press <strong className="font-semibold text-fg-muted">Start answering</strong> and talk.
       </>
     );
 
@@ -450,7 +449,7 @@ export function SparRoom({
             ) : null}
             {speech.supported === false ? (
               <Banner tone="info" title="Voice capture isn't available in this browser">
-                Chrome, Edge and Safari support speech recognition. Typing gives you the same live metrics and feedback.
+                Type your answer instead, or use Chrome, Edge, or Safari.
               </Banner>
             ) : null}
             {notice ? (

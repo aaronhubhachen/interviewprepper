@@ -21,11 +21,11 @@ const MAX_ANSWER = 4000;
 const QUESTION: Record<TextStageKey, { heading: string; placeholder: string }> = {
   invariant: {
     heading: "Name the invariant",
-    placeholder: "In 1–2 sentences: what stays true at every step, and how do you restore it?",
+    placeholder: "Your answer",
   },
   edgeCase: {
     heading: "Spot the edge-case trap",
-    placeholder: "Which input breaks the naive version, and what guards against it?",
+    placeholder: "Your answer",
   },
 };
 

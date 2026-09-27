@@ -114,7 +114,7 @@ export function BotChat({
       <div ref={listRef} role="log" aria-live="polite" className="scrollbar-thin flex-1 space-y-3 overflow-y-auto px-4 py-4">
         {messages.length === 0 ? (
           <div className="space-y-3">
-            <p className="text-sm text-fg-muted">Use the assistant the way you would in a real round. Some ways to start:</p>
+            <p className="text-sm text-fg-muted">Try:</p>
             <div className="flex flex-col gap-2">
               {STARTERS.map((starter) => (
                 <button
@@ -192,7 +192,7 @@ export function BotChat({
           onKeyDown={onKeyDown}
           rows={3}
           maxLength={4000}
-          placeholder="Ask Prepr Bot… (Enter to send, Shift+Enter for a new line)"
+          placeholder="Ask Prepr Bot…"
           className="scrollbar-thin w-full resize-none rounded-xl border border-line bg-ink-900 px-3 py-2 text-sm text-fg placeholder:text-fg-faint focus:border-synapse focus:outline-none"
         />
         <div className="mt-2 flex justify-end">

@@ -140,13 +140,13 @@ export default function GrillScreen() {
 
       {stage === 'setup' ? (
         <>
-          <T variant="muted">The interviewer picks your resume apart one claim at a time: inflated verbs, unverifiable numbers, shallow tech.</T>
+          <T variant="muted">Defend each claim on your resume.</T>
           <Button label={uploading ? 'Reading your resume…' : 'Upload resume (PDF, .txt, .md)'} icon="📄" onPress={() => void pickFile()} loading={uploading} variant="secondary" />
           {fileNote ? <T variant="small">{fileNote}</T> : null}
           {error ? <ErrorCard message={error} /> : null}
           <Field value={resume} onChangeText={updateResume} placeholder="…or paste your resume here." minHeight={220} maxLength={20_000} style={{ fontFamily: 'Menlo', fontSize: 13 }} />
           <T variant="small" style={{ color: p.faint }}>
-            Saved on this phone only. The server stores nothing; the text goes to the model to write questions.
+            Stays on this phone.
           </T>
           <Button label="Start the grill" icon="→" onPress={start} disabled={resume.trim().length < MIN_RESUME_CHARS} />
         </>
@@ -194,7 +194,7 @@ export default function GrillScreen() {
 
           {awaiting ? (
             <>
-              <Field value={answer} onChangeText={setAnswer} placeholder="Defend your resume. Be specific. Tap the keyboard mic to dictate." maxLength={6000} autoFocus />
+              <Field value={answer} onChangeText={setAnswer} placeholder="Be specific." maxLength={6000} autoFocus />
               <Button label={turns.length + 1 >= total ? 'Final answer' : 'Answer'} onPress={submit} disabled={!answer.trim()} />
             </>
           ) : null}

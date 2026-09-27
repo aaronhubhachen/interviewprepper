@@ -55,7 +55,7 @@ export function GrillReportView({ report, turns, onAgain, onNewResume }: GrillRe
       </Card>
 
       <Card>
-        <CardHeader title="Claim by claim" description="Every line the interviewer went after." />
+        <CardHeader title="Claim by claim" />
         <ul className="divide-y divide-line">
           {report.claims.map((claim, index) => (
             <li key={index} className="flex flex-col gap-2 py-3 first:pt-0 last:pb-0 sm:flex-row sm:items-start sm:gap-4">

@@ -73,7 +73,7 @@ export function DiffReview({ original, suggestion, language, height, onAccept, o
               <span className="text-success">+{stats.added}</span> <span className="text-danger">−{stats.removed}</span>
             </span>
           )}
-          <span className="hidden text-xs text-fg-subtle md:inline">Red is your code, green is the suggestion (editable before you accept)</span>
+          <span className="hidden text-xs text-fg-subtle md:inline">Red: yours · Green: suggestion</span>
         </div>
         <div className="flex items-center gap-2">
           <Button size="sm" variant="ghost" onClick={onReject} title="Discard the suggestion (Esc)">

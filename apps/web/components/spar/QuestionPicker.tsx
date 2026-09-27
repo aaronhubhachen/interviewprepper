@@ -4,7 +4,6 @@ import type { BehavioralQuestion } from "@synapse/core/content";
 import { useState, type Ref } from "react";
 import { Button, EmptyState, Pill } from "@/components/ui";
 import { cn } from "@/lib/cn";
-import { plural } from "@/lib/format";
 import type { PracticeStat } from "@/lib/voice/sessions";
 
 type Filter = "all" | "new" | "practiced";
@@ -32,9 +31,6 @@ export function QuestionPicker({ questions, stats, onPick, onSurprise, headingRe
           <h2 id="picker-title" ref={headingRef} tabIndex={-1} className="scroll-mt-24 text-xl font-semibold text-fg outline-none">
             Choose a question
           </h2>
-          <p className="mt-1 text-sm text-fg-muted">
-            {plural(questions.length, "question")}, each testing a different competency. Morgan reads it aloud, then you answer.
-          </p>
         </div>
         <Button onClick={onSurprise} leftIcon={<span aria-hidden="true">🎲</span>} className="self-start sm:self-auto">
           Surprise me

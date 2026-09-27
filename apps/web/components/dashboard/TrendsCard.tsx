@@ -30,7 +30,6 @@ export function TrendsCard({ trends, className }: { trends: StatsResponse["trend
     <Card className={className} aria-labelledby="trends-title">
       <CardHeader
         title={<span id="trends-title">Interview rounds</span>}
-        description="Your last 10 scores in each round type, oldest to newest."
       />
       <ul className="space-y-4">
         {rows.map((row) => {

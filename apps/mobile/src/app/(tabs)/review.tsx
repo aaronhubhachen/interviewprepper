@@ -150,7 +150,7 @@ function ReviewSession({ tag }: { tag: Tag | undefined }) {
           <Field
             value={answer}
             onChangeText={setAnswer}
-            placeholder="Type or dictate your answer (tap the mic on the keyboard)…"
+            placeholder="Your answer…"
             maxLength={4000}
             editable={!busy}
           />

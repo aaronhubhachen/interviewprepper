@@ -24,7 +24,7 @@ export function RecentActivityCard({ events, now, className }: RecentActivityCar
 
   return (
     <Card className={className} aria-labelledby="recent-title">
-      <CardHeader title={<span id="recent-title">Recent activity</span>} description="Every surface, one memory." />
+      <CardHeader title={<span id="recent-title">Recent activity</span>} />
       {rows.length === 0 ? (
         <div className="rounded-xl border border-dashed border-line-strong bg-ink-900/50 px-4 py-6 text-center">
           <p aria-hidden="true" className="text-2xl">

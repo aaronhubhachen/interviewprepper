@@ -1,11 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Button, Card, CardHeader } from "@/components/ui";
+import { Button, Card } from "@/components/ui";
 import { useToast } from "@/components/ui/Toast";
 import type { ReportCard } from "@/lib/types";
-
-const signed = (value: number) => (value > 0 ? `+${value}` : `${value}`);
 
 /** The weekly report card with its shareable PNG, plus copy and download actions. */
 export function ReportCardView({ card, text }: { card: ReportCard; text: string }) {
@@ -52,35 +50,11 @@ export function ReportCardView({ card, text }: { card: ReportCard; text: string 
           Copy as text
         </Button>
       </div>
-      <div className="grid gap-4 md:grid-cols-3">
-        <Card>
-          <CardHeader title="This week" level={3} />
-          <ul className="space-y-1.5 text-sm text-fg-muted">
-            <li>🔥 Streak: {card.streakDays} days · active {card.activeDays}/7</li>
-            <li>
-              🃏 {card.reviews} reviews ({signed(card.reviewsDelta)} vs last week)
-            </li>
-            <li>🎯 Accuracy: {card.accuracy === null ? "no reviews" : `${Math.round(card.accuracy * 100)}%`}</li>
-          </ul>
-        </Card>
-        <Card>
-          <CardHeader title="AI use and rounds" level={3} />
-          <ul className="space-y-1.5 text-sm text-fg-muted">
-            <li>
-              🤖 {card.aiUse ? `AI-use score ${card.aiUse.average}/100${card.aiUse.delta === null ? "" : ` (${signed(card.aiUse.delta)})`}` : "No AI-assisted rounds this week"}
-            </li>
-            {card.rounds.map((round) => (
-              <li key={round.kind}>
-                🎤 {round.label}: {round.count}× avg {round.average}
-              </li>
-            ))}
-          </ul>
-        </Card>
-        <Card>
-          <CardHeader title="Weak spots" level={3} />
-          <p className="text-sm text-fg-muted">{card.weakSpots.length ? card.weakSpots.join(" · ") : "None flagged. Nice."}</p>
-        </Card>
-      </div>
+      {card.rounds.length ? (
+        <p className="text-sm text-fg-muted">
+          {card.rounds.map((round) => `${round.label} ${round.count}× (avg ${round.average})`).join(" · ")}
+        </p>
+      ) : null}
     </div>
   );
 }

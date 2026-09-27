@@ -232,7 +232,7 @@ export function LinkCard({ initial, onChange, className }: LinkCardProps) {
       ) : (
         <div className="flex flex-1 flex-col">
           <p className="text-sm text-fg-muted">
-            Get micro-cards texted to you at their due times. Text this code to{" "}
+            Text this code to{" "}
             {link.agentHandle ? <span className="font-medium text-fg">{link.agentHandle}</span> : "your Prepr number"}:
           </p>
 
@@ -282,7 +282,7 @@ export function LinkCard({ initial, onChange, className }: LinkCardProps) {
                   New code
                 </Button>
               </div>
-              <p className="mt-2 text-xs text-fg-subtle">Codes expire after 10 minutes; this card shows the current one.</p>
+              <p className="mt-2 text-xs text-fg-subtle">Expires in 10 minutes.</p>
             </>
           ) : (
             <div className="mt-4 flex justify-center gap-1.5 sm:gap-2">
@@ -297,9 +297,8 @@ export function LinkCard({ initial, onChange, className }: LinkCardProps) {
               <span className="absolute inline-flex h-full w-full rounded-full bg-axon opacity-60 motion-safe:animate-ping" />
               <span className="relative inline-flex h-2 w-2 rounded-full bg-axon" />
             </span>
-            {loaded ? "Waiting for your text… this card updates by itself." : "Checking link status…"}
+            {loaded ? "Waiting for your text…" : "Checking link status…"}
           </p>
-          <p className="mt-1 text-xs text-fg-subtle">Set SYNAPSE_OWNER_HANDLE to your number and texting “start” from it links too.</p>
         </div>
       )}
     </Card>

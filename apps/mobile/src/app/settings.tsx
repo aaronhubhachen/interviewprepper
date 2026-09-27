@@ -38,8 +38,7 @@ export default function SettingsScreen() {
   return (
     <Screen>
       <T variant="muted">
-        The app syncs with the Prepr web server on your computer. It only answers localhost by default, so for a phone: set
-        SYNAPSE_WEB_URL in .env to this address, then run npm run dev:lan -w @synapse/web. Only do this on a Wi-Fi you trust.
+        Your computer&apos;s Prepr server. Run it with dev:lan and set SYNAPSE_WEB_URL to this address.
       </T>
       <Card style={{ gap: space.md }}>
         <T variant="eyebrow">Server address</T>

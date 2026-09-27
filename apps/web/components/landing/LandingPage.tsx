@@ -23,7 +23,7 @@ export function LandingPage() {
           </span>
         </h1>
         <p className="mt-8 max-w-md text-base leading-relaxed text-fg-muted sm:text-lg">
-          Flashcards over iMessage, a coding IDE, and voice mock interviews, all on one review schedule.
+          Flashcards over iMessage, a coding IDE, and mock interviews.
         </p>
         <div className="mt-10 flex flex-wrap gap-3">
           <ButtonLink href="/review" size="lg" rightIcon={<span aria-hidden="true">→</span>}>

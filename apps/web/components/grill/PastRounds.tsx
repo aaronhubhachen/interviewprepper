@@ -26,7 +26,7 @@ export function PastRounds({ onOpen }: { onOpen: (report: GrillReport) => void }
 
   return (
     <Card className="mt-5">
-      <CardHeader title="Past rounds" description="Every grill you finished, newest first. Open one to reread the verdicts." level={2} />
+      <CardHeader title="Past rounds" level={2} />
       <ul className="divide-y divide-line">
         {sessions.map((session) => {
           const report = session.report as GrillReport;

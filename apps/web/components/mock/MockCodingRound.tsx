@@ -187,7 +187,7 @@ export function MockCodingRound({
               />
             )}
             <div className="flex flex-wrap items-center justify-between gap-2 border-t border-line px-4 py-3">
-              <p className="text-xs text-fg-subtle">Submit as often as you like; the last submit counts.</p>
+              <p className="text-xs text-fg-subtle">Last submit counts.</p>
               <div className="flex gap-2">
                 <Button variant="secondary" onClick={() => void execute("run")} loading={running === "run"} disabled={running !== null || finishing}>
                   Run

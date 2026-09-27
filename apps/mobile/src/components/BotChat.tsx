@@ -42,7 +42,7 @@ export function BotChat({ problemId }: { problemId: string }) {
   return (
     <Card style={{ gap: space.md }}>
       <T variant="eyebrow">Ask Prepr Bot</T>
-      <T variant="muted">Talk through the approach, edge cases, or complexity. The coding (and the AI edit review) happens in the web IDE.</T>
+      <T variant="muted">Ask about the approach, edge cases, or complexity.</T>
       {messages.map((message, index) =>
         message.role === 'user' ? (
           <View key={index} style={[styles.bubble, styles.mine, { backgroundColor: p.accentStrong }]}>

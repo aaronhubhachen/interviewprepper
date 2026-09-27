@@ -7,7 +7,7 @@ export default function NotFound() {
       icon="🕳️"
       level={1}
       title="Page not found"
-      description="That page does not exist. Maybe it was pruned for lack of spaced repetition."
+      description="That page doesn't exist."
       action={<ButtonLink href="/">Back to dashboard</ButtonLink>}
     />
   );

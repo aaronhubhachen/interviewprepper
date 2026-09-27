@@ -111,7 +111,7 @@ export default function SparRoom() {
               value={answer}
               onChangeText={setAnswer}
               minHeight={200}
-              placeholder="Tap the mic on your keyboard and answer out loud. Situation, task, what you did, and the result."
+              placeholder="Dictate or type. Situation, task, action, result."
               maxLength={20_000}
               editable={!busy}
             />

@@ -87,7 +87,7 @@ export function MockBehavioralRound({ question, onDone }: { question: Behavioral
       </div>
       <Card>
         <p className="text-lg font-medium leading-relaxed text-fg">{question.prompt}</p>
-        <p className="mt-2 text-sm text-fg-subtle">Answer in STAR form: situation, task, the actions you took, and a measurable result. Aim for about two minutes spoken.</p>
+        <p className="mt-2 text-sm text-fg-subtle">Situation, task, action, result. About two minutes.</p>
         <label htmlFor="mock-behavioral" className="sr-only">
           Your answer
         </label>
@@ -99,7 +99,7 @@ export function MockBehavioralRound({ question, onDone }: { question: Behavioral
           disabled={grading}
           rows={9}
           maxLength={MAX_CHARS}
-          placeholder="Type your story, or press the mic and tell it."
+          placeholder="Type or dictate your story"
           className="mt-4 w-full resize-y rounded-xl border border-line bg-ink-900/60 px-4 py-3 text-sm leading-relaxed text-fg outline-none placeholder:text-fg-subtle focus:border-synapse/60"
         />
         <div className="mt-3 flex flex-wrap items-center justify-between gap-3">

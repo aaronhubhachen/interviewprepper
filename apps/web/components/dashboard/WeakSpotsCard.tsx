@@ -27,7 +27,6 @@ export function WeakSpotsCard({ weakTags, now, className }: WeakSpotsCardProps) 
     <Card className={className} aria-labelledby="weak-title">
       <CardHeader
         title={<span id="weak-title">Weak spots</span>}
-        description="These get extra practice here and over iMessage. Scores fade as you recall them."
       />
       {weakTags.length === 0 ? (
         <div className="rounded-xl border border-dashed border-line-strong bg-ink-900/50 px-4 py-6 text-center">
@@ -36,7 +35,7 @@ export function WeakSpotsCard({ weakTags, now, className }: WeakSpotsCardProps) 
           </p>
           <p className="mt-2 text-sm font-medium text-fg">No weak spots right now</p>
           <p className="mt-1 text-sm text-fg-muted">
-            Struggle in the IDE, miss a review, or tap ‼️ on a text and the pattern shows up here.
+            Missed patterns show up here.
           </p>
         </div>
       ) : (

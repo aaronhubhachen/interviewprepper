@@ -297,7 +297,7 @@ export function ReviewSession({ tag, invalidTag, initialState, tagOptions }: Rev
       ? "Bonus practice: due cards first, then new ones past today's cap"
       : label
         ? `Drilling ${label}`
-        : "Same loop as iMessage: answer, feedback, tapback";
+        : "Flashcards";
 
   return (
     <>
@@ -306,8 +306,8 @@ export function ReviewSession({ tag, invalidTag, initialState, tagOptions }: Rev
         title={label ? `Drill: ${label}` : "Review"}
         description={
           label
-            ? `Cards tagged ${label}, due ones first. Nothing due? You get bonus practice ahead of schedule.`
-            : "Answer in your own words, get Socratic feedback, then rate your recall with a tapback. SM-2 does the rest."
+            ? `Cards tagged ${label}, due first.`
+            : "Answer, get feedback, rate your recall."
         }
         actions={
           label ? (
@@ -390,7 +390,7 @@ export function ReviewSession({ tag, invalidTag, initialState, tagOptions }: Rev
                   className="w-full rounded-2xl focus-visible:outline-offset-4"
                 >
                   <p id="rate-label" className="mb-2 text-center text-xs font-medium text-fg-muted">
-                    How was your recall? Tap back to schedule the next rep.
+                    How was your recall?
                   </p>
                   <TapbackButtons
                     preview={turn.evaluation.preview}
@@ -489,7 +489,7 @@ export function DoneMessage({ state, patternLabel: label }: { state: SessionStat
       <EmptyState
         icon={copy.icon}
         title={`${copy.title}. ${copy.description}`}
-        description="Study new cards past today's limit, or practice a problem in the card-flip IDE. Prepr will text you when reviews come due."
+        description="Prepr will text you when reviews come due."
       />
     );
   }

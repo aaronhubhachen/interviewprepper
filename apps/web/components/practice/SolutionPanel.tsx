@@ -51,7 +51,6 @@ export function SolutionPanel({ state, initialLanguage, onRetry }: { state: Solu
       <CardHeader
         title={<span id="solution-heading">Reference solution</span>}
         eyebrow="Unlocked"
-        description="Compare it with yours: the invariant from Stage 1 should be visible in the loop."
         actions={state.status === "ready" ? <Segmented label="Solution language" value={shown} options={languagesFor(state.data)} onChange={setLanguage} /> : undefined}
       />
       {state.status === "loading" ? (

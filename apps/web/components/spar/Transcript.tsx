@@ -159,7 +159,7 @@ export function TypedAnswer({ value, onChange, onSubmit, disabled, maxLength, id
         maxLength={maxLength}
         spellCheck
         aria-describedby={describedBy}
-        placeholder="Type your answer the way you would say it: situation, task, what you did, and the result."
+        placeholder="Situation, task, action, result."
         className={cn(
           TEXT,
           "scrollbar-thin relative block h-full w-full resize-none overflow-y-auto bg-transparent text-fg caret-axon placeholder:text-fg-subtle [scrollbar-gutter:stable] focus-visible:outline-none",

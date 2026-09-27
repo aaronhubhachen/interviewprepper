@@ -262,7 +262,7 @@ export function DiagramBoard({
 
         {!readOnly && diagram.nodes.length === 0 ? (
           <p className="pointer-events-none absolute inset-0 grid place-items-center px-6 text-center text-sm text-fg-subtle">
-            Add components from the toolbar, drag them into place, then select one and press Connect to draw an arrow.
+            Add components, drag them, then select one and press Connect.
           </p>
         ) : null}
       </div>

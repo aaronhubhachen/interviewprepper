@@ -28,7 +28,7 @@ export function MasteryCard({ mastery, className }: MasteryCardProps) {
     <Card className={className} aria-labelledby="mastery-title">
       <CardHeader
         title={<span id="mastery-title">Mastery by pattern</span>}
-        description={`Progress toward a 21-day interval on every card in the pattern · ${started} of ${sorted.length} started`}
+        description={`${started} of ${sorted.length} started`}
       />
       <ul id={listId} className="grid gap-x-8 gap-y-3.5 sm:grid-cols-2">
         {sorted.map((entry, index) => {

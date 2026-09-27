@@ -104,7 +104,7 @@ export function ResumeSetup({ resume, onResumeChange, onStart }: ResumeSetupProp
           className="scrollbar-thin w-full resize-y rounded-xl border border-line bg-ink-900 px-4 py-3 font-mono text-sm leading-relaxed text-fg placeholder:text-fg-faint focus:border-synapse focus:outline-none"
         />
         <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-          <p className="text-xs text-fg-subtle">Saved in this browser only. The server stores nothing; the text goes to the model to write questions.</p>
+          <p className="text-xs text-fg-subtle">Stays in this browser.</p>
           <Button size="lg" onClick={onStart} disabled={!ready} rightIcon={<span aria-hidden="true">→</span>}>
             Start the grill
           </Button>

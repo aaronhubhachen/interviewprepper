@@ -66,7 +66,7 @@ export function MockPacketView({ packet, input, onAgain }: { packet: MockPacket;
             </Pill>
             <p className="mt-2 text-fg-muted">{packet.summary}</p>
             {packet.source === "heuristic" ? (
-              <p className="mt-2 text-xs text-fg-subtle">Written offline (no model reachable): scores are exact, the prose is templated.</p>
+              <p className="mt-2 text-xs text-fg-subtle">Offline scoring.</p>
             ) : null}
           </div>
         </div>

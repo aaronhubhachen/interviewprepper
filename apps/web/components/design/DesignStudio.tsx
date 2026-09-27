@@ -132,7 +132,7 @@ export function DesignStudio({
         title={stage === "pick" ? "Design it on the whiteboard" : (prompt?.title ?? "System design")}
         description={
           stage === "pick"
-            ? "Draw the architecture while an interviewer who reads your diagram walks you through requirements, APIs, a deep dive, and failure modes."
+            ? "Draw the architecture. The interviewer reads your diagram."
             : undefined
         }
         actions={
@@ -184,7 +184,7 @@ export function DesignStudio({
               <DiagramBoard diagram={diagram} onChange={setDiagram} components={components} />
             </Card>
             <details className="rounded-card border border-line bg-ink-850/85 px-5 py-3">
-              <summary className="cursor-pointer select-none text-sm font-semibold text-fg">Notes (API sketch, schema, estimates)</summary>
+              <summary className="cursor-pointer select-none text-sm font-semibold text-fg">Notes</summary>
               <label htmlFor="design-notes" className="sr-only">
                 Notes
               </label>
@@ -196,7 +196,6 @@ export function DesignStudio({
                 placeholder={"POST /links {url} → {code}\nlinks(code PK, url, created_at)\n~40 writes/s, ~4k reads/s"}
                 className="mt-3 w-full resize-y rounded-xl border border-line bg-ink-900/60 px-4 py-3 font-mono text-xs leading-relaxed text-fg outline-none placeholder:text-fg-subtle focus:border-synapse/60"
               />
-              <p className="mt-1 text-xs text-fg-subtle">The interviewer reads these with your diagram.</p>
             </details>
           </div>
 
@@ -298,7 +297,7 @@ function DesignReportView({
           </div>
           <div className="min-w-0 flex-1">
             <p className="text-fg-muted">{report.summary}</p>
-            {report.source === "heuristic" ? <p className="mt-2 text-xs text-fg-subtle">Scored offline (no model reachable).</p> : null}
+            {report.source === "heuristic" ? <p className="mt-2 text-xs text-fg-subtle">Offline scoring.</p> : null}
           </div>
         </div>
       </Card>

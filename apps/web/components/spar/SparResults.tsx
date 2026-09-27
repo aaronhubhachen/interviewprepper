@@ -275,7 +275,6 @@ export function SparResults({
               label="Feedback scores out of 100"
               className="mx-auto mt-2 w-full max-w-lg"
             />
-            <p className="mt-1 text-center text-xs text-fg-subtle">Rings mark 25, 50, 75 and 100. Hover or use the arrow keys to compare.</p>
           </div>
 
           <div className="@container min-w-0 lg:col-start-1 lg:row-start-2">
@@ -369,7 +368,6 @@ export function SparResults({
           <CardHeader
             eyebrow="Rewrite"
             title={<span id="opening-title">A tighter opening</span>}
-            description="Say this out loud a couple of times, then answer again."
             level={3}
             actions={
               <>

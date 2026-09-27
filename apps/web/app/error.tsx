@@ -21,7 +21,7 @@ export default function RouteError({
       icon="⚡"
       level={1}
       title="Something went wrong"
-      description="Something went wrong while rendering this page. Your progress is saved."
+      description="Your progress is saved."
       action={
         <>
           <Button onClick={() => unstable_retry()}>Try again</Button>

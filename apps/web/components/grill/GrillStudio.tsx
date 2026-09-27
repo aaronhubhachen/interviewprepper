@@ -131,7 +131,7 @@ export function GrillStudio() {
       <PageHeader
         eyebrow="Resume grill"
         title="Defend every line"
-        description="Upload your resume. The interviewer picks it apart one claim at a time: inflated verbs, unverifiable numbers, shallow tech."
+        description="Upload your resume and defend each claim."
         actions={
           stage === "interview" ? (
             <button type="button" onClick={backToSetup} className="text-sm font-medium text-fg-subtle hover:text-fg">

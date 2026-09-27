@@ -107,7 +107,7 @@ describe("dashboard panels", () => {
     expect(unlinked).toContain(`link ${stats.link.linkCode}`);
     expect(unlinked).toContain("Not linked");
     expect(unlinked).toContain("New code");
-    expect(unlinked).toContain("expire after 10 minutes");
+    expect(unlinked).toContain("Expires in 10 minutes");
 
     const linked = render(
       <LinkCard

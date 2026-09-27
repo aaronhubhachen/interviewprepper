@@ -22,7 +22,7 @@ export default function SparList() {
 
   return (
     <Screen refreshing={questions.refreshing} onRefresh={refresh}>
-      <T variant="muted">An Engineering Manager asks a behavioral question. Answer out loud with keyboard dictation or type it, then get STAR feedback and a follow-up.</T>
+      <T variant="muted">Answer a behavioral question. Get STAR feedback and a follow-up.</T>
 
       {questions.error && !questions.data ? <ErrorCard message={questions.error} onRetry={questions.reload} /> : null}
       {!questions.data && !questions.error ? <Loading /> : null}

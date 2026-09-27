@@ -93,7 +93,6 @@ export function SessionSidebar({ tag, tally, queue, current, mode, tagOptions = 
             </option>
           ))}
         </select>
-        <p className="mt-2 text-xs text-fg-subtle">Nothing due in a pattern? You get bonus practice ahead of schedule.</p>
 
         <h3 className="mt-5 text-xs font-semibold uppercase tracking-[0.12em] text-fg-subtle">Keyboard</h3>
         <ul className="mt-2 space-y-1.5 text-sm text-fg-muted">

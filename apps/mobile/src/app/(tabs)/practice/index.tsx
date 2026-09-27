@@ -35,7 +35,7 @@ export default function PracticeList() {
         }}
       />
       <Screen refreshing={problems.refreshing} onRefresh={problems.refresh}>
-        <T variant="muted">Stages 1 and 2 (the invariant and the edge-case trap) work here. Stage 3 opens the coding IDE on the web.</T>
+        <T variant="muted">Invariant and edge case here; code on the web.</T>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: space.sm }}>
           <Chip label="All" active={!tag} onPress={() => setTag(null)} />
           {tags.map((t) => (

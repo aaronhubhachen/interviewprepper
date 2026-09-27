@@ -78,7 +78,7 @@ export function BotReportView({
         <div className="space-y-5">
           {report.traps.length > 0 ? (
             <Card>
-              <CardHeader title="The bugs Prepr Bot planted" description="Revealed now that the round is over." />
+              <CardHeader title="The bugs Prepr Bot planted" />
               <ul className="space-y-3">
                 {report.traps.map((trap, index) => (
                   <li key={index} className="rounded-xl border border-line bg-ink-900/60 p-3">
@@ -112,7 +112,7 @@ export function BotReportView({
 
           {report.followUps.length > 0 ? (
             <Card>
-              <CardHeader title="Your interviewer would ask next" level={3} description="Answer these out loud before moving on." />
+              <CardHeader title="Your interviewer would ask next" level={3} />
               <ol className="list-decimal space-y-2 pl-5 text-sm text-fg-muted">
                 {report.followUps.map((question) => (
                   <li key={question}>{question}</li>

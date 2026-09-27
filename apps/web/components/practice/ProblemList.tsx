@@ -93,22 +93,13 @@ export function ProblemList({ initialFilters }: { initialFilters: ProblemFilters
       <PageHeader
         eyebrow="Card-flip IDE"
         title="Practice"
-        description="Three flips per problem: name the invariant, dodge the edge-case trap, then code it against hidden tests. Struggles turn into iMessage drills the next morning."
+        description="Invariant, edge case, then code."
         actions={
           <ButtonLink href="/review" variant="secondary" leftIcon={<span aria-hidden="true">🃏</span>}>
             Flashcards
           </ButtonLink>
         }
       />
-      <p className="-mt-3 mb-6 text-sm text-fg-muted sm:-mt-5">
-        <span aria-hidden="true" className="mr-1.5 text-synapse">✦</span>
-        Every problem&apos;s code stage has a built-in AI assistant{" "}
-        <span className="whitespace-nowrap">
-          (<kbd className="font-mono text-xs">⌘L</kbd>)
-        </span>{" "}
-        that practices AI-assisted interviews: it
-        can make mistakes on purpose, and Review scores how you used it.
-      </p>
       {state.status === "loading" ? (
         <ListSkeleton />
       ) : state.status === "error" ? (

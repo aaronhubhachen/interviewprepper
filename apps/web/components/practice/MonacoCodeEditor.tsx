@@ -17,8 +17,8 @@ let quieted = false;
 
 /**
  * Monaco rejects with "Canceled" when an editor is disposed mid-request (navigating away), and
- * Safari refuses its background clipboard reads with NotAllowedError. Both are harmless, but Next's
- * dev overlay reports them as runtime errors. Swallow exactly those two, nothing else.
+ * Safari refuses its pre-armed clipboard writes with NotAllowedError. Both are harmless, but Next's
+ * dev overlay reports them as errors. Swallow exactly those two, nothing else.
  */
 export function quietMonacoNoise(): void {
   if (quieted || typeof window === "undefined") return;
@@ -33,6 +33,13 @@ export function quietMonacoNoise(): void {
   window.addEventListener("error", (event) => {
     if (benign(event.error)) event.preventDefault();
   });
+  // Safari: Monaco pre-arms a clipboard write on every click/keydown and cancels the previous one,
+  // which Safari rejects with NotAllowedError; Monaco then logs "%c  ERR" via console.error.
+  const original = console.error.bind(console);
+  console.error = (...args: unknown[]) => {
+    if (typeof args[0] === "string" && args[0].includes("ERR") && args.some((arg) => (arg as { name?: string } | null)?.name === "NotAllowedError")) return;
+    original(...args);
+  };
 }
 
 export function monoFontFamily(): string {

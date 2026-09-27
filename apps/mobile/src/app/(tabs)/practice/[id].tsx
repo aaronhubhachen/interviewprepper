@@ -81,7 +81,7 @@ function ProblemBody({ problem, passed }: { problem: ClientProblem; passed: stri
 
       <Card style={{ gap: space.md }}>
         <T variant="eyebrow">Stage 3 · Code</T>
-        <T variant="muted">Write and run the solution against hidden tests in the web IDE. It’s built for a keyboard, so it works best on your laptop.</T>
+        <T variant="muted">Code this one in the web IDE.</T>
         <Button label="Open the IDE" variant="secondary" icon="↗" onPress={() => void WebBrowser.openBrowserAsync(webUrl(`/practice/${problem.id}`))} />
       </Card>
 
@@ -169,7 +169,7 @@ function StageCard({
                 if (!startedAt.current) startedAt.current = Date.now();
                 setAnswer(text);
               }}
-              placeholder="1-2 sentences. Tap the keyboard mic to dictate." maxLength={4000} editable={!busy} />
+              placeholder="1–2 sentences." maxLength={4000} editable={!busy} />
             <Row style={{ justifyContent: 'space-between' }}>
               <Button label={hintShown ? 'Hint shown' : 'Hint'} variant="ghost" onPress={() => setHintShown(true)} disabled={hintShown} />
               <Button label="Check" onPress={() => void submit()} disabled={answer.trim().length === 0} loading={busy} />

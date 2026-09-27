@@ -194,7 +194,7 @@ export function SessionHistory({ sessions, status, error, onRetry, onOpen, activ
           icon="🎙️"
           level={3}
           title="No sessions yet"
-          description="Answer your first question. Your scores and trend show up here."
+          description="Your scores show up here."
           className="py-8"
         />
       ) : (
