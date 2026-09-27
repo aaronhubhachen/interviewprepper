@@ -1,12 +1,12 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { Pressable, StyleSheet, Switch, View } from 'react-native';
+import { Linking, Pressable, StyleSheet, Switch, View } from 'react-native';
 import { Button, Card, ErrorCard, Loading, Pill, ProgressBar, Row, T, TabScreen } from '@/components/ui';
-import { errorMessage, fetchStats, setAgentPaused } from '@/lib/api';
+import { errorMessage, fetchReportCard, fetchStats, setAgentPaused } from '@/lib/api';
 import { useServer } from '@/lib/server';
 import { radius, space, usePalette } from '@/lib/theme';
 import { useLoad } from '@/lib/useLoad';
-import type { StatsResponse } from '@web/types';
+import type { ReportCard, StatsResponse } from '@web/types';
 
 export default function HomeScreen() {
   const stats = useLoad(fetchStats);
@@ -38,7 +38,10 @@ export default function HomeScreen() {
       ) : !stats.data ? (
         <Loading />
       ) : (
-        <Dashboard stats={stats.data} onChanged={stats.refresh} />
+        <>
+          <Dashboard stats={stats.data} onChanged={stats.refresh} />
+          <WeeklyReport url={url} refreshKey={stats.data.generatedAt} />
+        </>
       )}
 
       <T variant="small" style={{ textAlign: 'center', color: p.faint }}>
@@ -193,6 +196,7 @@ function LinkCard({ stats, onChanged }: { stats: StatsResponse; onChanged: () =>
 }
 
 const styles = StyleSheet.create({
+  grade: { width: 36, height: 36, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center' },
   gear: { width: 40, height: 40, borderRadius: radius.md, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: space.md },
   stat: { flexGrow: 1, flexBasis: '45%', borderWidth: 1, borderRadius: radius.lg, padding: space.lg, gap: 2, borderCurve: 'continuous' },
@@ -201,3 +205,30 @@ const styles = StyleSheet.create({
   barTrack: { flex: 1, width: '70%', borderRadius: 6, justifyContent: 'flex-end', overflow: 'hidden' },
   weakRow: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderRadius: radius.md, padding: space.md },
 });
+
+/** This week's report card (the same one the agent texts on Sunday), with a link to the shareable PNG. */
+function WeeklyReport({ url, refreshKey }: { url: string; refreshKey: number }) {
+  const p = usePalette();
+  const report = useLoad(fetchReportCard, String(refreshKey));
+  const card: ReportCard | null = report.data ?? null;
+  if (!card) return null;
+  const signed = (value: number) => (value > 0 ? `+${value}` : `${value}`);
+  return (
+    <Card style={{ gap: space.sm }}>
+      <Row style={{ justifyContent: 'space-between' }}>
+        <T variant="heading">Weekly report card</T>
+        <View style={[styles.grade, { backgroundColor: p.accentStrong }]}>
+          <T variant="heading" style={{ color: '#fff' }}>
+            {card.grade}
+          </T>
+        </View>
+      </Row>
+      <T variant="muted">{card.headline}</T>
+      <T variant="small">
+        {card.reviews} reviews ({signed(card.reviewsDelta)} vs last week) · active {card.activeDays}/7
+        {card.aiUse ? ` · AI-use ${card.aiUse.average}` : ''}
+      </T>
+      <Button label="Open shareable card" variant="secondary" onPress={() => void Linking.openURL(`${url}/report`)} />
+    </Card>
+  );
+}

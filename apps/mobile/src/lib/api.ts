@@ -29,6 +29,7 @@ import type {
   SparSessionsResponse,
   StatsResponse,
   Tag,
+  ReportCard,
 } from '@web/types';
 
 export class ApiError extends Error {
@@ -106,6 +107,7 @@ export const fetchStats = () => get<StatsResponse>('/api/stats');
 export const fetchDue = () => get<DueResponse>('/api/review/due');
 export const fetchLink = () => get<LinkResponse>('/api/link');
 export const setAgentPaused = (paused: boolean) => post<LinkResponse>('/api/link', { paused });
+export const fetchReportCard = () => get<ReportCard>('/api/report-card');
 
 // Flashcard review
 export function fetchNextCard(query: { tag?: Tag; exclude?: string[] } = {}) {

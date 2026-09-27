@@ -100,9 +100,13 @@ export function ProblemList({ initialFilters }: { initialFilters: ProblemFilters
           </ButtonLink>
         }
       />
-      <p className="-mt-3 mb-6 flex flex-wrap items-center gap-x-2 text-sm text-fg-muted sm:-mt-5">
-        <span aria-hidden="true" className="text-synapse">✦</span>
-        Every problem&apos;s code stage has a built-in AI assistant (<kbd className="font-mono text-xs">⌘L</kbd>) that practices AI-assisted interviews: it
+      <p className="-mt-3 mb-6 text-sm text-fg-muted sm:-mt-5">
+        <span aria-hidden="true" className="mr-1.5 text-synapse">✦</span>
+        Every problem&apos;s code stage has a built-in AI assistant{" "}
+        <span className="whitespace-nowrap">
+          (<kbd className="font-mono text-xs">⌘L</kbd>)
+        </span>{" "}
+        that practices AI-assisted interviews: it
         can make mistakes on purpose, and Review scores how you used it.
       </p>
       {state.status === "loading" ? (

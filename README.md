@@ -2,11 +2,14 @@
 
 **Anki for LeetCode, delivered by iMessage.** Prepr texts you bite-size DSA flashcards right before you would
 forget them. It grades your one-sentence answer Socratically with an LLM, and your ❤️ / 👍 / 👎 tapback drives SM-2
-scheduling. When you want to go deeper, the web app adds a card-flip LeetCode IDE, voice behavioral sparring, and a
-resume grill. If you struggle in the IDE, your phone drills that exact pattern the next morning.
+scheduling. When you want to go deeper, the web app adds a card-flip LeetCode IDE, voice behavioral sparring, a
+resume grill, system design interviews, and a full mock onsite. If you struggle in the IDE, your phone drills that
+exact pattern the next morning.
 
-- **Card-flip IDE:** 30 LeetCode problems, each in three flips (name the invariant, dodge the edge-case trap, code it
-  against hidden tests) in **Python, JavaScript, TypeScript, Java, C++, or Go**.
+- **Card-flip IDE:** 84 LeetCode problems covering the **entire Blind 75**, each in three flips (name the invariant,
+  dodge the edge-case trap, code it against hidden tests) in **Python, JavaScript, TypeScript, Java, C++, or Go**,
+  with tested reference solutions in all six. Trees, linked lists, graphs, and design classes run on real nodes.
+- **Study plans:** Blind 75 and NeetCode 150 progress by roadmap category (**Practice → Blind 75**, and on the landing page).
 - **Prepr Bot:** a Cursor-style AI assistant docked inside every problem (**Show AI**, or ⌘L / Ctrl+L) to practice
   **AI-assisted coding interviews**. It can plant a subtle bug in code it writes, and **Review** scores how you used
   it: framing, prompting, verification, catching its mistakes, and ownership.
@@ -16,13 +19,19 @@ resume grill. If you struggle in the IDE, your phone drills that exact pattern t
   held-up / shaky / cracked verdict per claim. Over iMessage, text `grill` and paste your resume. Every round is saved,
   and the dashboard's **Interview rounds** card shows your score trends.
 - **Voice sparring:** answer behavioral questions out loud with live STAR, filler, and pace metrics.
+- **System design:** draw the architecture on a whiteboard (components, labeled arrows) while an AI interviewer
+  reads the diagram and walks requirements → API → high level → deep dive → scale, then scores six dimensions.
+- **Mock loop:** one timed sitting that chains a coding round (classic or AI-assisted), a behavioral story, and a
+  resume grill, ending in a **hiring-committee packet** with a hire / no-hire decision and what would flip it.
+- **Weekly report card:** every Sunday evening (or text `report`) the agent sends your streak, reviews and accuracy
+  versus last week, AI-use trend, rounds, and weak spots. **/report** renders it as a shareable PNG.
 - **Mobile app** (Expo): review, practice stages, spar, and grill from your phone against the same data.
 
 Built for the HackWashU 2026 Photon track.
 
 ```
             📱 iPhone / iMessage                              💻 Browser  ·  📱 Expo app (apps/mobile)
-   🧠 probe → answer → ✅ feedback → ❤️ 👍 👎          Dashboard · Review · IDE + Prepr Bot · Spar · Grill
+   🧠 probe → answer → ✅ feedback → ❤️ 👍 👎    Dashboard · Review · IDE + Prepr Bot · Spar · Grill · Design · Mock
                     ▲    │                                     ▲    │
       Photon        │    │ spectrum-ts                   fetch │    │ Web Speech, Monaco,
       spectrum-ts   │    ▼                                     │    ▼ Pyodide judge (worker)
@@ -135,8 +144,20 @@ to that address and run `dev:lan`. The app's ⚙︎ screen shows and tests the a
 6. **Resume grill (2:05).** **Grill → upload the PDF → Start.** The first question goes straight at your boldest
    claim ("as an intern, what did *you* ship versus the team?"). Give one vague answer to show it pressing, then
    **End & get verdict** for the per-claim held-up / shaky / cracked report.
-7. **Close (2:40).** Show the phone app's Review tab on the same queue, and mention voice sparring (**Spar**:
-   live STAR checklist, filler highlighting, EM follow-up).
+7. **Close (2:40).** Open **/report** for the shareable weekly card (text `report` to get it on the phone), then
+   show the phone app's Review tab on the same queue.
+
+**If you have more time (or for a longer recording):**
+
+- **Blind 75 (30 s).** **Practice → Blind 75**: every category, solved / total bars, all 75 problems playable.
+  Open **Clone Graph** or **Merge k Sorted Lists** to show node-based problems in any of the six languages.
+- **System design (60 s).** **Design → URL shortener.** Drop Client, Load balancer, API server, Database; select one
+  and press **Connect →** to draw arrows. Answer the requirements question with numbers; the next question reacts
+  to your board ("your cache isn't connected to anything"). **Finish & score** shows the scorecard next to your diagram.
+- **Mock loop (60 s to show).** **Mock → AI-assisted round → Start.** Show the 25-minute timer and the docked bot,
+  press **Finish coding round**, type a short STAR story, answer the grill questions, and end on the committee packet
+  (decision, per-round scores, "what would move the decision up"). Packets land in the dashboard's trends.
+- **Voice sparring.** **Spar**: live STAR checklist, filler highlighting, and an EM follow-up.
 
 No phone handy? `npm run agent:simulate` plays the iMessage part in the terminal in a few seconds.
 
@@ -234,12 +255,13 @@ All variables live in `.env` at the repo root, which is gitignored. Both apps lo
 ## Repo layout
 
 ```
-packages/core   @synapse/core: SM-2, tapbacks, content registry (77 micro-cards, 30 IDE problems, 16 behavioral
-                questions), SQLite store, LLM + heuristic grading, judge (browser + server-compiled languages),
-                resume grill, Prepr Bot, transcript metrics. TS source, no build.
+packages/core   @synapse/core: SM-2, tapbacks, content registry (87 micro-cards, 84 IDE problems incl. the full
+                Blind 75, 16 behavioral questions), study plans, SQLite store, LLM + heuristic grading, judge
+                (browser + server-compiled languages, node adapters), resume grill, Prepr Bot, system design,
+                mock loop packet, weekly report card, transcript metrics. TS source, no build.
 apps/agent      @synapse/agent: Photon iMessage agent (dispatch.ts → controller.ts), scheduler, simulator
-apps/web        @synapse/web: Next.js 16 app (landing, dashboard, review, card-flip IDE + Prepr Bot, voice sparring,
-                resume grill) + API routes
+apps/web        @synapse/web: Next.js 16 app (landing, dashboard, review, card-flip IDE + Prepr Bot, study plans,
+                voice sparring, resume grill, system design, mock loop, weekly report) + API routes
 apps/mobile     @synapse/mobile: Expo (React Native) app for review, practice stages, spar, and grill
 data/           SQLite database (gitignored)
 ```
