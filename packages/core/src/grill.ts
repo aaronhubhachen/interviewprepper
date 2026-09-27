@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { completeJson } from "./llm";
-import { clampSentences, fenceUntrusted, toPlainText } from "./text";
+import { clampSentences, fenceUntrusted, toPlainText, NEUTRAL_PRONOUNS } from "./text";
 import { analyzeTranscript } from "./transcript";
 
 export interface GrillTurn {
@@ -206,6 +206,7 @@ Return JSON:
  "claims": [{"claim": short resume line, "verdict": "held"|"shaky"|"cracked", "note": one sentence on why}],
  "redFlags": [1-3 short strings a real interviewer would notice],
  "fixes": [2-3 concrete actions: resume edits or answers to prepare]}
+${NEUTRAL_PRONOUNS}
 Plain text only in every string: no markdown.`;
 
 const questionSchema = z.object({

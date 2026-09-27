@@ -69,3 +69,6 @@ export function fenceCode(label: string, text: string, maxChars = 8000): string 
   const nonce = Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
   return `[${label} ${nonce}]\n${clipped}\n[/${label} ${nonce}]`;
 }
+
+/** Appended to every prompt that writes about the candidate: models otherwise guess a gender from a resume or name. */
+export const NEUTRAL_PRONOUNS = 'Never guess the candidate\'s gender: say "the candidate" or "they", or address them as "you".';

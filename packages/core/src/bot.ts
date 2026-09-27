@@ -8,7 +8,7 @@ import { z } from "zod";
 import type { Problem } from "./content/types";
 import { LANGUAGE_LABELS, type CodeLanguage } from "./judge/native";
 import { completeJson } from "./llm";
-import { clampSentences, fenceCode, toPlainText } from "./text";
+import { clampSentences, fenceCode, toPlainText, NEUTRAL_PRONOUNS } from "./text";
 
 export interface BotMessage {
   role: "user" | "assistant";
@@ -244,6 +244,7 @@ Return JSON:
  "traps": [{"caught": boolean, "evidence": one sentence citing what they did}] (same order as the planted bugs listed),
  "highlights": [{"kind": "good"|"risk", "text": one sentence}] (3-5),
  "followUps": [2-3 questions a real interviewer would ask about their final code]}
+${NEUTRAL_PRONOUNS}
 Plain text only in every string: no markdown.`;
 
 const dimensionSchema = z.object({ score: z.coerce.number(), note: z.string().default("") });

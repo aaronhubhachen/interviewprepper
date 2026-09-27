@@ -1,7 +1,7 @@
 import { z } from "zod";
 import type { BehavioralQuestion } from "./content/types";
 import { completeJson } from "./llm";
-import { clampSentences, fenceUntrusted, toPlainText } from "./text";
+import { clampSentences, fenceUntrusted, toPlainText, NEUTRAL_PRONOUNS } from "./text";
 import {
   analyzeTranscript,
   heuristicSparScores,
@@ -172,6 +172,7 @@ Return JSON:
  "starBreakdown": {"situation": {"present": boolean, "evidence": short quote or null, "note": one short sentence}, "task": {...}, "action": {...}, "result": {...}},
  "rewrittenOpening": "a tighter two-sentence STAR opening in the candidate's voice, first person",
  "followUp": "the single probing follow-up question you would ask next"}
+${NEUTRAL_PRONOUNS}
 Plain text only in every string: no markdown.`;
 
 /** A finite number, or a string that starts with one ("85", "85/100"); anything else is "no score". */

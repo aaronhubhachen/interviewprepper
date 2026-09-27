@@ -5,7 +5,7 @@
  */
 import { z } from "zod";
 import { completeJson } from "./llm";
-import { clampSentences, fenceCode, toPlainText } from "./text";
+import { clampSentences, fenceCode, toPlainText, NEUTRAL_PRONOUNS } from "./text";
 
 export type HireDecision = "strong_hire" | "hire" | "lean_hire" | "lean_no_hire" | "no_hire";
 
@@ -158,6 +158,7 @@ Return JSON:
  "strengths": [2-3 short strings], "concerns": [1-3 short strings],
  "toFlip": "one sentence: what would move the decision up a level",
  "nextSteps": [3 concrete practice actions]}
+${NEUTRAL_PRONOUNS}
 Plain text only in every string: no markdown.`;
 
 const packetSchema = z.object({

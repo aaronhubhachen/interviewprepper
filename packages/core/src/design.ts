@@ -6,7 +6,7 @@
  */
 import { z } from "zod";
 import { completeJson } from "./llm";
-import { clampSentences, fenceUntrusted, toPlainText } from "./text";
+import { clampSentences, fenceUntrusted, toPlainText, NEUTRAL_PRONOUNS } from "./text";
 import { analyzeTranscript } from "./transcript";
 
 export type DesignComponentKind =
@@ -368,6 +368,7 @@ Return JSON:
 {"overall": 0-100, "summary": "two sentences",
  "dimensions": [{"key": "requirements"|"api"|"architecture"|"scalability"|"tradeoffs"|"communication", "score": 0-100, "note": one sentence}],
  "strengths": [1-3 short strings], "gaps": [1-3 short strings], "followUps": [2 questions a real interviewer would ask next]}
+${NEUTRAL_PRONOUNS}
 Plain text only in every string: no markdown.`;
 
 const questionSchema = z.object({ reaction: z.string().default(""), question: z.string().min(5) });
