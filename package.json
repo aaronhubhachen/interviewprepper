@@ -13,6 +13,7 @@
   },
   "scripts": {
     "dev": "concurrently --names web,agent --prefix-colors cyan,magenta --kill-others-on-fail \"npm:dev:web\" \"npm:dev:agent\"",
+    "dev:lan": "concurrently --names web,agent --prefix-colors cyan,magenta --kill-others-on-fail \"npm run dev:lan -w @synapse/web\" \"npm:dev:agent\"",
     "dev:web": "npm run dev -w @synapse/web",
     "dev:agent": "npm run dev -w @synapse/agent",
     "agent:terminal": "npm run terminal -w @synapse/agent",

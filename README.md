@@ -89,6 +89,7 @@ cp .env.example .env        # then fill in what you have (every value is optiona
 | Command | What it does |
 | --- | --- |
 | `npm run dev` | Web app (<http://localhost:3000>, bound to 127.0.0.1) and iMessage agent together |
+| `npm run dev:lan` | Web app on your Wi-Fi (for the phone app / Expo Go) plus the agent. Needs `SYNAPSE_WEB_URL=http://<your-mac-lan-ip>:3000` in `.env`; see [LAN access](#lan-access) |
 | `npm run dev:web` | Web app only (Next dev server, bound to 127.0.0.1) |
 | `npm run dev:lan -w @synapse/web` | Web app on every interface (0.0.0.0) for a phone on the same Wi-Fi; see [LAN access](#lan-access) first. `start:lan` does the same for a production build |
 | `npm run dev:agent` | iMessage agent only (needs Photon credentials) |
@@ -259,7 +260,7 @@ All variables live in `.env` at the repo root, which is gitignored. Both apps lo
 ## Repo layout
 
 ```
-packages/core   @synapse/core: SM-2, tapbacks, content registry (87 micro-cards, 84 IDE problems incl. the full
+packages/core   @synapse/core: SM-2, tapbacks, content registry (110 micro-cards, 84 IDE problems incl. the full
                 Blind 75, 16 behavioral questions), study plans, SQLite store, LLM + heuristic grading, judge
                 (browser + server-compiled languages, node adapters), resume grill, Prepr Bot, system design,
                 mock loop packet, weekly report card, transcript metrics. TS source, no build.
