@@ -1662,7 +1662,7 @@ ${TREE_NOTE}`,
       },
     },
     weakTags: ["tree_traversal"],
-    relatedCardIds: ["mc-tree-dfs-orders"],
+    relatedCardIds: ["mc-same-tree-recursion", "mc-tree-dfs-orders"],
   },
 
   // ---------------------------------------------------------------- invert binary tree
@@ -1725,7 +1725,7 @@ ${TREE_NOTE}`,
       },
     },
     weakTags: ["tree_traversal", "recursion"],
-    relatedCardIds: ["mc-tree-dfs-orders"],
+    relatedCardIds: ["mc-invert-tree-swap", "mc-tree-dfs-orders"],
   },
 
   // ---------------------------------------------------------------- max path sum
@@ -1858,7 +1858,7 @@ Implement:
       },
     },
     weakTags: ["tree_traversal", "design"],
-    relatedCardIds: ["mc-tree-dfs-orders"],
+    relatedCardIds: ["mc-tree-serialize-null-markers", "mc-tree-dfs-orders"],
   },
 
   // ---------------------------------------------------------------- subtree
@@ -1929,7 +1929,7 @@ ${TREE_NOTE}`,
       },
     },
     weakTags: ["tree_traversal"],
-    relatedCardIds: ["mc-tree-dfs-orders"],
+    relatedCardIds: ["mc-subtree-of-another-tree", "mc-same-tree-recursion"],
   },
 
   // ---------------------------------------------------------------- build tree
@@ -1997,7 +1997,7 @@ ${TREE_NOTE}`,
       },
     },
     weakTags: ["tree_traversal", "recursion"],
-    relatedCardIds: ["mc-tree-dfs-orders"],
+    relatedCardIds: ["mc-build-tree-preorder-inorder", "mc-tree-dfs-orders"],
   },
 
   // ---------------------------------------------------------------- kth smallest
@@ -2332,7 +2332,7 @@ def runWordDictionary(operations: List[str], words: List[str]) -> List[Optional[
       },
     },
     weakTags: ["trie"],
-    relatedCardIds: ["mc-trie-basics"],
+    relatedCardIds: ["mc-trie-wildcard-dfs", "mc-trie-basics"],
   },
 
   // ---------------------------------------------------------------- word search II

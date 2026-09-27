@@ -110,7 +110,7 @@ function climbStairs(n) {
       },
     },
     weakTags: ["dp_1d"],
-    relatedCardIds: ["mc-dp-rolling-array"],
+    relatedCardIds: ["mc-climbing-stairs-recurrence", "mc-dp-house-robber"],
   },
   {
     id: "p-longest-increasing-subsequence",
@@ -241,7 +241,7 @@ def lengthOfLIS(nums: List[int]) -> int:
       },
     },
     weakTags: ["dp_1d", "binary_search"],
-    relatedCardIds: ["mc-dp-lis-patience"],
+    relatedCardIds: ["mc-dp-lis-patience", "mc-binary-search-lower-bound"],
   },
   {
     id: "p-longest-common-subsequence",
@@ -504,7 +504,7 @@ def wordBreak(s: str, wordDict: List[str]) -> bool:
       },
     },
     weakTags: ["dp_1d", "hashing"],
-    relatedCardIds: [],
+    relatedCardIds: ["mc-word-break-prefix-dp", "mc-decode-ways-dp"],
   },
   {
     id: "p-combination-sum-iv",
@@ -626,7 +626,7 @@ def combinationSum4(nums: List[int], target: int) -> int:
       },
     },
     weakTags: ["dp_knapsack", "dp_1d"],
-    relatedCardIds: ["mc-knapsack-combinations-vs-permutations"],
+    relatedCardIds: ["mc-knapsack-combinations-vs-permutations", "mc-climbing-stairs-recurrence"],
   },
   {
     id: "p-house-robber-ii",
@@ -871,7 +871,7 @@ function numDecodings(s) {
       },
     },
     weakTags: ["dp_1d", "string"],
-    relatedCardIds: ["mc-dp-rolling-array"],
+    relatedCardIds: ["mc-decode-ways-dp", "mc-climbing-stairs-recurrence"],
   },
   {
     id: "p-unique-paths",
@@ -981,7 +981,7 @@ function uniquePaths(m, n) {
       },
     },
     weakTags: ["dp_2d"],
-    relatedCardIds: ["mc-dp-rolling-array"],
+    relatedCardIds: ["mc-grid-paths-dp-base-cases", "mc-dp-rolling-array"],
   },
   {
     id: "p-longest-palindromic-substring",
@@ -1103,7 +1103,7 @@ function longestPalindrome(s) {
       },
     },
     weakTags: ["string", "two_pointers"],
-    relatedCardIds: ["mc-palindrome-expand-center"],
+    relatedCardIds: ["mc-palindrome-expand-center", "mc-palindrome-interval-dp"],
   },
   {
     id: "p-palindromic-substrings",
@@ -1221,7 +1221,7 @@ function countSubstrings(s) {
       },
     },
     weakTags: ["string", "two_pointers"],
-    relatedCardIds: ["mc-palindrome-expand-center"],
+    relatedCardIds: ["mc-palindrome-expand-center", "mc-palindrome-interval-dp"],
   },
   {
     id: "p-longest-repeating-character-replacement",
