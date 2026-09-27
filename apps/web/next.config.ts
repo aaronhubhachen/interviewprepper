@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import { parseEnv } from "node:util";
 import type { NextConfig } from "next";
 
 /**
@@ -21,6 +22,24 @@ function findRepoRoot(start: string): string {
 }
 
 const repoRoot = findRepoRoot(process.cwd());
+
+/**
+ * proxy.ts checks the Host header against SYNAPSE_WEB_URL (the opt-in LAN or
+ * tunnel URL) but must not import @synapse/core, which is what loads the
+ * repo-root .env. Copy that one value into process.env at startup. The shell
+ * wins, nothing else from .env is loaded here, and no .env means loopback only.
+ */
+function exposeWebUrl(root: string): void {
+  if (process.env.SYNAPSE_WEB_URL?.trim()) return;
+  try {
+    const value = parseEnv(fs.readFileSync(path.join(root, ".env"), "utf8")).SYNAPSE_WEB_URL?.trim();
+    if (value) process.env.SYNAPSE_WEB_URL = value;
+  } catch {
+    // no readable .env: the proxy answers loopback hosts only
+  }
+}
+
+exposeWebUrl(repoRoot);
 
 const nextConfig: NextConfig = {
   // @synapse/core ships TypeScript source (no build step).

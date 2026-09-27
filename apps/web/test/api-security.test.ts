@@ -1,6 +1,7 @@
-import { afterAll, afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { allCards, listBehavioral, listProblems, openStore, zonedTimeToEpoch, type SynapseStore } from "@synapse/core";
 import { GET as linkGET, POST as linkPOST } from "@/app/api/link/route";
+import { POST as unlinkPOST } from "@/app/api/link/unlink/route";
 import { POST as attemptPOST } from "@/app/api/practice/attempt/route";
 import { POST as reviewEvaluatePOST } from "@/app/api/review/evaluate/route";
 import { POST as gradePOST } from "@/app/api/review/grade/route";
@@ -16,6 +17,7 @@ import {
   TokenBucket,
   withLlmBudget,
 } from "@/lib/server/llm-budget";
+import { proxyRejection } from "@/lib/server/proxy-guard";
 import { setClockForTests, setStoreForTests, setUserForTests, setWebUrlForTests } from "@/lib/server/store";
 import type { ApiErrorBody, LinkResponse, ReviewEvaluateResponse, SparEvaluateResponse } from "@/lib/types";
 
@@ -85,6 +87,84 @@ describe("Host allowlist (DNS rebinding)", () => {
     const response = await linkGET(request("/api/link", { headers: { Host: "synapse.lan:3000" } }), NO_CTX);
     expect(response.status).toBe(200);
     await errorOf(await linkGET(request("/api/link", { headers: { Host: "other.lan:3000" } }), NO_CTX), 403);
+  });
+});
+
+describe("proxy Host allowlist (pages, RSC payloads, assets)", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it("refuses a foreign Host on every path, not just /api", async () => {
+    // /spar server-renders recent transcripts, and Next's own dev check only covers /_next and /__nextjs.
+    for (const path of ["/", "/spar", "/spar?_rsc=1", "/review?tag=graphs", "/_next/static/chunks/main.js", "/api/spar/sessions"]) {
+      const rejected = proxyRejection(request(path, { headers: { Host: "attacker.example:3000" } }), () => null);
+      expect(rejected?.status, path).toBe(403);
+      expect(rejected?.headers.get("cache-control")).toBe("no-store");
+      expect(((await rejected!.json()) as ApiErrorBody).error.code).toBe("forbidden_host");
+    }
+    for (const host of ["localhost:3000", "127.0.0.1:3000", "[::1]:3000"]) {
+      expect(proxyRejection(request("/spar", { headers: { Host: host } }), () => null), host).toBeUndefined();
+    }
+  });
+
+  it("reads the opt-in SYNAPSE_WEB_URL host from process.env", () => {
+    const lan = () => request("/spar", { headers: { Host: "synapse.lan:3000" } });
+    vi.stubEnv("SYNAPSE_WEB_URL", "");
+    expect(proxyRejection(lan())?.status).toBe(403);
+    vi.stubEnv("SYNAPSE_WEB_URL", "http://synapse.lan:3000");
+    expect(proxyRejection(lan())).toBeUndefined();
+    expect(proxyRejection(request("/spar", { headers: { Host: "other.lan:3000" } }))?.status).toBe(403);
+    vi.stubEnv("SYNAPSE_WEB_URL", "not a url");
+    expect(proxyRejection(lan())?.status).toBe(403);
+  });
+});
+
+describe("unlinking from the dashboard", () => {
+  const OWN = { Host: "localhost:3000", Origin: "http://localhost:3000", "Sec-Fetch-Site": "same-origin" };
+  const intruder = { spaceId: "iMessage;-;+15550001111", handle: "+15550001111", platform: "imessage" };
+
+  async function linkIntruder(): Promise<void> {
+    const shown = (await (await linkGET(request("/api/link"), NO_CTX)).json()) as LinkResponse;
+    expect(store.linkByCode(shown.code!, intruder, T0)?.id).toBe("me");
+  }
+
+  it("drops a chat that claimed the link code and issues a fresh code for the owner", async () => {
+    await linkIntruder();
+    const response = await unlinkPOST(jsonPost("/api/link/unlink", {}, OWN), NO_CTX);
+    expect(response.status).toBe(200);
+    const after = (await response.json()) as LinkResponse;
+    expect(after).toMatchObject({ linked: false, handle: null });
+    expect(after.code).toMatch(/^\d{4}$/);
+    expect(after.instructions).toContain(`link ${after.code}`);
+    expect(store.getUser("me")).toMatchObject({ spaceId: null, handle: null });
+    expect(store.findUserBySpace(intruder.spaceId)).toBeNull();
+
+    const owner = { spaceId: "iMessage;-;+15552223333", handle: "+15552223333", platform: "imessage" };
+    expect(store.linkByCode(after.code!, owner, T0 + 1_000)?.id).toBe("me");
+    // A second unlink (double click) is a harmless no-op that keeps showing the same code.
+    clock += 60_000;
+    const once = (await (await unlinkPOST(jsonPost("/api/link/unlink", {}, OWN), NO_CTX)).json()) as LinkResponse;
+    const twice = (await (await unlinkPOST(jsonPost("/api/link/unlink", {}, OWN), NO_CTX)).json()) as LinkResponse;
+    expect(once).toMatchObject({ linked: false });
+    expect(twice).toMatchObject({ linked: false, code: once.code });
+    expect(store.recentEvents("me").filter((event) => event.kind === "unlinked")).toHaveLength(2);
+  });
+
+  it("is refused from another site, a foreign Host, or a non-JSON body", async () => {
+    await linkIntruder();
+    const crossSite = await unlinkPOST(jsonPost("/api/link/unlink", {}, { Origin: "https://attacker.example" }), NO_CTX);
+    expect((await errorOf(crossSite, 403)).code).toBe("cross_site");
+    const rebinding = await unlinkPOST(jsonPost("/api/link/unlink", {}, { Host: "attacker.example:3000" }), NO_CTX);
+    expect((await errorOf(rebinding, 403)).code).toBe("forbidden_host");
+    const plain = await unlinkPOST(
+      request("/api/link/unlink", { method: "POST", headers: { "Content-Type": "text/plain" }, body: "{}" }),
+      NO_CTX,
+    );
+    await errorOf(plain, 415);
+    const empty = await unlinkPOST(request("/api/link/unlink", { method: "POST", headers: { "Content-Type": "application/json" } }), NO_CTX);
+    expect((await errorOf(empty, 400)).code).toBe("invalid_json");
+    expect(store.getUser("me")?.spaceId).toBe(intruder.spaceId);
   });
 });
 

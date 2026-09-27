@@ -74,3 +74,14 @@ export function setAgentPaused(store: SynapseStore, userId: string, now: number,
   store.setPaused(userId, paused, now);
   return linkPayload(store, userId, now);
 }
+
+/**
+ * Drops the iMessage link from the dashboard, e.g. when the wrong chat claimed
+ * it with the link code. The old chat stops getting cards and a fresh code is
+ * issued so the owner's own chat can link again.
+ */
+export function unlinkAccount(store: SynapseStore, userId: string, now: number): LinkResponse {
+  store.ensureUser(userId, now);
+  store.unlinkUser(userId, now);
+  return linkPayload(store, userId, now);
+}
