@@ -508,9 +508,11 @@ export class StudyController<S extends ChatSpace = ChatSpace> {
     }
     this.touch(user.id, now);
 
+    const grill = this.activeGrill(user.id, now);
+    // Mid-grill, "stop" / "quit" means the grill, not the flashcard texts.
+    if (grill && command?.type === "pause") return this.onGrillEnd(space, user, now);
     if (command) return this.onCommand(space, user, command, trimmed, now);
 
-    const grill = this.activeGrill(user.id, now);
     if (grill) return this.onGrillText(space, user, grill, trimmed, now);
 
     const tapback = textAsTapback(trimmed);
@@ -532,7 +534,7 @@ export class StudyController<S extends ChatSpace = ChatSpace> {
   private async onCommand(space: S, user: User, command: Command, text: string, now: number): Promise<void> {
     switch (command.type) {
       case "help":
-        await this.say(space, M.help());
+        await this.say(space, M.help(this.policy.webUrl));
         return;
       case "greeting":
         await this.say(space, this.isStarted(user) ? M.greeting() : M.notStarted(this.policy.webUrl));
@@ -557,6 +559,9 @@ export class StudyController<S extends ChatSpace = ChatSpace> {
       case "resume":
         if (user.paused) this.store.setPaused(user.id, false, now);
         await this.say(space, M.resumed());
+        return;
+      case "web":
+        await this.say(space, M.webLink(command.page, this.policy.webUrl));
         return;
       case "report":
         await this.say(space, formatReportCardText(this.reportCard(user.id, now), `${this.policy.webUrl}/report`));

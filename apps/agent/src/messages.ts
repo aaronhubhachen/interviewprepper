@@ -3,6 +3,7 @@
  * no markdown, no LaTeX. Keep lines short, emoji-led and phone-friendly.
  */
 import type { GrillQuestion, GrillReport } from "@synapse/core";
+import type { WebPage } from "./commands";
 import {
   clampSentences,
   toPlainText,
@@ -290,7 +291,21 @@ export function idle(): string {
   return "🤖 No open card right now. Reply 'more' for one, 'stats' for progress, or 'help'.";
 }
 
-export function help(): string {
+const WEB_PAGES: Record<WebPage, { path: string; line: string }> = {
+  plans: { path: "/practice?plan=blind75", line: "📚 Blind 75 and NeetCode 150 progress" },
+  practice: { path: "/practice", line: "⌨️ The coding IDE (6 languages, 84 problems)" },
+  design: { path: "/design", line: "🏗️ System design on a whiteboard, with an AI interviewer" },
+  mock: { path: "/mock", line: "🎯 A full mock onsite with a hire / no-hire packet" },
+  behavioral: { path: "/behavioral", line: "🎙️ Behavioral questions with STAR feedback" },
+  dashboard: { path: "/dashboard", line: "📊 Your dashboard" },
+};
+
+export function webLink(page: WebPage, webUrl: string): string {
+  const target = WEB_PAGES[page];
+  return `${target.line} is on the web: ${webUrl}${target.path}`;
+}
+
+export function help(webUrl: string): string {
   return [
     "🧠 Prepr commands",
     "• more: next card",
@@ -302,7 +317,9 @@ export function help(): string {
     "• pause / resume: texts off / on",
     "• grill: defend your resume against a skeptical interviewer ('end grill' to stop)",
     "• report: your weekly report card (it also arrives Sunday evenings)",
-    "Rate my feedback with a tapback: ❤️ effortless · 👍 hesitant · 👎 guessed. ‼️ marks a weak spot.",
+    "• link 123456: connect this chat to the web app",
+    "Rate my feedback with a tapback (❤️ effortless · 👍 hesitant · 👎 guessed) or text easy / ok / again. ‼️ marks a weak spot.",
+    `On the web: coding IDE, Blind 75, system design, behavioral, mock onsite. ${webUrl}`,
   ].join("\n");
 }
 

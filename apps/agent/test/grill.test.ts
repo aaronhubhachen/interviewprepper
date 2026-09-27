@@ -76,4 +76,15 @@ describe("resume grill over iMessage", () => {
     const report = await h.controller.tick(h.clock.now());
     expect(report.results.find((result) => result.userId === WEB_USER)).toMatchObject({ action: "skipped", reason: "grilling" });
   });
+
+  it("treats 'stop' during a grill as ending the grill, not pausing texts", async () => {
+    h = createHarness({ start: chicago(9, 26, 10) });
+    await linkByText(h);
+    await text("grill");
+    await text(RESUME);
+    await text("stop");
+    expect(h.space.last.text).toMatch(/Grill cancelled/);
+    expect(h.store.getUser(WEB_USER)!.paused).toBe(false);
+    expect(new AgentState(h.store).get(userScope(WEB_USER), "grill")).toBeUndefined();
+  });
 });

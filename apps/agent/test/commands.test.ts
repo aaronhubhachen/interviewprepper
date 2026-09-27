@@ -36,6 +36,14 @@ describe("parseCommand", () => {
     expect(parseCommand(text)?.type).toBe(type);
   });
 
+  it("points web-only features at the web app", () => {
+    expect(parseCommand("Blind 75")).toEqual({ type: "web", page: "plans" });
+    expect(parseCommand("system design")).toEqual({ type: "web", page: "design" });
+    expect(parseCommand("mock interview?")).toEqual({ type: "web", page: "mock" });
+    expect(parseCommand("spar")).toEqual({ type: "web", page: "behavioral" });
+    expect(parseCommand("use a hash map of value to index")).toBeUndefined();
+  });
+
   it("parses link codes with punctuation", () => {
     expect(parseCommand("link 1234")).toEqual({ type: "link", code: "1234" });
     expect(parseCommand("LINK: 4821.")).toEqual({ type: "link", code: "4821" });

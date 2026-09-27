@@ -15,9 +15,26 @@ export type Command =
   | { type: "why" }
   | { type: "grill" }
   | { type: "endGrill" }
-  | { type: "report" };
+  | { type: "report" }
+  | { type: "web"; page: WebPage };
 
-type SimpleCommand = Exclude<Command, { type: "link" }>["type"];
+/** Web-only features a text can ask about; the agent replies with a deep link. */
+export type WebPage = "plans" | "practice" | "design" | "mock" | "behavioral" | "dashboard";
+
+const WEB_PHRASES: Readonly<Record<WebPage, readonly string[]>> = {
+  plans: ["blind 75", "blind75", "neetcode", "neetcode 150", "study plan", "study plans"],
+  practice: ["practice", "leetcode", "ide", "code", "coding"],
+  design: ["design", "system design", "sys design", "whiteboard"],
+  mock: ["mock", "mock interview", "mock onsite", "onsite", "mock loop"],
+  behavioral: ["behavioral", "spar", "star", "behavioral practice"],
+  dashboard: ["dashboard", "web", "website", "site", "app"],
+};
+
+const PHRASE_TO_WEB = new Map<string, WebPage>(
+  (Object.entries(WEB_PHRASES) as [WebPage, readonly string[]][]).flatMap(([page, phrases]) => phrases.map((phrase) => [phrase, page] as const)),
+);
+
+type SimpleCommand = Exclude<Command, { type: "link" } | { type: "web" }>["type"];
 
 const PHRASES: Readonly<Record<SimpleCommand, readonly string[]>> = {
   help: ["help", "commands", "command", "menu", "options", "what can you do", "how does this work"],
@@ -138,7 +155,9 @@ export function parseCommand(text: string): Command | undefined {
   const link = parseLink(normalized);
   if (link) return link;
   const type = PHRASE_TO_COMMAND.get(normalized);
-  return type ? ({ type } as Command) : undefined;
+  if (type) return { type } as Command;
+  const page = PHRASE_TO_WEB.get(normalized);
+  return page ? { type: "web", page } : undefined;
 }
 
 /**
