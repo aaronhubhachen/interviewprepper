@@ -137,13 +137,18 @@ export const MICROCARDS_A: MicroCard[] = [
           "cannot be part",
           "can't pair",
           "cannot pair",
+          "can't be in",
+          "cannot be in",
           "discard",
           "eliminate",
           "rule out",
           "ruled out",
           "largest remaining",
           "already too small",
+          "still too small",
+          "even the largest",
           "no solution",
+          "no valid pair",
           "prune",
           "never works",
         ],
@@ -170,11 +175,38 @@ export const MICROCARDS_A: MicroCard[] = [
       },
       {
         label: "Any other pairing is narrower",
-        anyOf: ["narrower", "width shrinks", "width decreases", "smaller width", "less width", "width only gets smaller", "width goes down"],
+        anyOf: [
+          "narrower",
+          "width shrinks",
+          "width decreases",
+          "smaller width",
+          "less width",
+          "width only gets smaller",
+          "width gets smaller",
+          "width goes down",
+        ],
       },
       {
         label: "So the shorter line can be discarded",
-        anyOf: ["discard", "can never help", "never help", "can't improve", "cannot improve", "no better", "finished", "eliminate", "rule out", "never increase"],
+        anyOf: [
+          "discard",
+          "can never help",
+          "never help",
+          "can't help",
+          "cannot help",
+          "can't improve",
+          "cannot improve",
+          "can't do better",
+          "cannot do better",
+          "never do better",
+          "no better",
+          "finished",
+          "eliminate",
+          "rule out",
+          "drop it",
+          "shorter line is done",
+          "never increase",
+        ],
       },
     ],
     hint: "Fix the shorter line and pair it with any closer line, taller or not. Can the area ever go up?",
@@ -325,10 +357,7 @@ export const MICROCARDS_A: MicroCard[] = [
       "The window invariant is 'the current window satisfies the constraint'. Growing right may break it, moving left is the only way to repair it, and left never needs to move back because any wider window ending here is also invalid. Record the best answer after the repair step, when the window is valid again.",
     tags: ["sliding_window", "two_pointers", "hashing"],
     difficulty: 2,
-    relatedProblem: {
-      title: "Longest Substring with At Most K Distinct Characters",
-      leetcodeSlug: "longest-substring-with-at-most-k-distinct-characters",
-    },
+    relatedProblem: { title: "Fruit Into Baskets", leetcodeSlug: "fruit-into-baskets" },
   },
   {
     id: "mc-min-window-substring",
@@ -340,7 +369,18 @@ export const MICROCARDS_A: MicroCard[] = [
     keyPoints: [
       {
         label: "Expand until the window is valid",
-        anyOf: ["expand until", "grow until", "until valid", "until the window is valid", "until it contains", "until all", "until it covers"],
+        anyOf: [
+          "expand until",
+          "grow until",
+          "until valid",
+          "until the window is valid",
+          "until it contains",
+          "until all",
+          "until it covers",
+          "covers",
+          "contains all",
+          "all of t",
+        ],
       },
       {
         label: "Shrink while it stays valid",
@@ -349,6 +389,8 @@ export const MICROCARDS_A: MicroCard[] = [
           "while it stays valid",
           "while valid",
           "while still valid",
+          "still valid",
+          "stays valid",
           "while the window is valid",
           "while it is valid",
           "contract while",
@@ -357,11 +399,49 @@ export const MICROCARDS_A: MicroCard[] = [
       },
       {
         label: "Record the answer during the shrink",
-        anyOf: ["record", "update the answer", "update min", "update the min", "track the min", "save the best", "minimum length", "update best"],
+        anyOf: [
+          "update the answer",
+          "update min",
+          "update the min",
+          "update the minimum",
+          "update the smallest",
+          "update the shortest",
+          "track the min",
+          "track the minimum",
+          "record the minimum",
+          "record the length",
+          "record the window",
+          "save the best",
+          "minimum length",
+          "min length",
+          "smallest so far",
+          "shortest so far",
+          "best so far",
+          "update best",
+          "each valid step",
+          "each valid window",
+          "every valid window",
+        ],
       },
       {
         label: "Track required counts (need/have)",
-        anyOf: ["counter", "formed", "need", "have", "count", "counts", "frequency", "hash map", "hashmap", "dict", "map"],
+        anyOf: [
+          "counter",
+          "formed",
+          "need",
+          "need map",
+          "have",
+          "missing",
+          "count map",
+          "char counts",
+          "character counts",
+          "required counts",
+          "frequency",
+          "hash map",
+          "hashmap",
+          "dict",
+          "map",
+        ],
       },
     ],
     hint: "Here a valid window is a candidate answer and you want it smaller. So which state should the left pointer eat into?",
@@ -445,6 +525,11 @@ export const MICROCARDS_A: MicroCard[] = [
         label: "Precompute running sums in O(n)",
         anyOf: [
           "precompute",
+          "prefix sum",
+          "build prefix",
+          "build a prefix",
+          "compute prefix",
+          "compute the prefix",
           "running sum",
           "running total",
           "cumulative",
@@ -565,7 +650,7 @@ export const MICROCARDS_A: MicroCard[] = [
     keyPoints: [
       {
         label: "Everything before lo is < target",
-        anyOf: ["before lo", "left of lo", "below lo", "i < lo", "less than target", "smaller than target", "too small"],
+        anyOf: ["before lo", "left of lo", "below lo", "i < lo", "nums[0..lo-1] < target", "less than target", "smaller than target", "too small"],
       },
       {
         label: "Everything at or after hi is >= target",
@@ -577,18 +662,50 @@ export const MICROCARDS_A: MicroCard[] = [
           "hi onward",
           "hi and beyond",
           "i >= hi",
+          "nums[hi..n-1] >= target",
           "at least target",
           "not less than target",
           "greater than or equal to target",
         ],
       },
       {
-        label: "lo = mid + 1, else hi = mid",
-        anyOf: ["lo = mid + 1", "lo = mid+1", "l = mid + 1", "hi = mid", "r = mid", "mid + 1", "mid+1"],
+        label: "nums[mid] < target: lo = mid + 1",
+        anyOf: ["lo = mid + 1", "lo = mid+1", "l = mid + 1", "left = mid + 1", "lo becomes mid + 1", "lo to mid + 1", "lo past mid"],
+      },
+      {
+        // The heuristic grader drops operators, so a bare "hi = mid" would also match the buggy "hi = mid - 1".
+        // Accept it only when a word follows mid, or when the answer explains why mid must stay in range.
+        label: "Otherwise hi = mid, keeping mid in range (not mid - 1)",
+        anyOf: [
+          "not mid - 1",
+          "keep mid",
+          "keeps mid",
+          "mid stays",
+          "include mid",
+          "mid could be the answer",
+          "mid might be the answer",
+          "mid may be the answer",
+          "mid can be the answer",
+          "mid is a candidate",
+          "hi = mid not",
+          "hi = mid and",
+          "hi = mid so",
+          "hi = mid since",
+          "hi = mid because",
+          "hi = mid otherwise",
+          "hi = mid when",
+          "hi = mid then",
+          "hi = mid until",
+          "hi = mid instead",
+          "hi = mid rather",
+          "hi = mid return",
+          "hi = mid stop",
+        ],
       },
       {
         label: "Loop ends with lo == hi as the answer",
-        anyOf: ["lo equals hi", "lo == hi", "lo = hi", "they meet", "converge", "return lo", "answer is lo"],
+        // Not a bare "lo == hi": without operators it matches the prompt's own "while lo < hi".
+        anyOf: ["lo equals hi", "when lo == hi", "until lo == hi", "once lo == hi", "they meet", "converge", "return lo", "answer is lo"],
       },
     ],
     hint: "Write down what you know about nums[0..lo-1] and nums[hi..n-1] at every step. Which update keeps mid in play when it might be the answer?",
@@ -761,7 +878,19 @@ export const MICROCARDS_A: MicroCard[] = [
       },
       {
         label: "Frequency is at most n",
-        anyOf: ["n+1", "n + 1", "at most n", "bounded by n", "max frequency is n", "can't exceed n", "cannot exceed n", "only n"],
+        anyOf: [
+          "n plus 1",
+          "n plus one",
+          "at most n",
+          "up to n",
+          "no more than n",
+          "bounded by n",
+          "max frequency is n",
+          "can't exceed n",
+          "cannot exceed n",
+          "never exceeds n",
+          "only n",
+        ],
       },
       {
         label: "Walk buckets from high to low",
@@ -781,7 +910,7 @@ export const MICROCARDS_A: MicroCard[] = [
     prompt:
       "⚡ Kth Largest Element: compare a size-k min-heap with quickselect. Give both time complexities, and say how quickselect avoids its worst case. Reply in 2 sentences.",
     answerKey:
-      "A size-k min-heap runs in O(n log k) time with O(k) space, popping whenever it holds more than k so the root is the kth largest. Quickselect partitions around a pivot and recurses into only one side, for average O(n) but worst case O(n^2), which a random pivot makes vanishingly unlikely.",
+      "A size-k min-heap runs in O(n log k) time with O(k) space, popping whenever it holds more than k so the root is the kth largest. Quickselect partitions around a pivot and recurses into only one side, which is O(n) on average but O(n^2) in the worst case, and a random pivot makes that worst case vanishingly unlikely.",
     keyPoints: [
       {
         label: "Size-k min-heap: O(n log k)",
@@ -789,7 +918,8 @@ export const MICROCARDS_A: MicroCard[] = [
       },
       {
         label: "Quickselect: average O(n)",
-        anyOf: ["average o(n)", "expected o(n)", "o(n) average", "o(n) on average", "linear on average", "average linear", "expected linear"],
+        // No "average o(n)" / "o(n) average": operators are dropped, so they match "average O(n log n)" and "on average".
+        anyOf: ["o(n) on average", "o(n) expected", "o(n) in expectation", "linear on average", "average linear", "expected linear", "linear expected"],
       },
       {
         label: "Worst case O(n^2)",
@@ -905,7 +1035,7 @@ export const MICROCARDS_A: MicroCard[] = [
       "The heap answers 'which room frees up first?' in O(log n), for O(n log n) total. An equivalent sweep sorts start times and end times separately and walks them with two pointers, counting concurrent meetings. Clarify ties: a meeting ending at 10 frees its room for one starting at 10, so process the end first.",
     tags: ["intervals", "heap", "sorting"],
     difficulty: 2,
-    relatedProblem: { title: "Meeting Rooms II", leetcodeSlug: "meeting-rooms-ii" },
+    relatedProblem: { title: "Meeting Rooms III", leetcodeSlug: "meeting-rooms-iii" },
   },
 
   // ─── Linked lists ─────────────────────────────────────────────────────────
@@ -1043,11 +1173,21 @@ export const MICROCARDS_A: MicroCard[] = [
     keyPoints: [
       {
         label: "2n - 1 centers",
-        anyOf: ["2n - 1", "2n-1", "2n", "2 n", "n and n - 1", "n + n - 1", "every char and every gap", "gaps"],
+        anyOf: ["2n - 1", "2n-1", "2n", "2 n", "n and n - 1", "n + n - 1", "every char and every gap", "each char and each gap"],
       },
       {
         label: "Odd and even lengths need different centers",
-        anyOf: ["odd", "even", "between characters", "between chars", "gap", "two centers"],
+        anyOf: [
+          "odd",
+          "even",
+          "every char and every gap",
+          "each char and each gap",
+          "characters and gaps",
+          "chars and gaps",
+          "letters and gaps",
+          "two centers",
+          "two kinds of center",
+        ],
       },
       {
         label: "O(n^2) time, O(1) space",
@@ -1178,7 +1318,7 @@ export const MICROCARDS_A: MicroCard[] = [
         anyOf: ["last", "at the end", "finally", "after the rest", "second pass", "in reverse", "bottom up"],
       },
     ],
-    hint: "You need m + n bits of memory, and the matrix already has m + n cells you will overwrite anyway. Which ones?",
+    hint: "You need m + n marker bits, but the first row and column only give you m + n - 1 cells you will overwrite anyway. Which cell do they share?",
     explanation:
       "Careless in-place marking cascades: a zero you just wrote looks like an original zero. Scan first, zero the inner cells from the markers, and only then handle the first row and column, so you never clobber markers you still need. The simpler O(m + n) version uses two boolean arrays.",
     tags: ["matrix"],
@@ -1278,7 +1418,27 @@ export const MICROCARDS_A: MicroCard[] = [
       },
       {
         label: "Multiply in the base when the bit is 1 (odd)",
-        anyOf: ["odd", "lowest bit is 1", "bit is 1", "n & 1", "n % 2", "extra x", "multiply the result", "multiplying the result"],
+        // No "n % 2" / "n & 1": without operators they reduce to "n 2" / "n 1", which "n / 2" from the halving step matches.
+        anyOf: [
+          "n is odd",
+          "when odd",
+          "if odd",
+          "odd exponent",
+          "exponent is odd",
+          "odd power",
+          "odd n",
+          "lowest bit is 1",
+          "bit is 1",
+          "extra x",
+          "multiply the result",
+          "multiplying the result",
+          "multiply the result by x",
+          "multiply result",
+          "multiply by x",
+          "multiply in x",
+          "multiply in the base",
+          "result *= x",
+        ],
       },
       {
         label: "Negative n: reciprocal and overflow",
@@ -1349,11 +1509,23 @@ export const MICROCARDS_A: MicroCard[] = [
     keyPoints: [
       {
         label: "Hash map for O(1) key lookup",
-        anyOf: ["hash map", "hashmap", "hash table", "dictionary", "dict", "map"],
+        anyOf: ["hash map", "hashmap", "hash table", "dictionary", "dict", "map", "ordereddict", "linkedhashmap"],
       },
       {
         label: "Doubly linked list ordered by recency",
-        anyOf: ["doubly linked list", "doubly-linked list", "linked list", "dll", "deque", "ordereddict", "linkedhashmap"],
+        // Not "deque" or a bare "linked list": neither can unlink a middle node in O(1).
+        anyOf: [
+          "doubly linked list",
+          "doubly-linked list",
+          "doubly linked",
+          "double linked",
+          "dll",
+          "prev and next pointers",
+          "prev and next",
+          "prev pointers",
+          "ordereddict",
+          "linkedhashmap",
+        ],
       },
       {
         label: "Evict from the least-recent end",
@@ -1482,7 +1654,7 @@ export const MICROCARDS_A: MicroCard[] = [
     keyPoints: [
       {
         label: "Boundary burst of about 2x",
-        anyOf: ["200", "double", "2x", "twice", "boundary", "end of one window", "edge of the window", "window edge", "back to back", "two windows"],
+        anyOf: ["200", "double", "2x", "twice", "end of one window", "start of the next", "back to back", "two windows", "both windows"],
       },
       {
         label: "Tokens refill at a steady rate",
