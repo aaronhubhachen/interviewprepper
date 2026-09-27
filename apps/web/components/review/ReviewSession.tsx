@@ -4,7 +4,7 @@ import { useCallback, useEffect, useReducer, useRef, useState } from "react";
 import { tagLabel, type Tag } from "@synapse/core/tags";
 import type { Rating } from "@synapse/core/sm2";
 import type { TextGrade } from "@synapse/core/tapback";
-import { SynapseGlyph } from "@/components/shell/SynapseGlyph";
+import { PreprMark } from "@/components/shell/PreprMark";
 import { Banner } from "@/components/ui/Banner";
 import { Button, ButtonLink } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -334,7 +334,7 @@ export function ReviewSession({ tag, invalidTag, initialState, tagOptions }: Rev
           className="flex h-[clamp(28rem,calc(100dvh_-_12rem),52rem)] flex-col overflow-hidden outline-none"
         >
           <div className="flex items-center gap-3 border-b border-line px-4 py-3 sm:px-6">
-            <SynapseGlyph className="h-9 w-9 shrink-0" />
+            <PreprMark className="h-9 w-9 shrink-0" />
             <div className="min-w-0 flex-1">
               <p className="text-sm font-semibold text-fg">Prepr</p>
               <p className="truncate text-xs text-fg-subtle">{subtitle}</p>

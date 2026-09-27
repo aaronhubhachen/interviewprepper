@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { Linking, Pressable, StyleSheet, Switch, View } from 'react-native';
+import { Image, Linking, Pressable, StyleSheet, Switch, View } from 'react-native';
 import { Button, Card, ErrorCard, Loading, Pill, ProgressBar, Row, T, TabScreen } from '@/components/ui';
 import { errorMessage, fetchReportCard, fetchStats, setAgentPaused } from '@/lib/api';
 import { useServer } from '@/lib/server';
@@ -16,9 +16,12 @@ export default function HomeScreen() {
   return (
     <TabScreen refreshing={stats.refreshing} onRefresh={stats.refresh}>
       <Row style={{ justifyContent: 'space-between' }}>
-        <T variant="title">
-          P<T variant="title" style={{ color: p.accent }}>repr</T>
-        </T>
+        <Row style={{ gap: space.sm }}>
+          <Image source={require('../../../assets/images/splash-icon.png')} style={styles.mark} accessibilityIgnoresInvertColors />
+          <T variant="title">
+            P<T variant="title" style={{ color: p.accent }}>repr</T>
+          </T>
+        </Row>
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Server settings"
@@ -196,6 +199,7 @@ function LinkCard({ stats, onChanged }: { stats: StatsResponse; onChanged: () =>
 }
 
 const styles = StyleSheet.create({
+  mark: { width: 30, height: 30 },
   grade: { width: 36, height: 36, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center' },
   gear: { width: 40, height: 40, borderRadius: radius.md, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: space.md },

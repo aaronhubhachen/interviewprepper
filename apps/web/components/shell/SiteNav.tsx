@@ -6,7 +6,7 @@ import type { ComponentType, SVGProps } from "react";
 import { cn } from "@/lib/cn";
 import { useDueCount } from "./DueCountProvider";
 import { DashboardIcon, DesignIcon, GrillIcon, MockIcon, PracticeIcon, ReviewIcon, SparIcon } from "./NavIcons";
-import { SynapseGlyph } from "./SynapseGlyph";
+import { PreprMark } from "./PreprMark";
 import { ThemeToggle } from "./ThemeToggle";
 
 interface NavItem {
@@ -58,7 +58,7 @@ export function SiteHeader() {
     <header className="sticky top-0 z-40 border-b border-line/70 bg-ink-950/75 backdrop-blur-xl">
       <div className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between gap-4 px-4 sm:px-6">
         <Link href="/" className="group flex items-center gap-2.5 rounded-lg" aria-label="Prepr home">
-          <SynapseGlyph className="h-8 w-8 transition-transform duration-300 motion-safe:group-hover:rotate-12" />
+          <PreprMark className="h-8 w-8 transition-transform duration-300 motion-safe:group-hover:-rotate-6" />
           <span className="font-display text-xl font-semibold tracking-tight text-fg">
             P<span className="text-gradient">repr</span>
           </span>

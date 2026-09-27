@@ -63,7 +63,6 @@
   --shadow-card: 0 1px 0 0 rgb(255 255 255 / 0.04) inset, 0 20px 50px -30px rgb(0 0 0 / 0.8);
 
   --animate-pulse-glow: pulse-glow 2.4s ease-in-out infinite;
-  --animate-fire: fire 1.6s ease-out infinite;
   --animate-fade-up: fade-up 0.35s ease-out both;
   --animate-typing: typing 1.2s ease-in-out infinite;
 
@@ -76,20 +75,6 @@
     50% {
       opacity: 1;
       transform: scale(1.08);
-    }
-  }
-
-  @keyframes fire {
-    0% {
-      stroke-dashoffset: 24;
-      opacity: 0.2;
-    }
-    40% {
-      opacity: 1;
-    }
-    100% {
-      stroke-dashoffset: 0;
-      opacity: 0.2;
     }
   }
 
