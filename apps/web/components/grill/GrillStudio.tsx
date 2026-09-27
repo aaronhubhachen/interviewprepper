@@ -8,6 +8,7 @@ import { useSpeechSynthesis } from "@/lib/voice/useSpeechSynthesis";
 import { useStoredBoolean } from "@/lib/voice/useStoredBoolean";
 import { GrillReportView } from "./GrillReportView";
 import { GrillRoom } from "./GrillRoom";
+import { PastRounds } from "./PastRounds";
 import { ResumeSetup } from "./ResumeSetup";
 
 const RESUME_KEY = "prepr.grill.resume";
@@ -140,7 +141,19 @@ export function GrillStudio() {
         }
       />
 
-      {stage === "setup" ? <ResumeSetup resume={resume} onResumeChange={updateResume} onStart={start} /> : null}
+      {stage === "setup" ? (
+        <>
+          <ResumeSetup resume={resume} onResumeChange={updateResume} onStart={start} />
+          <PastRounds
+            onOpen={(saved) => {
+              setTurns([]);
+              setReport(saved);
+              setStage("report");
+              window.scrollTo({ top: 0, behavior: "smooth" });
+            }}
+          />
+        </>
+      ) : null}
 
       {stage === "interview" ? (
         <div className="grid gap-4">

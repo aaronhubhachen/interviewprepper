@@ -16,7 +16,7 @@ import {
 import type { BotChatResponse, BotReportResponse } from "@/lib/types";
 import { badRequest, notFound, type JsonObject } from "./http";
 import { withLlmBudget } from "./llm-budget";
-import { now } from "./store";
+import { currentUserId, getStore, now } from "./store";
 import { fields, type Fields } from "./validate";
 
 const MAX_MESSAGES = 60;
@@ -136,5 +136,13 @@ export async function reportBotSession(body: JsonObject): Promise<BotReportRespo
     item.done();
   }
   const problem = requireProblem(problemId);
-  return withLlmBudget(now(), (useLlm) => evaluateBotSession({ problem, language, finalCode, durationMs, messages, events, traps, lastResult }, { useLlm }));
+  const report = await withLlmBudget(now(), (useLlm) =>
+    evaluateBotSession({ problem, language, finalCode, durationMs, messages, events, traps, lastResult }, { useLlm }),
+  );
+  // Save the report (not the code or transcript) so the dashboard can show the AI-use trend.
+  const store = getStore();
+  const userId = currentUserId();
+  store.ensureUser(userId, now());
+  store.recordPracticeSession({ userId, kind: "bot", subject: problem.id, score: report.overall, report, now: now() });
+  return report;
 }

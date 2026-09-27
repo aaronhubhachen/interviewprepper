@@ -152,6 +152,20 @@ const MIGRATIONS: readonly string[] = [
   );
   CREATE INDEX IF NOT EXISTS review_undo_card ON review_undo(user_id, card_id);
   `,
+  // 4: scored interview rounds beyond sparring (resume grill, AI-assisted coding, mock loop, system design).
+  //    Only the report is kept (no resume text or code), so the dashboard can show trends.
+  `
+  CREATE TABLE IF NOT EXISTS practice_sessions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id TEXT NOT NULL,
+    kind TEXT NOT NULL,
+    subject TEXT,
+    score INTEGER NOT NULL,
+    report TEXT NOT NULL,
+    created_at INTEGER NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS practice_sessions_user_kind ON practice_sessions(user_id, kind, created_at);
+  `,
 ];
 
 export const SCHEMA_VERSION = MIGRATIONS.length;

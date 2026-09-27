@@ -54,6 +54,7 @@ import type {
   IdeAttemptInput,
   IdeAttemptResult,
   IdeStage,
+  InterviewTrends,
   LinkStatus,
   NextCardOptions,
   NextCardPick,
@@ -61,6 +62,9 @@ import type {
   PendingPatch,
   PendingPhase,
   PendingProbe,
+  PracticeSession,
+  PracticeSessionInput,
+  PracticeSessionKind,
   PushKind,
   ReviewSource,
   ScheduledDrill,
@@ -70,6 +74,7 @@ import type {
   Stats,
   StorePolicy,
   TagMastery,
+  TrendPoint,
   User,
   WeakTag,
   WeaknessSource,
@@ -286,6 +291,32 @@ function toIdeAttempt(row: IdeAttemptRow): IdeAttempt {
     durationMs: row.duration_ms,
     createdAt: row.created_at,
   };
+}
+
+interface PracticeRow {
+  id: number;
+  user_id: string;
+  kind: PracticeSessionKind;
+  subject: string | null;
+  score: number;
+  report: string;
+  created_at: number;
+}
+
+function toPracticeSession(row: PracticeRow): PracticeSession {
+  return {
+    id: row.id,
+    userId: row.user_id,
+    kind: row.kind,
+    subject: row.subject,
+    score: row.score,
+    report: JSON.parse(row.report) as unknown,
+    createdAt: row.created_at,
+  };
+}
+
+function problemTitle(id: string): string {
+  return getProblem(id)?.title ?? id;
 }
 
 function toSparSession(row: SparRow): SparSession {
@@ -1277,6 +1308,54 @@ export class SynapseStore {
     return toSparSession(this.stmt("SELECT * FROM spar_sessions WHERE id = ?").get(id) as SparRow);
   }
 
+  // ── Scored rounds (grill, AI-assisted coding, mock loop, system design) ─────
+
+  recordPracticeSession(input: PracticeSessionInput): PracticeSession {
+    const score = Math.round(Math.max(0, Math.min(100, input.score)));
+    const inserted = this.stmt(
+      `INSERT INTO practice_sessions (user_id, kind, subject, score, report, created_at) VALUES (?, ?, ?, ?, ?, ?)`,
+    ).run(input.userId, input.kind, input.subject, score, JSON.stringify(input.report ?? null), input.now);
+    const id = Number(inserted.lastInsertRowid);
+    const titles: Record<PracticeSessionKind, string> = {
+      grill: `🔥 Resume grill · ${score}/100`,
+      bot: `🤖 AI-assisted round${input.subject ? ` · ${problemTitle(input.subject)}` : ""} · ${score}/100`,
+      mock: `🎯 Mock interview loop · ${score}/100`,
+      design: `🏗️ System design${input.subject ? ` · ${input.subject}` : ""} · ${score}/100`,
+    };
+    this.logEvent(input.userId, input.kind, titles[input.kind], { sessionId: id, subject: input.subject }, input.now);
+    return toPracticeSession(this.stmt("SELECT * FROM practice_sessions WHERE id = ?").get(id) as PracticeRow);
+  }
+
+  listPracticeSessions(userId: string, kind?: PracticeSessionKind, limit = 20): PracticeSession[] {
+    const rows = (
+      kind
+        ? this.stmt("SELECT * FROM practice_sessions WHERE user_id = ? AND kind = ? ORDER BY created_at DESC, id DESC LIMIT ?").all(userId, kind, limit)
+        : this.stmt("SELECT * FROM practice_sessions WHERE user_id = ? ORDER BY created_at DESC, id DESC LIMIT ?").all(userId, limit)
+    ) as PracticeRow[];
+    return rows.map(toPracticeSession);
+  }
+
+  /** The last `limit` scores per round type, oldest first. */
+  trends(userId: string, limit = 10): InterviewTrends {
+    const practice = (kind: PracticeSessionKind): TrendPoint[] =>
+      (
+        this.stmt(
+          "SELECT score, subject, created_at FROM practice_sessions WHERE user_id = ? AND kind = ? ORDER BY created_at DESC, id DESC LIMIT ?",
+        ).all(userId, kind, limit) as Array<{ score: number; subject: string | null; created_at: number }>
+      )
+        .map((row) => ({ score: row.score, at: row.created_at, subject: row.subject }))
+        .reverse();
+    const spar = (
+      this.stmt("SELECT overall, question_id, created_at FROM spar_sessions WHERE user_id = ? ORDER BY created_at DESC, id DESC LIMIT ?").all(
+        userId,
+        limit,
+      ) as Array<{ overall: number; question_id: string; created_at: number }>
+    )
+      .map((row) => ({ score: row.overall, at: row.created_at, subject: row.question_id }))
+      .reverse();
+    return { bot: practice("bot"), grill: practice("grill"), mock: practice("mock"), design: practice("design"), spar };
+  }
+
   listSparSessions(userId: string, limit = 20): SparSession[] {
     const rows = this.stmt("SELECT * FROM spar_sessions WHERE user_id = ? ORDER BY created_at DESC, id DESC LIMIT ?").all(
       userId,
@@ -1394,6 +1473,7 @@ export class SynapseStore {
       recentActivity: this.recentEvents(userId, 12),
       link,
       demoScale: this.demoScale,
+      trends: this.trends(userId),
     };
   }
 }

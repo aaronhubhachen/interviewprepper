@@ -2,7 +2,7 @@
 
 import type { CodeLanguage } from "@synapse/core/judge";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { errorMessage, fetchBotReport, sendBotMessage } from "@/lib/api";
+import { errorMessage, fetchBotReport, fetchPracticeSessions, sendBotMessage } from "@/lib/api";
 import type { BotEvent, BotMessage, BotReport } from "@/lib/types";
 
 /** An edit that adds this many characters at once is logged as a paste. */
@@ -48,6 +48,8 @@ export interface AiAssistant {
   reviewing: boolean;
   report: BotReport | null;
   reviewError: string | null;
+  /** Saved AI-use scores, oldest first (loaded after each review). */
+  history: number[];
   dismissReport: () => void;
   clear: () => void;
 }
@@ -67,6 +69,7 @@ export function useAiAssistant({ problemId, language, getCode }: { problemId: st
   const [report, setReport] = useState<BotReport | null>(null);
   const [reviewing, setReviewing] = useState(false);
   const [reviewError, setReviewError] = useState<string | null>(null);
+  const [history, setHistory] = useState<number[]>([]);
   const events = useRef<BotEvent[]>([]);
   const startedAt = useRef(0);
   const lastResult = useRef<{ status: string; passed: number; total: number } | null>(null);
@@ -192,7 +195,10 @@ export function useAiAssistant({ problemId, language, getCode }: { problemId: st
       traps,
       lastResult: lastResult.current,
     })
-      .then(setReport)
+      .then((result) => {
+        setReport(result);
+        return fetchPracticeSessions("bot", 10).then((saved) => setHistory(saved.sessions.map((session) => session.score).reverse()));
+      })
       .catch((reviewFailure: unknown) => setReviewError(errorMessage(reviewFailure)))
       .finally(() => setReviewing(false));
   }, [getCode, language, messages, problemId, traps]);
@@ -228,6 +234,7 @@ export function useAiAssistant({ problemId, language, getCode }: { problemId: st
     reviewing,
     report,
     reviewError,
+    history,
     dismissReport: () => setReport(null),
     clear,
   };

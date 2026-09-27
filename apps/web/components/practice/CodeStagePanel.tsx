@@ -426,6 +426,11 @@ export function CodeStagePanel({
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.14em] text-synapse">AI-assisted interview review</p>
               <p className="mt-1 text-sm text-fg-muted">How an interviewer running an AI-enabled round would read your session so far.</p>
+              {ai.history.length > 1 ? (
+                <p className="mt-1 font-mono text-sm text-fg-muted">
+                  Your AI-use scores: <span className="text-fg">{ai.history.join(" → ")}</span>
+                </p>
+              ) : null}
             </div>
             <Button size="sm" variant="ghost" onClick={ai.dismissReport}>
               Close

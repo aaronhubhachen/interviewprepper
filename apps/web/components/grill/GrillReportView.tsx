@@ -47,7 +47,7 @@ export function GrillReportView({ report, turns, onAgain, onNewResume }: GrillRe
                   {counts[verdict]} {VERDICTS[verdict].label.toLowerCase()}
                 </Pill>
               ))}
-              <Pill tone="neutral">{turns.length} questions</Pill>
+              {turns.length > 0 ? <Pill tone="neutral">{turns.length} questions</Pill> : null}
               {report.source === "heuristic" ? <Pill tone="neutral" title="No LLM configured or it timed out">Offline scoring</Pill> : null}
             </div>
           </div>

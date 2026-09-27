@@ -830,3 +830,23 @@ describe("persistence", () => {
     }
   });
 });
+
+describe("practice sessions & trends", () => {
+  it("stores scored rounds, logs them, and reports trends oldest first", () => {
+    store.recordPracticeSession({ userId: "me", kind: "bot", subject: "p-two-sum", score: 30, report: { overall: 30 }, now: T0 });
+    store.recordPracticeSession({ userId: "me", kind: "bot", subject: "p-house-robber", score: 72.4, report: { overall: 72 }, now: T0 + MINUTE });
+    store.recordPracticeSession({ userId: "me", kind: "grill", subject: "Resume", score: 140, report: { overall: 100 }, now: T0 + 2 * MINUTE });
+
+    const bot = store.listPracticeSessions("me", "bot");
+    expect(bot.map((session) => session.score)).toEqual([72, 30]);
+    expect(bot[0]!.report).toEqual({ overall: 72 });
+    expect(store.listPracticeSessions("me", "grill")[0]!.score).toBe(100);
+
+    const stats = store.stats("me", T0 + 3 * MINUTE);
+    expect(stats.trends.bot.map((point) => point.score)).toEqual([30, 72]);
+    expect(stats.trends.grill).toHaveLength(1);
+    expect(stats.trends.spar).toEqual([]);
+    expect(stats.recentActivity.map((event) => event.title)).toContain("🤖 AI-assisted round · Two Sum · 30/100");
+    expect(store.listPracticeSessions("someone-else")).toEqual([]);
+  });
+});

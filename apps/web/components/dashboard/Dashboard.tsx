@@ -18,6 +18,7 @@ import { LinkCard } from "./LinkCard";
 import { MasteryCard } from "./MasteryCard";
 import { RecentActivityCard } from "./RecentActivityCard";
 import { StatsRow } from "./StatsRow";
+import { TrendsCard } from "./TrendsCard";
 import { WeakSpotsCard } from "./WeakSpotsCard";
 
 /** Real time: refresh every 30 s. Demo scale (1 SRS day = minutes): every 10 s so cards visibly come due. */
@@ -173,6 +174,7 @@ export function DashboardView({ stats, activity, error, retrying = false, now, o
             </div>
             <div className="contents lg:flex lg:flex-col lg:gap-6">
               <LinkCard className="order-2 lg:order-none" initial={stats.link} onChange={onLinkChange} />
+              <TrendsCard className="order-3 lg:order-none" trends={stats.trends} />
               <WeakSpotsCard className="order-4 lg:order-none" weakTags={stats.weakTags} now={now} />
               <RecentActivityCard className="order-6 lg:order-none lg:flex-1" events={stats.recentActivity} now={now} />
             </div>

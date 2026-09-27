@@ -10,6 +10,7 @@ import {
   type SynapseStore,
 } from "@synapse/core";
 import { GET as behavioralGET } from "@/app/api/behavioral/route";
+import { GET as sessionsListGET } from "@/app/api/sessions/route";
 import { POST as botChatPOST } from "@/app/api/bot/chat/route";
 import { POST as botReportPOST } from "@/app/api/bot/report/route";
 import { openTrap, sealTrap } from "@/lib/server/bot";
@@ -38,6 +39,7 @@ import type {
   GrillNextResponse,
   GrillReport,
   GrillResumeResponse,
+  PracticeSessionsResponse,
   LinkResponse,
   PracticeAttemptResponse,
   PracticeEvaluateResponse,
@@ -626,5 +628,44 @@ describe("prepr bot", () => {
       400,
     );
     expect(lastNotUser.error.message).toMatch(/last message/);
+  });
+});
+
+describe("saved interview rounds", () => {
+  it("saves grill and AI-assisted reports and lists them per kind; stats carry the trends", async () => {
+    const resume = ["Jordan Lee", "- Led migration of the checkout service to 4 microservices, cutting p99 latency by 45%"].join("\n");
+    const turns = [{ question: "What did you ship?", target: "Led migration", answer: "We made it faster." }];
+    const grill = await body<GrillReport>(await grillReportPOST(post("/api/grill/report", { resume, turns }), NO_CTX));
+
+    await body<BotReport>(
+      await botReportPOST(
+        post("/api/bot/report", {
+          problemId: "p-two-sum",
+          language: "python",
+          finalCode: "def twoSum(nums, target): return []",
+          durationMs: 60_000,
+          messages: [],
+          events: [],
+          traps: [],
+          lastResult: null,
+        }),
+        NO_CTX,
+      ),
+    );
+
+    const grills = await body<PracticeSessionsResponse>(await sessionsListGET(get("/api/sessions?kind=grill"), NO_CTX));
+    expect(grills.sessions).toHaveLength(1);
+    expect(grills.sessions[0]).toMatchObject({ kind: "grill", subject: "Resume", score: grill.overall });
+    expect(grills.sessions[0]).not.toHaveProperty("userId");
+    expect(JSON.stringify(grills.sessions[0]!.report)).not.toContain("Jordan Lee");
+
+    const bots = await body<PracticeSessionsResponse>(await sessionsListGET(get("/api/sessions?kind=bot"), NO_CTX));
+    expect(bots.sessions[0]).toMatchObject({ kind: "bot", subject: "p-two-sum" });
+
+    const stats = await body<StatsResponse>(await statsGET(get("/api/stats"), NO_CTX));
+    expect(stats.trends.grill).toHaveLength(1);
+    expect(stats.trends.bot).toHaveLength(1);
+
+    await body<ApiErrorBody>(await sessionsListGET(get("/api/sessions?kind=nope"), NO_CTX), 400);
   });
 });

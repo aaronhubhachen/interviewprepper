@@ -13,6 +13,7 @@ import type {
   BotReportResponse,
   GrillNextResponse,
   GrillReport,
+  PracticeSessionsResponse,
   JudgeLanguagesResponse,
   JudgeRunRequest,
   JudgeRunResponse,
@@ -244,6 +245,13 @@ export function fetchGrillQuestion(body: GrillSessionRequest, options?: RequestO
 /** POST /api/grill/report: panel verdict per claim (LLM, up to ~30 s). */
 export function fetchGrillReport(body: GrillSessionRequest, options?: RequestOptions): Promise<GrillReport> {
   return post("/api/grill/report", body, options);
+}
+
+// ── Saved interview rounds ───────────────────────────────────────────────
+
+/** GET /api/sessions?kind=&limit=: saved grill / AI-assisted / mock / design reports, newest first. */
+export function fetchPracticeSessions(kind: "grill" | "bot" | "mock" | "design", limit = 20, options?: RequestOptions): Promise<PracticeSessionsResponse> {
+  return get(`/api/sessions?kind=${kind}&limit=${limit}`, options);
 }
 
 // ── Prepr Bot ────────────────────────────────────────────────────────────

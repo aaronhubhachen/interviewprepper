@@ -4,7 +4,7 @@
  * components. Every timestamp is epoch milliseconds.
  */
 import type { RawTestResult, RunFailure } from "@synapse/core/judge";
-import type { BehavioralFeedback, BotEvent, BotMessage, BotReport, CodeLanguage, NativeLanguage, GrillQuestion, GrillReport, GrillTurn, IdeStage, PickReason, Stats } from "@synapse/core";
+import type { BehavioralFeedback, BotEvent, PracticeSession, BotMessage, BotReport, CodeLanguage, NativeLanguage, GrillQuestion, GrillReport, GrillTurn, IdeStage, PickReason, Stats } from "@synapse/core";
 import type {
   BehavioralQuestion,
   CardDifficulty,
@@ -510,3 +510,11 @@ export interface BotReportRequest {
 }
 
 export type BotReportResponse = BotReport;
+
+// ── /api/sessions ──────────────────────────────────────────────────────────
+
+export type PracticeSessionSummary = Omit<PracticeSession, "userId">;
+
+export interface PracticeSessionsResponse {
+  sessions: PracticeSessionSummary[];
+}

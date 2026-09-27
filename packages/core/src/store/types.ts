@@ -199,6 +199,8 @@ export interface Stats {
   recentActivity: ActivityEvent[];
   link: LinkStatus;
   demoScale: boolean;
+  /** Recent scores per interview round type (oldest first). */
+  trends: InterviewTrends;
 }
 
 export type IdeStage = "invariant" | "edgeCase" | "code";
@@ -258,6 +260,40 @@ export interface IdeAttempt {
   durationMs: number | null;
   createdAt: number;
 }
+
+/** Scored interview rounds stored in practice_sessions. */
+export type PracticeSessionKind = "grill" | "bot" | "mock" | "design";
+
+export interface PracticeSessionInput {
+  userId: string;
+  kind: PracticeSessionKind;
+  /** What the round was about: a problem id, "Resume", a design prompt id. */
+  subject: string | null;
+  /** 0..100. */
+  score: number;
+  /** The full report (JSON-serializable). */
+  report: unknown;
+  now: number;
+}
+
+export interface PracticeSession {
+  id: number;
+  userId: string;
+  kind: PracticeSessionKind;
+  subject: string | null;
+  score: number;
+  report: unknown;
+  createdAt: number;
+}
+
+export interface TrendPoint {
+  score: number;
+  at: number;
+  subject: string | null;
+}
+
+/** Last scores per round type, oldest first, for the dashboard's trend card. */
+export type InterviewTrends = Record<PracticeSessionKind | "spar", TrendPoint[]>;
 
 export interface SparSessionInput {
   userId: string;
