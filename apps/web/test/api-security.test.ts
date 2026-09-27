@@ -79,7 +79,7 @@ describe("Host allowlist (DNS rebinding)", () => {
     }
     // The rebinding page never sees the link code.
     const blocked = await linkGET(request("/api/link", { headers: { Host: "attacker.example:3000" } }), NO_CTX);
-    expect(await blocked.text()).not.toMatch(/"code":"\d{4}"/);
+    expect(await blocked.text()).not.toMatch(/"code":"\d+"/);
   });
 
   it("also answers the host of SYNAPSE_WEB_URL (opt-in LAN or tunnel access)", async () => {
@@ -135,19 +135,21 @@ describe("unlinking from the dashboard", () => {
     expect(response.status).toBe(200);
     const after = (await response.json()) as LinkResponse;
     expect(after).toMatchObject({ linked: false, handle: null });
-    expect(after.code).toMatch(/^\d{4}$/);
+    expect(after.code).toMatch(/^\d{6}$/);
     expect(after.instructions).toContain(`link ${after.code}`);
     expect(store.getUser("me")).toMatchObject({ spaceId: null, handle: null });
     expect(store.findUserBySpace(intruder.spaceId)).toBeNull();
 
     const owner = { spaceId: "iMessage;-;+15552223333", handle: "+15552223333", platform: "imessage" };
     expect(store.linkByCode(after.code!, owner, T0 + 1_000)?.id).toBe("me");
-    // A second unlink (double click) is a harmless no-op that keeps showing the same code.
+    // Pressed again while unlinked, it only replaces the code (one that may have leaked stops working at once).
     clock += 60_000;
     const once = (await (await unlinkPOST(jsonPost("/api/link/unlink", {}, OWN), NO_CTX)).json()) as LinkResponse;
     const twice = (await (await unlinkPOST(jsonPost("/api/link/unlink", {}, OWN), NO_CTX)).json()) as LinkResponse;
     expect(once).toMatchObject({ linked: false });
-    expect(twice).toMatchObject({ linked: false, code: once.code });
+    expect(twice).toMatchObject({ linked: false, code: expect.stringMatching(/^\d{6}$/) });
+    expect(twice.code).not.toBe(once.code);
+    expect(store.linkByCode(once.code!, intruder, clock)).toBeNull();
     expect(store.recentEvents("me").filter((event) => event.kind === "unlinked")).toHaveLength(2);
   });
 
@@ -175,7 +177,7 @@ describe("linked identity", () => {
     expect(maskHandle("12")).toBe("•••");
     expect(maskHandle(null)).toBeNull();
 
-    const code = store.createOrGetLinkCode(store.ensureUser("me", T0).id);
+    const code = store.createOrGetLinkCode(store.ensureUser("me", T0).id, T0);
     store.linkByCode(code, { spaceId: "iMessage;-;ada@example.com", handle: "ada@example.com", platform: "imessage" }, T0);
     const stats = await (await statsGET(request("/api/stats"), NO_CTX)).text();
     const link = await (await linkGET(request("/api/link"), NO_CTX)).text();

@@ -3,7 +3,7 @@ import type { CodeStage } from "@synapse/core/content";
 import { JudgeClient, timeoutMessage, type WorkerLike } from "./client";
 import { formatArgs, formatMs, formatValue, summarizeReport } from "./format";
 import { firstFailure, judgeCode, planTests, totalRuntime } from "./judge";
-import { normalizeRaw, type WorkerRequest } from "./protocol";
+import { MALFORMED_RESULT_MESSAGE, normalizeRaw, type WorkerRequest } from "./protocol";
 
 type Behavior = (message: WorkerRequest, worker: FakeWorker) => void;
 
@@ -202,6 +202,38 @@ describe("JudgeClient", () => {
     expect(statuses).toEqual(["loading", "ready", "cold", "loading", "ready"]);
   });
 
+  it("replaces and re-warms the Python worker when a run crashes Pyodide itself", async () => {
+    const statuses: string[] = [];
+    const { workers, createWorker } = factory((message, worker) => {
+      worker.emit({ type: "status", status: "python-ready" });
+      if (message.type !== "run") return;
+      worker.emit({ type: "started", id: message.id });
+      worker.emit({ type: "result", id: message.id, fatal: true, raw: { kind: "runtime", message: "The Python runtime crashed (RangeError)." } });
+    });
+    const client = new JudgeClient({ createWorker, onPythonStatus: (status) => statuses.push(status) });
+    const outcome = await judgeCode(client, { stage: STAGE, mode: "run", language: "python", code: "from functools import cache" });
+    expect(outcome.ok && outcome.report.status).toBe("runtime_error");
+    expect(workers[0]!.terminated).toBe(true);
+    expect(workers).toHaveLength(2);
+    expect(workers[1]!.posted[0]).toMatchObject({ type: "preload", language: "python" });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(statuses).toEqual(["loading", "ready", "cold", "loading", "ready"]);
+  });
+
+  it("keeps the warm Python worker after an ordinary Python error", async () => {
+    const { workers, createWorker } = factory((message, worker) => {
+      worker.emit({ type: "status", status: "python-ready" });
+      if (message.type !== "run") return;
+      worker.emit({ type: "started", id: message.id });
+      worker.emit({ type: "result", id: message.id, raw: { kind: "runtime", message: "RecursionError" } });
+    });
+    const client = new JudgeClient({ createWorker });
+    await judgeCode(client, { stage: STAGE, mode: "run", language: "python", code: "x" });
+    await judgeCode(client, { stage: STAGE, mode: "run", language: "python", code: "x" });
+    expect(workers).toHaveLength(1);
+    expect(workers[0]!.terminated).toBe(false);
+  });
+
   it("reports an unreachable Python runtime as an infrastructure error, not a user error", async () => {
     const { createWorker } = factory((message, worker) => {
       if (message.type !== "run") return;
@@ -255,8 +287,16 @@ describe("normalizeRaw", () => {
     expect(normalizeRaw({ kind: "compile", message: "SyntaxError" })).toEqual({ kind: "compile", message: "SyntaxError" });
   });
 
+  it("fails only the malformed entry, not the whole run", () => {
+    expect(normalizeRaw([{ ok: true, output: "1", ms: 1, logs: [] }, { nope: true }, { ok: true }, 7])).toEqual([
+      { ok: true, output: "1", ms: 1, logs: [] },
+      { ok: false, error: MALFORMED_RESULT_MESSAGE, ms: 0, logs: [] },
+      { ok: false, error: MALFORMED_RESULT_MESSAGE, ms: 0, logs: [] },
+      { ok: false, error: MALFORMED_RESULT_MESSAGE, ms: 0, logs: [] },
+    ]);
+  });
+
   it("rejects malformed payloads", () => {
-    expect(normalizeRaw([{ nope: true }])).toMatchObject({ kind: "runtime" });
     expect(normalizeRaw(null)).toMatchObject({ kind: "runtime" });
     expect(normalizeRaw({ kind: "weird" })).toEqual({ kind: "runtime", message: "Execution failed." });
     expect(normalizeRaw([{ ok: true, output: "1" }])).toEqual([{ ok: true, output: "1", ms: 0, logs: [] }]);

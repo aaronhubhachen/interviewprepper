@@ -103,9 +103,11 @@ describe("dashboard panels", () => {
 
   it("renders the iMessage link card in both states", () => {
     const unlinked = render(<LinkCard initial={stats.link} />);
-    expect(stats.link.linkCode).toMatch(/^\d{4}$/);
+    expect(stats.link.linkCode).toMatch(/^\d{6}$/);
     expect(unlinked).toContain(`link ${stats.link.linkCode}`);
     expect(unlinked).toContain("Not linked");
+    expect(unlinked).toContain("New code");
+    expect(unlinked).toContain("expire after 10 minutes");
 
     const linked = render(
       <LinkCard
@@ -114,6 +116,8 @@ describe("dashboard panels", () => {
     );
     expect(linked).toContain("Pause texts");
     expect(linked).toContain("+15551234567");
+    // The owner can undo a wrong link (behind a confirm step).
+    expect(linked).toContain("Wrong chat? Unlink");
   });
 });
 

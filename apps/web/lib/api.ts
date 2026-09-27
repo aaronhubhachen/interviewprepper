@@ -119,6 +119,11 @@ export function setAgentPaused(paused: boolean, options?: RequestOptions): Promi
   return post("/api/link", { paused }, options);
 }
 
+/** POST /api/link/unlink {}: drops the iMessage link (or, while unlinked, replaces the code) and returns the fresh code. */
+export function unlinkAgent(options?: RequestOptions): Promise<LinkResponse> {
+  return post("/api/link/unlink", {}, options);
+}
+
 // ── Flashcard review ─────────────────────────────────────────────────────
 
 /** GET /api/review/next?tag=&exclude=&kind= */

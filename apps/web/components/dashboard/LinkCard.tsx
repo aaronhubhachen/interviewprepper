@@ -7,13 +7,15 @@ import { ChatBubble } from "@/components/ui/ChatBubble";
 import { Pill } from "@/components/ui/Pill";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { useToast } from "@/components/ui/Toast";
-import { errorMessage, fetchLink, isAbort, setAgentPaused } from "@/lib/api";
+import { errorMessage, fetchLink, isAbort, setAgentPaused, unlinkAgent } from "@/lib/api";
 import { cn } from "@/lib/cn";
 import type { LinkResponse, StatsResponse } from "@/lib/types";
 import { useVisiblePolling } from "./hooks";
 
-/** While unlinked, check often so the card flips the moment the text lands. */
+/** While unlinked, check often so the card flips the moment the text lands (and an expired code is replaced). */
 const UNLINKED_POLL_MS = 4000;
+/** Digits in a link code (core's LINK_CODE_LENGTH), for the loading skeleton. */
+const CODE_LENGTH = 6;
 
 export interface LinkCardProps {
   /** Link status from /api/stats (first paint, before /api/link answers). */
@@ -44,6 +46,8 @@ export function LinkCard({ initial, onChange, className }: LinkCardProps) {
   const [link, setLink] = useState<LinkResponse>(() => fromStats(initial));
   const [loaded, setLoaded] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [confirmingUnlink, setConfirmingUnlink] = useState(false);
+  const [unlinking, setUnlinking] = useState(false);
   const wasLinked = useRef(initial.linked);
   const controller = useRef<AbortController | null>(null);
   const onChangeRef = useRef(onChange);
@@ -111,6 +115,28 @@ export function LinkCard({ initial, onChange, className }: LinkCardProps) {
     }
   };
 
+  /** Unlink (while linked) or replace the code (while unlinked); the response carries the fresh code. */
+  const unlink = async () => {
+    const wasLinkedNow = link.linked;
+    setUnlinking(true);
+    try {
+      const response = await unlinkAgent();
+      wasLinked.current = response.linked;
+      setLink(response);
+      setConfirmingUnlink(false);
+      toast(
+        wasLinkedNow
+          ? { tone: "info", icon: "🔌", title: "iMessage unlinked", description: "That chat gets no more cards. Text the new code from your own phone." }
+          : { tone: "success", icon: "🔄", title: "New code", description: "The old code no longer works." },
+      );
+      if (wasLinkedNow) onChangeRef.current?.();
+    } catch (error) {
+      toast({ tone: "danger", title: wasLinkedNow ? "Couldn't unlink" : "Couldn't get a new code", description: errorMessage(error) });
+    } finally {
+      setUnlinking(false);
+    }
+  };
+
   const copyCode = async (code: string) => {
     try {
       await navigator.clipboard.writeText(`link ${code}`);
@@ -171,7 +197,7 @@ export function LinkCard({ initial, onChange, className }: LinkCardProps) {
               <dd className="font-medium text-fg">{link.paused ? "Paused" : "Active"}</dd>
             </div>
           </dl>
-          <div className="mt-auto pt-4">
+          <div className="mt-auto space-y-2 pt-4">
             <Button
               variant="secondary"
               fullWidth
@@ -182,6 +208,25 @@ export function LinkCard({ initial, onChange, className }: LinkCardProps) {
             >
               {link.paused ? "Resume texts" : "Pause texts"}
             </Button>
+            {confirmingUnlink ? (
+              <div role="group" aria-labelledby="unlink-confirm" className="rounded-xl border border-danger/40 bg-danger/10 p-3">
+                <p id="unlink-confirm" className="text-sm text-fg">
+                  Unlink {link.handle ?? "this chat"}? It stops getting cards, and the dashboard shows a new code.
+                </p>
+                <div className="mt-3 flex gap-2">
+                  <Button variant="danger" size="sm" loading={unlinking} loadingLabel="Unlinking…" onClick={unlink}>
+                    Unlink
+                  </Button>
+                  <Button variant="ghost" size="sm" disabled={unlinking} onClick={() => setConfirmingUnlink(false)}>
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <Button variant="ghost" size="sm" fullWidth onClick={() => setConfirmingUnlink(true)} leftIcon={<span aria-hidden="true">🔌</span>}>
+                Wrong chat? Unlink
+              </Button>
+            )}
           </div>
         </div>
       ) : (
@@ -194,11 +239,11 @@ export function LinkCard({ initial, onChange, className }: LinkCardProps) {
           {link.code ? (
             <>
               <p className="sr-only">Link code {link.code.split("").join(" ")}</p>
-              <div aria-hidden="true" className="mt-4 flex justify-center gap-2 sm:gap-2.5">
+              <div aria-hidden="true" className="mt-4 flex justify-center gap-1.5 sm:gap-2">
                 {link.code.split("").map((digit, index) => (
                   <span
                     key={`${index}-${digit}`}
-                    className="grid h-14 w-12 place-items-center rounded-xl border border-synapse/40 bg-ink-800 font-mono text-3xl font-semibold text-fg shadow-glow"
+                    className="grid h-12 w-9 place-items-center rounded-xl border border-synapse/40 bg-ink-800 font-mono text-2xl font-semibold text-fg shadow-glow sm:h-14 sm:w-11 sm:text-3xl"
                   >
                     {digit}
                   </span>
@@ -226,12 +271,23 @@ export function LinkCard({ initial, onChange, className }: LinkCardProps) {
                     <span aria-hidden="true">💬</span> Open Messages
                   </a>
                 ) : null}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  loading={unlinking}
+                  loadingLabel="Replacing…"
+                  onClick={unlink}
+                  leftIcon={<span aria-hidden="true">🔄</span>}
+                >
+                  New code
+                </Button>
               </div>
+              <p className="mt-2 text-xs text-fg-subtle">Codes expire after 10 minutes; this card shows the current one.</p>
             </>
           ) : (
-            <div className="mt-4 flex justify-center gap-2.5">
-              {[0, 1, 2, 3].map((index) => (
-                <Skeleton key={index} className="h-14 w-12 rounded-xl" />
+            <div className="mt-4 flex justify-center gap-1.5 sm:gap-2">
+              {Array.from({ length: CODE_LENGTH }, (_, index) => (
+                <Skeleton key={index} className="h-12 w-9 rounded-xl sm:h-14 sm:w-11" />
               ))}
             </div>
           )}
@@ -243,7 +299,7 @@ export function LinkCard({ initial, onChange, className }: LinkCardProps) {
             </span>
             {loaded ? "Waiting for your text… this card updates by itself." : "Checking link status…"}
           </p>
-          <p className="mt-1 text-xs text-fg-subtle">Only one person on this Synapse? Texting “start” links too.</p>
+          <p className="mt-1 text-xs text-fg-subtle">Set SYNAPSE_OWNER_HANDLE to your number and texting “start” from it links too.</p>
         </div>
       )}
     </Card>

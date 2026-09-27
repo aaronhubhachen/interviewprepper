@@ -43,8 +43,11 @@ export type WorkerResponse =
   | { type: "status"; status: PythonWorkerStatus; message?: string }
   /** Posted right before user code runs: the time limit starts here (not while Pyodide loads). */
   | { type: "started"; id: number }
-  /** raw: per-test results, or a RunFailure when the code could not load. logs: Python module-level stdout. */
-  | { type: "result"; id: number; raw: RawTestResult[] | RunFailure; logs?: string[] }
+  /**
+   * raw: per-test results, or a RunFailure when the code could not load. logs: Python module-level stdout.
+   * fatal: Pyodide itself crashed during the run, so the worker must be replaced (not reused).
+   */
+  | { type: "result"; id: number; raw: RawTestResult[] | RunFailure; logs?: string[]; fatal?: boolean }
   /** The language runtime itself could not be loaded (e.g. the Pyodide CDN is unreachable). */
   | { type: "load-error"; id: number; message: string };
 
@@ -63,19 +66,24 @@ function isRawTestResult(value: unknown): value is RawTestResult {
   return entry.ok ? typeof entry.output === "string" : typeof entry.error === "string";
 }
 
+export const MALFORMED_RESULT_MESSAGE = "The judge could not read this test's result.";
+
+function normalizeEntry(value: unknown): RawTestResult {
+  if (!isRawTestResult(value)) return { ok: false, error: MALFORMED_RESULT_MESSAGE, ms: 0, logs: [] };
+  return {
+    ...value,
+    ms: typeof value.ms === "number" && Number.isFinite(value.ms) ? value.ms : 0,
+    logs: Array.isArray(value.logs) ? value.logs.map(String) : [],
+  };
+}
+
 /**
  * Defensive normalization of whatever came back from the worker. User code
- * shares the worker's global scope, so the payload is not fully trusted.
+ * shares the worker's global scope, so the payload is not fully trusted. One
+ * malformed entry fails only its own test, not the whole run.
  */
 export function normalizeRaw(value: unknown): RawTestResult[] | RunFailure {
-  if (Array.isArray(value)) {
-    if (!value.every(isRawTestResult)) return { kind: "runtime", message: "The judge returned malformed results." };
-    return value.map((entry) => ({
-      ...entry,
-      ms: typeof entry.ms === "number" && Number.isFinite(entry.ms) ? entry.ms : 0,
-      logs: Array.isArray(entry.logs) ? entry.logs.map(String) : [],
-    }));
-  }
+  if (Array.isArray(value)) return value.map(normalizeEntry);
   if (value && typeof value === "object") {
     const failure = value as Partial<RunFailure>;
     const kind = failure.kind === "compile" || failure.kind === "timeout" ? failure.kind : "runtime";

@@ -203,12 +203,12 @@ export interface LinkResponse {
   linked: boolean;
   handle: string | null;
   platform: string | null;
-  /** 4-digit code to text as "link 1234" (null once linked). */
+  /** 6-digit code to text as "link 482193" (null once linked). Codes expire after 10 minutes; this card refreshes it. */
   code: string | null;
   paused: boolean;
   /** The Synapse iMessage number/email if configured (SYNAPSE_AGENT_HANDLE), for an sms: link. */
   agentHandle: string | null;
-  /** Human instructions, e.g. "Text “link 4821” to Synapse on iMessage." */
+  /** Human instructions, e.g. "Text “link 482193” to Synapse on iMessage." */
   instructions: string;
 }
 

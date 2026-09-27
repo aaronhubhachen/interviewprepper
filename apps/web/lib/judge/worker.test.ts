@@ -53,6 +53,8 @@ interface VmWorkerOptions {
   networkCalls?: string[];
   /** Receives each worker's global scope so tests can inspect it. */
   scopes?: Record<string, unknown>[];
+  /** Stands in for Pyodide instead of the shared Node instance (for crash simulations). */
+  pyodide?: PyodideLike;
 }
 
 /** A WorkerLike whose global scope is a fresh vm context running judge-worker.js. */
@@ -82,6 +84,7 @@ function createVmWorker(options: VmWorkerOptions = {}): WorkerLike {
   context.importScripts = (...urls: string[]) => {
     options.importedScripts?.push(...urls);
     context.loadPyodide = async (config: { stdout?: (line: string) => void }) => {
+      if (options.pyodide) return options.pyodide;
       const pyodide = await nodePyodide();
       if (!pyodide) throw new Error("pyodide unavailable");
       stdoutSink = config.stdout;
@@ -277,4 +280,52 @@ describe("judge-worker.js (Python via Pyodide)", () => {
     expect(outcome.ok && outcome.report.status).toBe("compile_error");
     if (outcome.ok) expect(outcome.report.message).toMatch(/SyntaxError.*line 1/);
   }, 30_000);
+});
+
+describe("judge-worker.js (Pyodide crashes)", () => {
+  class PythonError extends Error {}
+
+  function stubPyodide(run: () => string): PyodideLike & { ffi: { PythonError: typeof PythonError } } {
+    return { runPython: () => undefined, globals: { get: () => run }, ffi: { PythonError } };
+  }
+
+  const request = { language: "python" as const, code: "x", functionName: "f", argsJson: "[[1]]" };
+
+  it("flags a fatal crash so the client replaces the worker and warms a new one", async () => {
+    let created = 0;
+    const client = new JudgeClient({
+      createWorker: () => {
+        created++;
+        return createVmWorker({
+          pyodide: stubPyodide(() => {
+            throw new RangeError("Maximum call stack size exceeded");
+          }),
+        });
+      },
+    });
+    const outcome = await client.run(request);
+    expect(outcome).toMatchObject({ ok: true, raw: { kind: "runtime" } });
+    if (outcome.ok && !Array.isArray(outcome.raw)) expect(outcome.raw.message).toMatch(/Python runtime crashed.*RangeError.*restarts/);
+    expect(created).toBe(2);
+    client.dispose();
+  });
+
+  it("keeps the runtime after an ordinary Python exception", async () => {
+    let created = 0;
+    const client = new JudgeClient({
+      createWorker: () => {
+        created++;
+        return createVmWorker({
+          pyodide: stubPyodide(() => {
+            throw new PythonError("RecursionError: maximum recursion depth exceeded");
+          }),
+        });
+      },
+    });
+    const outcome = await client.run(request);
+    expect(outcome).toMatchObject({ ok: true, raw: { kind: "runtime", message: expect.stringContaining("RecursionError") } });
+    await client.run(request);
+    expect(created).toBe(1);
+    client.dispose();
+  });
 });

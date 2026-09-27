@@ -52,7 +52,7 @@ function agentHandle(): string | null {
 export function linkPayload(store: SynapseStore, userId: string, now: number): LinkResponse {
   const user = store.ensureUser(userId, now);
   const linked = Boolean(user.spaceId);
-  const code = linked ? null : store.createOrGetLinkCode(userId);
+  const code = linked ? null : store.createOrGetLinkCode(userId, now);
   const handle = agentHandle();
   const userHandle = maskHandle(user.handle);
   const instructions = linked
@@ -78,10 +78,12 @@ export function setAgentPaused(store: SynapseStore, userId: string, now: number,
 /**
  * Drops the iMessage link from the dashboard, e.g. when the wrong chat claimed
  * it with the link code. The old chat stops getting cards and a fresh code is
- * issued so the owner's own chat can link again.
+ * issued so the owner's own chat can link again. While already unlinked it just
+ * replaces the code (one that may have leaked stops working at once).
  */
 export function unlinkAccount(store: SynapseStore, userId: string, now: number): LinkResponse {
-  store.ensureUser(userId, now);
-  store.unlinkUser(userId, now);
+  const user = store.ensureUser(userId, now);
+  if (user.spaceId || user.handle) store.unlinkUser(userId, now);
+  else store.rotateLinkCode(userId, now);
   return linkPayload(store, userId, now);
 }

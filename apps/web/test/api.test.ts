@@ -186,6 +186,28 @@ describe("review flow", () => {
     expect(relearn).toMatchObject({ reason: "due", card: { id: first.card.id } });
   });
 
+  it("tag-drill extra practice never inflates a learned card's interval", async () => {
+    const tag = allCards().find((candidate) => allCards().filter((card) => card.tags.includes(candidate.tags[0]!)).length >= 2)!
+      .tags[0]!;
+    const inTag = allCards().filter((card) => card.tags.includes(tag));
+    // Every card in the tag was ❤️ two days ago (4d interval, ease 2.6), so the drill serves "extra" cards.
+    store.ensureUser("me", T0);
+    for (const card of inTag) store.gradeCard({ userId: "me", cardId: card.id, grade: 5, source: "web", now: T0 - 2 * 86_400_000 });
+
+    const extra = await body<ReviewNextCard>(await nextGET(get(`/api/review/next?tag=${tag}`), NO_CTX));
+    expect(extra.reason).toBe("extra");
+    const graded = await body<ReviewGradeResponse>(await gradePOST(post("/api/review/grade", { cardId: extra.card.id, grade: 5 }), NO_CTX));
+    // Early ❤️: max(4, round(2 × 2.6 × 1.3)) = 7 days, not the on-time 8; repetition and ease stay put.
+    expect(extra.preview.love.label).toBe(graded.nextLabel);
+    expect(graded).toMatchObject({ intervalDays: 7, easeFactor: 2.6, nextLabel: "7d" });
+
+    // A second ❤️ fifteen minutes later keeps the 7d interval instead of growing it again.
+    clock = T0 + 15 * 60_000;
+    const again = await body<ReviewGradeResponse>(await gradePOST(post("/api/review/grade", { cardId: extra.card.id, grade: 5 }), NO_CTX));
+    expect(again).toMatchObject({ intervalDays: 7, easeFactor: 2.6 });
+    expect(again.dueAt).toBe(clock + 7 * 86_400_000);
+  });
+
   it("returns an empty payload with the next due time when nothing is left", async () => {
     const ids = allCards().map((card) => card.id);
     const empty = await body<ReviewNextResponse>(await nextGET(get(`/api/review/next?exclude=${ids.join(",")}`), NO_CTX));
@@ -243,13 +265,13 @@ describe("dashboard + link", () => {
     expect(stats.timeScale).toMatchObject({ dayMs: 86_400_000, relearnMs: 600_000, demoScale: false, description: "Real time" });
     expect(stats.queue.newPerDay).toBe(3);
     expect(stats.forecast14).toHaveLength(14);
-    expect(stats.link.linkCode).toMatch(/^\d{4}$/);
+    expect(stats.link.linkCode).toMatch(/^\d{6}$/);
   });
 
   it("returns a link code and toggles pause", async () => {
     const link = await body<LinkResponse>(await linkGET(get("/api/link"), NO_CTX));
     expect(link.linked).toBe(false);
-    expect(link.code).toMatch(/^\d{4}$/);
+    expect(link.code).toMatch(/^\d{6}$/);
     expect(link.instructions).toContain(`link ${link.code}`);
 
     const linked = store.linkByCode(link.code!, { spaceId: "space-1", handle: "+15551234567", platform: "imessage" }, T0);
@@ -354,6 +376,14 @@ describe("card-flip IDE", () => {
     expect(detail.solutionAvailable).toBe(true);
     expect(detail.progress).toMatchObject({ attempts: 1, struggled: true, solved: false });
     expect(detail.recentAttempts[0]).toMatchObject({ stage: "code", gaveUp: true, testsPassed: 2, testsTotal: 6 });
+
+    // Another struggle right after: nothing new to flag, and the already-queued drills read naturally.
+    clock = T0 + 60_000;
+    const again = await body<PracticeAttemptResponse>(
+      await attemptPOST(post("/api/practice/attempt", { problemId: problem.id, stage: "invariant", passed: false, gaveUp: true }), NO_CTX),
+    );
+    expect(again.flaggedTags).toEqual([]);
+    expect(again.message).toContain("already queued and will arrive tomorrow at 9:00 AM.");
   });
 
   it("a clean pass is not a struggle", async () => {

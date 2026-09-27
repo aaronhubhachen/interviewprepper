@@ -192,7 +192,9 @@ export function recordAttempt(store: SynapseStore, userId: string, now: number, 
       sentences.push(`Flagged ${joinLabels(flaggedTags.map((t) => t.label))} as ${spots}.`);
       sentences.push(`Synapse will text you ${drills} ${scheduled.dueLabel ?? "soon"}.`);
     } else {
-      sentences.push(`${scheduled.cardIds.length === 1 ? "A drill is" : "Drills are"} already queued for ${scheduled.dueLabel ?? "later"}.`);
+      // dueLabel reads "shortly", "in 1 min" or "tomorrow at 9 AM", so "will arrive …" fits every form.
+      const queued = scheduled.cardIds.length === 1 ? "A drill is already queued and will arrive" : "Drills are already queued and will arrive";
+      sentences.push(`${queued} ${scheduled.dueLabel ?? "soon"}.`);
     }
   } else if (result.struggled && problem.weakTags.length > 0) {
     sentences.push(`Noted: ${joinLabels(problem.weakTags.map(tagLabel))} needs more reps.`);

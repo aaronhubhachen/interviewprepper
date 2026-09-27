@@ -6,7 +6,8 @@
  *
  * - JavaScript gets a FRESH worker per run: no state leaks between runs, and
  *   stray timers from a previous run die with it.
- * - Python keeps ONE warm worker (Pyodide takes seconds to load). A timeout
+ * - Python keeps ONE warm worker (Pyodide takes seconds to load). A timeout,
+ *   or a run that crashed Pyodide itself (the worker flags the result `fatal`),
  *   terminates it and immediately starts warming a new one.
  * - The time limit starts at the worker's "started" message, so Pyodide's
  *   first-load time never counts against the user's code.
@@ -215,7 +216,10 @@ export class JudgeClient {
           } else if (response.type === "result" && response.id === id) {
             const wallMs = startedAt === null ? 0 : Math.max(0, this.now() - startedAt);
             const setupLogs = Array.isArray(response.logs) ? response.logs.map(String) : [];
-            finish({ ok: true, raw: normalizeRaw(response.raw), wallMs, setupLogs }, request.language === "javascript");
+            // Pyodide crashed inside the worker: never reuse that runtime, warm a fresh one instead.
+            const fatal = request.language === "python" && response.fatal === true;
+            finish({ ok: true, raw: normalizeRaw(response.raw), wallMs, setupLogs }, request.language === "javascript" || fatal);
+            if (fatal) this.preloadPython();
           } else if (response.type === "load-error" && response.id === id) {
             finish({ ok: false, reason: "runtime-unavailable", message: response.message }, true);
           }

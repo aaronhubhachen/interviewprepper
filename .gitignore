@@ -11,9 +11,9 @@ next-env.d.ts
 
 # local data & secrets
 data/
-.env
-.env.local
-.env.*.local
+# every env file (.env, .env.local, .env.production, apps/web/.env.development, ...) except the template
+.env*
+!.env.example
 
 # logs
 *.log
