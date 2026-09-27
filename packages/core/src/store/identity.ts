@@ -14,12 +14,15 @@ export function normalizeHandle(handle: string): string {
   return `+${digits}`;
 }
 
-/** Extracts the 4-digit code from "link 1234" / "LINK: 1234" / "link #1234". */
-export function parseLinkCode(text: string): string | undefined {
-  return /^\s*link\b[\s:#-]*(\d{4})\s*$/i.exec(text)?.[1];
-}
+/** Digits in a dashboard link code ("link 482193"). */
+export const LINK_CODE_LENGTH = 6;
 
-export const LINK_CODE_PATTERN = /^\d{4}$/;
+export const LINK_CODE_PATTERN = /^\d{6}$/;
+
+/** Extracts the 6-digit code from "link 482193" / "LINK: 482193" / "link #482193". */
+export function parseLinkCode(text: string): string | undefined {
+  return /^\s*link\b[\s:#-]*(\d{6})\s*$/i.exec(text)?.[1];
+}
 
 /**
  * True for group chats. Uses the platform's space type when the caller passes it, and

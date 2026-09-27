@@ -8,9 +8,15 @@ import type { StorePolicy } from "./types";
 
 export { SynapseStore, isIdeStruggle } from "./store";
 export { SCHEMA_VERSION } from "./schema";
-export { isGroupSpace, LINK_CODE_PATTERN, normalizeHandle, parseLinkCode } from "./identity";
+export { isGroupSpace, LINK_CODE_LENGTH, LINK_CODE_PATTERN, normalizeHandle, parseLinkCode } from "./identity";
 export { WEAK_HALF_LIFE_DAYS, WEAK_MAX_SCORE, WEAK_THRESHOLD, WEAKNESS_WEIGHTS, decayScore } from "./weakness";
-export { LINK_FAILURE_WINDOW_MS, MAX_LINK_FAILURES_PER_SENDER, LINK_CODE_ROTATE_AFTER_FAILURES } from "./store";
+export {
+  LINK_CODE_ROTATE_AFTER_FAILURES,
+  LINK_CODE_ROTATE_MIN_AGE_MS,
+  LINK_CODE_TTL_MS,
+  LINK_FAILURE_WINDOW_MS,
+  MAX_LINK_FAILURES_PER_SENDER,
+} from "./store";
 export * from "./types";
 
 /**

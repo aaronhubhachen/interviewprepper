@@ -65,17 +65,68 @@ interface NormalizedText {
   compact: string;
   /** Start offset of each token inside `compact`. */
   offsets: number[];
+  /** hyphenAfter[i]: tokens i and i + 1 were written as one hyphenated word ("row-col", "in-degree"). */
+  hyphenAfter: boolean[];
+  /** Tokens plus grouping and operator symbols, no spaces: "(E + V) log V" → "(eplusv)logv". */
+  grouped: string;
+  /** Token index of each character of `grouped` (-1 for a symbol). */
+  groupedTokens: number[];
 }
 
+/**
+ * Operators carry meaning ("n + 1" is not "n - 1", "nums[i-1]" is not "nums[i+1]"),
+ * so they become words before tokenizing. "+" is always "plus". "-" is "minus"
+ * only where it reads as arithmetic: spaced ("r - c"), before a digit ("n-1", "-1"),
+ * next to a bracket ("dp[i]-dp[j]"), or between single letters ("r-c"). Every other
+ * hyphen still joins words ("in-degree", "off-by-one", "0-indexed").
+ */
+const ARITHMETIC_MINUS = /[ \t]-(?=[ \t])|-(?=\d)|(?<=[\])])-|-(?=[[(])|(?<![a-z0-9])(?<=[a-z])-(?=[a-z](?![a-z0-9]))/g;
+
+function spellOperators(text: string): string {
+  return text
+    .toLowerCase()
+    .replace(/['’`]/g, "")
+    .replace(/\+/g, " plus ")
+    .replace(ARITHMETIC_MINUS, " minus ");
+}
+
+/** Symbols kept in `grouped`, where parentheses decide meaning: (E + V) log V vs E + V log V. */
+const GROUPED_SYMBOLS = new Set(["(", ")", "[", "]", "*", "/", "^", "&", "|", "<", ">", "="]);
+
 function normalize(text: string): NormalizedText {
-  const tokens = words(text);
+  const spelled = spellOperators(text);
+  const tokens: string[] = [];
+  const hyphenAfter: boolean[] = [];
+  let grouped = "";
+  const groupedTokens: number[] = [];
+  for (const match of spelled.matchAll(/[a-z0-9]+|[^a-z0-9]+/g)) {
+    const piece = match[0];
+    if (/^[a-z0-9]/.test(piece)) {
+      tokens.push(piece);
+      hyphenAfter.push(false);
+      grouped += piece;
+      for (let i = 0; i < piece.length; i++) groupedTokens.push(tokens.length - 1);
+      continue;
+    }
+    if (piece === "-" && tokens.length > 0) hyphenAfter[tokens.length - 1] = true;
+    for (const char of piece) {
+      if (!GROUPED_SYMBOLS.has(char)) continue;
+      grouped += char;
+      groupedTokens.push(-1);
+    }
+  }
   const offsets: number[] = [];
   let at = 0;
   for (const token of tokens) {
     offsets.push(at);
     at += token.length;
   }
-  return { tokens, stems: tokens.map(stem), compact: tokens.join(""), offsets };
+  return { tokens, stems: tokens.map(stem), compact: tokens.join(""), offsets, hyphenAfter, grouped, groupedTokens };
+}
+
+/** A phrase whose parentheses wrap an operator ("(v + e) log v", "(sub - 1) & mask"): grouping is part of its meaning. */
+function isGroupedPhrase(phrase: string): boolean {
+  return /\([^()]*(?:\bplus\b|\bminus\b|[*/^&|])[^()]*\)/.test(spellOperators(phrase));
 }
 
 /** A mention of a key-point phrase: answer tokens [start, end). */
@@ -99,11 +150,15 @@ const NEGATION_BRIDGE = new Set([
   "a", "an", "the", "be", "is", "are", "was", "been", "use", "using", "need", "needed", "to", "any", "ever", "really", "even", "just", "so", "very", "it", "its", "get", "have", "do",
 ]);
 
+/** Two-word negators ("mark on pop rather than on push", "instead of a heap"). */
+const NEGATOR_PAIRS = new Set(["rather than", "instead of"]);
+
 /** True when a negator comes right before token `start` (up to 3 tokens back, only bridge words in between). */
 function negatedFrom(answer: NormalizedText, start: number): boolean {
   for (let i = start - 1; i >= Math.max(0, start - 3); i--) {
     const token = answer.tokens[i]!;
     if (NEGATORS.has(token)) return true;
+    if (i > 0 && NEGATOR_PAIRS.has(`${answer.tokens[i - 1]} ${token}`)) return true;
     if (!NEGATION_BRIDGE.has(token)) return false;
   }
   return false;
@@ -112,20 +167,57 @@ function negatedFrom(answer: NormalizedText, start: number): boolean {
 const MAX_SPANS_PER_PHRASE = 6;
 
 /**
+ * End of a stemmed word-sequence match of `target` starting at answer token
+ * `start`, or null. A spaced minus on one side and a hyphen join on the other
+ * ("row - col" vs "row-col") read the same.
+ */
+function matchAt(answer: NormalizedText, target: NormalizedText, start: number): number | null {
+  let a = start;
+  let t = 0;
+  while (t < target.stems.length) {
+    if (a < answer.stems.length && answer.stems[a] === target.stems[t]) {
+      a++;
+      t++;
+    } else if (target.tokens[t] === "minus" && t > 0 && a > start && answer.hyphenAfter[a - 1]) {
+      t++;
+    } else if (answer.tokens[a] === "minus" && t > 0 && a > start && target.hyphenAfter[t - 1]) {
+      a++;
+    } else {
+      return null;
+    }
+  }
+  return a;
+}
+
+/**
  * Every mention of the phrase: a word-sequence match after stemming, and for
  * symbolic phrases ("mask | (1 << j)", "2^n * n^2") a match on the
- * punctuation-free compact form.
+ * punctuation-free compact form. A phrase whose parentheses wrap an operator
+ * matches only with the same grouping, so "(e + v) log v" rejects "E + V log V".
  */
 function phraseSpans(answer: NormalizedText, phrase: string): Span[] {
   const target = normalize(phrase);
+  const literal = target.tokens.some((token) => NEGATORS.has(token));
+  const spans = isGroupedPhrase(phrase) ? groupedSpans(answer, target) : looseSpans(answer, target, phrase);
+  return literal ? spans.map((span) => ({ ...span, literal })) : spans;
+}
+
+function groupedSpans(answer: NormalizedText, target: NormalizedText): Span[] {
   const spans: Span[] = [];
-  const needle = target.stems;
-  if (needle.length > 0) {
-    outer: for (let i = 0; i + needle.length <= answer.stems.length && spans.length < MAX_SPANS_PER_PHRASE; i++) {
-      for (let j = 0; j < needle.length; j++) {
-        if (answer.stems[i + j] !== needle[j]) continue outer;
-      }
-      spans.push({ start: i, end: i + needle.length });
+  const needle = target.grouped;
+  for (let at = answer.grouped.indexOf(needle); at >= 0 && spans.length < MAX_SPANS_PER_PHRASE; at = answer.grouped.indexOf(needle, at + 1)) {
+    const covered = answer.groupedTokens.slice(at, at + needle.length).filter((index) => index >= 0);
+    if (covered.length > 0) spans.push({ start: covered[0]!, end: covered[covered.length - 1]! + 1 });
+  }
+  return spans;
+}
+
+function looseSpans(answer: NormalizedText, target: NormalizedText, phrase: string): Span[] {
+  const spans: Span[] = [];
+  if (target.stems.length > 0) {
+    for (let i = 0; i < answer.stems.length && spans.length < MAX_SPANS_PER_PHRASE; i++) {
+      const end = matchAt(answer, target, i);
+      if (end !== null) spans.push({ start: i, end });
     }
   }
   const symbolic = /[^a-z0-9\s'’-]/i.test(phrase);
@@ -139,8 +231,7 @@ function phraseSpans(answer: NormalizedText, phrase: string): Span[] {
       at = answer.compact.indexOf(target.compact, at + 1);
     }
   }
-  const literal = target.tokens.some((token) => NEGATORS.has(token));
-  return literal ? spans.map((span) => ({ ...span, literal })) : spans;
+  return spans;
 }
 
 /**

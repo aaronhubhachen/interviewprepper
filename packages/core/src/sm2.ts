@@ -81,34 +81,47 @@ function nextEase(easeFactor: number, grade: Grade): number {
   return Math.max(MIN_EASE, Math.round(ease * 100) / 100);
 }
 
-/** SRS days since the last review when the card is being reviewed before its interval ran out; null otherwise. */
-function earlyElapsedDays(state: ReviewState, now: number, dayMs: number): number | null {
-  if (state.phase !== "review" || state.lastReviewedAt === null || state.intervalDays <= 0) return null;
-  const elapsedDays = Math.max(0, now - state.lastReviewedAt) / dayMs;
-  return elapsedDays < state.intervalDays ? elapsedDays : null;
-}
-
-function passingInterval(state: ReviewState, grade: Grade, now: number, dayMs: number): number {
+function passingInterval(state: ReviewState, grade: Grade): number {
   const effortless = grade === 5;
   if (state.repetition === 0) return effortless ? EASY_GRADUATING_DAYS : 1;
-  const full =
-    state.repetition === 1
-      ? effortless
-        ? Math.round(6 * EASY_BONUS)
-        : 6
-      : Math.round(state.intervalDays * state.easeFactor * (effortless ? EASY_BONUS : 1));
-  // Reviewed early (an IDE drill pulled it forward, a re-solve, review-ahead): the recall only
-  // proves the time actually elapsed, so the step grows in proportion to it instead of in full.
-  // A drill the morning after a 13-day review gives ~4d, not 27d, so the weak card comes back sooner.
-  const elapsedDays = earlyElapsedDays(state, now, dayMs);
-  if (elapsedDays === null) return full;
-  return Math.max(1, Math.min(full, Math.round((full * elapsedDays) / state.intervalDays)));
+  if (state.repetition === 1) return effortless ? Math.round(6 * EASY_BONUS) : 6;
+  return Math.round(state.intervalDays * state.easeFactor * (effortless ? EASY_BONUS : 1));
+}
+
+/**
+ * A pass on a learned card before it is due (an IDE drill pulled it forward, a
+ * re-solve, extra practice on a weak tag). As in Anki, an early pass never
+ * shortens the interval, and it only lengthens it by what the elapsed time
+ * proves (elapsed × ease, × 1.3 for Effortless), capped at the on-time step.
+ * Repetition, ease and lapses stay put, so repeated early ❤️s can't inflate
+ * the schedule: the card just restarts its current interval from now.
+ */
+function earlyPass(state: ReviewState, grade: Grade, now: number, opts: SchedulerOptions): ReviewState {
+  const elapsedDays = Math.max(0, now - (state.lastReviewedAt ?? now)) / opts.dayMs;
+  const bonus = grade === 5 ? EASY_BONUS : 1;
+  const earned = Math.min(passingInterval(state, grade), Math.round(elapsedDays * state.easeFactor * bonus));
+  const intervalDays = Math.max(state.intervalDays, earned);
+  return {
+    ...state,
+    intervalDays,
+    dueAt: Math.max(state.dueAt, now + intervalDays * opts.dayMs),
+    lastReviewedAt: now,
+  };
+}
+
+/**
+ * Reviewed before its interval has run out. Measured from the last review, not
+ * dueAt, because a drill (store.scheduleCardsAt) pulls dueAt forward.
+ */
+function isEarlyReview(state: ReviewState, now: number, dayMs: number): boolean {
+  if (state.phase !== "review" || state.lastReviewedAt === null || state.intervalDays <= 0) return false;
+  return Math.max(0, now - state.lastReviewedAt) / dayMs < state.intervalDays;
 }
 
 /**
  * Pure SM-2 step: the same (state, grade, now, opts) always yields the same result.
- * A pass before the card's interval has elapsed (see passingInterval) earns a
- * proportionally shorter step, never more than an on-time review.
+ * A pass before the card is due keeps its schedule (see earlyPass); a fail
+ * before it is due lapses as usual.
  */
 export function gradeReview(
   state: ReviewState,
@@ -116,10 +129,12 @@ export function gradeReview(
   now: number,
   opts: SchedulerOptions = schedulerOptions(),
 ): ReviewState {
+  if (isPassingGrade(grade) && isEarlyReview(state, now, opts.dayMs)) return earlyPass(state, grade, now, opts);
+
   const easeFactor = nextEase(state.easeFactor, grade);
 
   if (isPassingGrade(grade)) {
-    const intervalDays = passingInterval(state, grade, now, opts.dayMs);
+    const intervalDays = passingInterval(state, grade);
     return {
       repetition: state.repetition + 1,
       intervalDays,

@@ -41,7 +41,7 @@ import {
   shiftDayKey,
   startOfLocalDay,
 } from "../time";
-import { isGroupSpace, LINK_CODE_PATTERN, normalizeHandle } from "./identity";
+import { isGroupSpace, LINK_CODE_LENGTH, LINK_CODE_PATTERN, normalizeHandle } from "./identity";
 import { pickDue, pickNew, type DueCandidate } from "./selection";
 import type {
   ActivityEvent,
@@ -62,6 +62,7 @@ import type {
   PendingPhase,
   PendingProbe,
   PushKind,
+  ReviewSource,
   ScheduledDrill,
   SpaceIdentity,
   SparSession,
@@ -88,6 +89,7 @@ interface UserRow {
   space_id: string | null;
   platform: string | null;
   link_code: string | null;
+  link_code_issued_at: number | null;
   paused: number;
   created_at: number;
 }
@@ -122,6 +124,23 @@ interface WeakRow {
   score: number;
   last_flagged_at: number;
   source: WeaknessSource;
+}
+
+interface ReviewLogRow {
+  id: number;
+  user_id: string;
+  card_id: string;
+  grade: number;
+  source: string;
+  answer: string | null;
+  verdict: string | null;
+  reviewed_at: number;
+}
+
+/** What a review overwrote (review_undo), so regradeReview can put it back. */
+interface UndoSnapshot {
+  progress: (ProgressRow & { created_at: number }) | null;
+  weak: WeakRow[];
 }
 
 interface EventRow {
@@ -171,10 +190,26 @@ export const LINK_FAILURE_WINDOW_MS = 60 * 60_000;
 export const MAX_LINK_FAILURES_PER_SENDER = 5;
 /**
  * Once this many wrong codes arrive inside the window across all chats, every further
- * miss rotates every outstanding link code, so a spray of guesses from many chats can
- * never walk the 4-digit space. Nobody is locked out: the dashboard shows the new code.
+ * miss rotates the outstanding link codes, so a spray of guesses from many chats can
+ * never walk the code space. Nobody is locked out: the dashboard shows the new code.
  */
 export const LINK_CODE_ROTATE_AFTER_FAILURES = 20;
+/**
+ * The spray rotation spares codes younger than this, so a guesser cannot keep
+ * invalidating the code the owner just loaded on the dashboard.
+ */
+export const LINK_CODE_ROTATE_MIN_AGE_MS = 2 * 60_000;
+/** A link code works this long after it is issued (wall clock, at any SRS scale); the dashboard then shows a new one. */
+export const LINK_CODE_TTL_MS = 10 * 60_000;
+
+function isFreshLinkCode(row: Pick<UserRow, "link_code" | "link_code_issued_at">, now: number): boolean {
+  return (
+    row.link_code !== null &&
+    LINK_CODE_PATTERN.test(row.link_code) &&
+    row.link_code_issued_at !== null &&
+    now - row.link_code_issued_at < LINK_CODE_TTL_MS
+  );
+}
 
 function toUser(row: UserRow): User {
   return {
@@ -395,27 +430,44 @@ export class SynapseStore {
     return byHandle ? this.bindSpace(byHandle.id, identity) : null;
   }
 
-  /** The 4-digit code the dashboard shows; texting "link <code>" binds that iMessage space. */
-  createOrGetLinkCode(userId: string): string {
+  /**
+   * The 6-digit code the dashboard shows; texting "link <code>" binds that iMessage
+   * space. Returns the current code while it is fresh (LINK_CODE_TTL_MS), otherwise
+   * issues a new one, so a code that leaked (a screenshot, a shoulder) soon stops working.
+   */
+  createOrGetLinkCode(userId: string, now: number): string {
     return this.transaction(() => {
-      const user = this.getUser(userId);
-      if (!user) throw new Error(`Unknown user: ${userId}`);
-      if (user.linkCode) return user.linkCode;
-      const taken = this.stmt("SELECT 1 FROM users WHERE link_code = ?");
-      let code: string;
-      do code = String(randomInt(1000, 10_000));
-      while (taken.get(code));
-      this.stmt("UPDATE users SET link_code = ? WHERE id = ?").run(code, userId);
-      return code;
+      const row = this.stmt("SELECT * FROM users WHERE id = ?").get(userId) as UserRow | undefined;
+      if (!row) throw new Error(`Unknown user: ${userId}`);
+      if (isFreshLinkCode(row, now)) return row.link_code!;
+      return this.issueLinkCode(userId, now);
     });
+  }
+
+  /** Replaces the user's link code with a new one right away (the dashboard's "new code" while unlinked). */
+  rotateLinkCode(userId: string, now: number): string {
+    return this.transaction(() => {
+      if (!this.getUser(userId)) throw new Error(`Unknown user: ${userId}`);
+      return this.issueLinkCode(userId, now);
+    });
+  }
+
+  private issueLinkCode(userId: string, now: number): string {
+    const taken = this.stmt("SELECT 1 FROM users WHERE link_code = ? AND id != ?");
+    const low = 10 ** (LINK_CODE_LENGTH - 1);
+    let code: string;
+    do code = String(randomInt(low, low * 10));
+    while (taken.get(code, userId));
+    this.stmt("UPDATE users SET link_code = ?, link_code_issued_at = ? WHERE id = ?").run(code, now, userId);
+    return code;
   }
 
   /**
    * Binds the DM space to the user holding `code` (merging any placeholder user
-   * for that space). Null if no match, if the chat is a group, or while the
-   * sender is locked out after too many wrong codes (see isLinkLocked). Wrong
-   * codes are recorded; enough of them across all senders rotates every
-   * outstanding code, so the 4-digit space can't be enumerated.
+   * for that space). Null if no match, if the code has expired (LINK_CODE_TTL_MS),
+   * if the chat is a group, or while the sender is locked out after too many wrong
+   * codes (see isLinkLocked). Wrong and expired codes are recorded; enough of them
+   * across all senders rotates the outstanding codes, so the space can't be enumerated.
    */
   linkByCode(code: string, identity: SpaceIdentity, now: number): User | null {
     const normalized = code.trim();
@@ -423,7 +475,7 @@ export class SynapseStore {
     return this.transaction(() => {
       if (this.isLinkLocked(identity, now)) return null;
       const row = this.stmt("SELECT * FROM users WHERE link_code = ?").get(normalized) as UserRow | undefined;
-      if (row) return this.linkUser(row.id, identity, now);
+      if (row && isFreshLinkCode(row, now)) return this.linkUser(row.id, identity, now);
       this.recordLinkFailure(identity, now);
       return null;
     });
@@ -452,9 +504,13 @@ export class SynapseStore {
     const recent = this.stmt("SELECT COUNT(*) AS n FROM link_failures WHERE failed_at > ? AND failed_at <= ?").get(since, now) as {
       n: number;
     };
-    // Under a spray of guesses from many chats, every further miss invalidates the codes (new ones are issued lazily).
+    // Under a spray of guesses from many chats, every further miss invalidates the codes that have been
+    // out for a while (new ones are issued lazily). A just-issued code survives, so the owner can still link.
     if (recent.n >= LINK_CODE_ROTATE_AFTER_FAILURES) {
-      this.stmt("UPDATE users SET link_code = NULL WHERE link_code IS NOT NULL").run();
+      this.stmt(
+        `UPDATE users SET link_code = NULL, link_code_issued_at = NULL
+         WHERE link_code IS NOT NULL AND (link_code_issued_at IS NULL OR link_code_issued_at <= ?)`,
+      ).run(now - LINK_CODE_ROTATE_MIN_AGE_MS);
     }
   }
 
@@ -490,10 +546,10 @@ export class SynapseStore {
       const user = this.getUser(userId);
       if (!user) throw new Error(`Unknown user: ${userId}`);
       if (!user.spaceId && !user.handle) return user;
-      this.stmt("UPDATE users SET space_id = NULL, handle = NULL, link_code = NULL WHERE id = ?").run(userId);
+      this.stmt("UPDATE users SET space_id = NULL, handle = NULL WHERE id = ?").run(userId);
       this.clearPending(userId);
       this.logEvent(userId, "unlinked", "🔌 iMessage unlinked", null, now);
-      this.createOrGetLinkCode(userId);
+      this.issueLinkCode(userId, now);
       return this.getUser(userId)!;
     });
   }
@@ -524,7 +580,7 @@ export class SynapseStore {
     const holder = this.findUserBySpace(identity.spaceId);
     if (holder && holder.id !== targetId) this.mergeUserInto(holder.id, targetId);
     this.bindSpace(targetId, identity);
-    this.stmt("UPDATE users SET link_code = NULL WHERE id = ?").run(targetId);
+    this.stmt("UPDATE users SET link_code = NULL, link_code_issued_at = NULL WHERE id = ?").run(targetId);
     this.logEvent(targetId, "linked", "📱 iMessage linked", { handle: identity.handle ?? null }, now);
     return this.getUser(targetId)!;
   }
@@ -538,6 +594,8 @@ export class SynapseStore {
     for (const table of ["review_log", "push_log", "ide_attempts", "spar_sessions", "events"]) {
       this.stmt(`UPDATE ${table} SET user_id = ? WHERE user_id = ?`).run(toId, fromId);
     }
+    // A placeholder's undo snapshots don't describe the target's rows (the target wins on conflicts).
+    this.stmt("DELETE FROM review_undo WHERE user_id = ?").run(fromId);
     this.stmt("DELETE FROM users WHERE id = ?").run(fromId);
   }
 
@@ -612,6 +670,7 @@ export class SynapseStore {
     const { userId, grade, now } = input;
 
     return this.transaction(() => {
+      const undo = this.undoSnapshot(userId, card);
       const before = this.cardState(userId, card.id, now);
       const after = gradeReview(before, grade, now, this.scheduler);
       this.writeProgress(userId, card, after, null, now);
@@ -632,6 +691,17 @@ export class SynapseStore {
         before.intervalDays,
         after.intervalDays,
         after.easeFactor,
+        now,
+      );
+
+      const reviewId = Number(review.lastInsertRowid);
+      this.stmt("DELETE FROM review_undo WHERE user_id = ? AND card_id = ?").run(userId, card.id);
+      this.stmt("INSERT INTO review_undo (review_id, user_id, card_id, progress, weak, created_at) VALUES (?, ?, ?, ?, ?, ?)").run(
+        reviewId,
+        userId,
+        card.id,
+        undo.progress ? JSON.stringify(undo.progress) : null,
+        JSON.stringify(undo.weak),
         now,
       );
 
@@ -657,10 +727,114 @@ export class SynapseStore {
         before,
         after,
         wasNew: before.phase === "new",
-        reviewId: Number(review.lastInsertRowid),
+        reviewId,
         nextLabel,
       };
     });
+  }
+
+  /** The rows a review of `card` overwrites: its progress row and its tags' weak_tags rows. */
+  private undoSnapshot(userId: string, card: ReviewCard): UndoSnapshot {
+    const progress = this.stmt(
+      `SELECT card_id, card_kind, repetition, interval_days, ease_factor, due_at, lapses, phase, last_reviewed_at, boost_reason, created_at
+       FROM card_progress WHERE user_id = ? AND card_id = ?`,
+    ).get(userId, card.id) as UndoSnapshot["progress"] | undefined;
+    const tags = new Set<string>(card.tags);
+    const weak = this.weakRows(userId).filter((row) => tags.has(row.tag));
+    return { progress: progress ?? null, weak };
+  }
+
+  /**
+   * Replaces review `reviewId` with `grade` (a changed tapback: ❤️ → 👎), as if
+   * the first rating had never happened: restores the card's progress and its
+   * tags' weak spots from before that review, deletes the review and its
+   * activity event, then grades again at `now` with the same source, answer and
+   * verdict. A weak spot re-flagged since by something else (an IDE struggle, a
+   * ‼️) is left alone. Returns null, changing nothing, when the review is
+   * unknown or the card has been reviewed again since.
+   */
+  regradeReview(reviewId: number, grade: Grade, now: number): GradeOutcome | null {
+    return this.transaction(() => {
+      const review = this.stmt("SELECT * FROM review_log WHERE id = ?").get(reviewId) as ReviewLogRow | undefined;
+      if (!review || !getCard(review.card_id)) return null;
+      const latest = this.stmt("SELECT MAX(id) AS id FROM review_log WHERE user_id = ? AND card_id = ?").get(review.user_id, review.card_id) as {
+        id: number | null;
+      };
+      if (latest.id !== reviewId) return null;
+      const undo = this.stmt("SELECT progress, weak FROM review_undo WHERE review_id = ?").get(reviewId) as
+        | { progress: string | null; weak: string }
+        | undefined;
+      if (!undo) return null;
+
+      const card = getCard(review.card_id)!;
+      this.stmt("DELETE FROM review_log WHERE id = ?").run(reviewId);
+      this.stmt("DELETE FROM review_undo WHERE review_id = ?").run(reviewId);
+      this.stmt(
+        "DELETE FROM events WHERE user_id = ? AND kind = 'review' AND created_at = ? AND json_extract(detail, '$.cardId') = ?",
+      ).run(review.user_id, review.reviewed_at, card.id);
+      this.restoreProgress(review.user_id, card.id, undo.progress ? (JSON.parse(undo.progress) as UndoSnapshot["progress"]) : null);
+      this.restoreWeak(review.user_id, card.tags, JSON.parse(undo.weak) as WeakRow[], review.reviewed_at);
+
+      return this.applyGrade(
+        {
+          userId: review.user_id,
+          cardId: card.id,
+          grade,
+          source: review.source as ReviewSource,
+          now,
+          answer: review.answer,
+          verdict: review.verdict ? (JSON.parse(review.verdict) as Evaluation) : null,
+        },
+        true,
+      );
+    });
+  }
+
+  private restoreProgress(userId: string, cardId: string, prior: UndoSnapshot["progress"]): void {
+    if (!prior) {
+      this.stmt("DELETE FROM card_progress WHERE user_id = ? AND card_id = ?").run(userId, cardId);
+      return;
+    }
+    this.stmt(
+      `UPDATE card_progress SET repetition = ?, interval_days = ?, ease_factor = ?, due_at = ?, lapses = ?, phase = ?,
+         last_reviewed_at = ?, boost_reason = ?
+       WHERE user_id = ? AND card_id = ?`,
+    ).run(
+      prior.repetition,
+      prior.interval_days,
+      prior.ease_factor,
+      prior.due_at,
+      prior.lapses,
+      prior.phase,
+      prior.last_reviewed_at,
+      prior.boost_reason,
+      userId,
+      cardId,
+    );
+  }
+
+  /**
+   * Puts back weak-tag rows the review flagged (a fail) or relieved (❤️),
+   * leaving alone any tag something else re-flagged since the review.
+   */
+  private restoreWeak(userId: string, tags: readonly Tag[], prior: readonly WeakRow[], reviewedAt: number): void {
+    const current = this.stmt("SELECT last_flagged_at FROM weak_tags WHERE user_id = ? AND tag = ?");
+    for (const tag of new Set(tags)) {
+      const row = current.get(userId, tag) as { last_flagged_at: number } | undefined;
+      const before = prior.find((weak) => weak.tag === tag);
+      if (before) {
+        if (!row || (row.last_flagged_at !== before.last_flagged_at && row.last_flagged_at !== reviewedAt)) continue;
+        this.stmt("UPDATE weak_tags SET score = ?, last_flagged_at = ?, source = ? WHERE user_id = ? AND tag = ?").run(
+          before.score,
+          before.last_flagged_at,
+          before.source,
+          userId,
+          tag,
+        );
+      } else if (row && row.last_flagged_at === reviewedAt) {
+        this.stmt("DELETE FROM weak_tags WHERE user_id = ? AND tag = ?").run(userId, tag);
+      }
+    }
   }
 
   /**
@@ -1189,7 +1363,7 @@ export class SynapseStore {
       spaceId: user.spaceId,
       handle: user.handle,
       platform: user.platform,
-      linkCode: linked ? null : this.createOrGetLinkCode(userId),
+      linkCode: linked ? null : this.createOrGetLinkCode(userId, now),
       paused: user.paused,
     };
 

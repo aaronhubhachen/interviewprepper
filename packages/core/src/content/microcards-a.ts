@@ -66,7 +66,7 @@ export const MICROCARDS_A: MicroCard[] = [
       },
       {
         label: "Hash map from key to list of words",
-        anyOf: ["hash map", "hashmap", "dict", "dictionary", "defaultdict", "map", "group"],
+        anyOf: ["hash map", "hashmap", "dict", "dictionary", "defaultdict", "map from", "map keyed", "map each key", "map the key", "group by", "group them", "group words", "group the words"],
       },
     ],
     hint: "Two words are anagrams exactly when some normalized version of them is identical. Which normalization is cheapest?",
@@ -337,7 +337,7 @@ export const MICROCARDS_A: MicroCard[] = [
       },
       {
         label: "Track counts with a frequency map",
-        anyOf: ["frequency", "count map", "counter", "hash map", "hashmap", "counts", "dictionary", "dict", "map"],
+        anyOf: ["frequency", "count map", "counter", "hash map", "hashmap", "counts", "dictionary", "dict", "map of counts", "char map", "character map", "map of char"],
       },
       {
         label: "Pointers only move forward, so O(n)",
@@ -440,7 +440,10 @@ export const MICROCARDS_A: MicroCard[] = [
           "hash map",
           "hashmap",
           "dict",
-          "map",
+          "map of counts",
+          "char map",
+          "character map",
+          "map of char",
         ],
       },
     ],
@@ -596,7 +599,7 @@ export const MICROCARDS_A: MicroCard[] = [
       },
       {
         label: "Hash map of prefix counts, look up prefix - k",
-        anyOf: ["prefix - k", "sum - k", "curr - k", "hash map", "hashmap", "dict", "counter", "map"],
+        anyOf: ["prefix - k", "sum - k", "curr - k", "hash map", "hashmap", "dict", "counter", "prefix map", "map of prefix", "map prefix", "map of sums", "map of counts"],
       },
       {
         label: "Seed the map with prefix 0",
@@ -1023,7 +1026,7 @@ export const MICROCARDS_A: MicroCard[] = [
       },
       {
         label: "Reuse when the earliest end is at or before the start",
-        anyOf: ["at or before", "reuse", "free", "frees up", "pop", "ended", "finished", "already over"],
+        anyOf: ["at or before", "reuse", "free", "frees up", "pop the earliest", "pop the top", "pop the min", "pop that room", "ended", "finished", "already over"],
       },
       {
         label: "Heap size is the room count",
@@ -1173,7 +1176,8 @@ export const MICROCARDS_A: MicroCard[] = [
     keyPoints: [
       {
         label: "2n - 1 centers",
-        anyOf: ["2n - 1", "2n-1", "2n", "2 n", "n and n - 1", "n + n - 1", "every char and every gap", "each char and each gap"],
+        // Not a bare "2n" (the classic wrong count), and not "every char and every gap", which belongs to the next point.
+        anyOf: ["2n - 1", "2n-1", "n and n - 1", "n + n - 1", "n - 1 gaps", "n - 1 even"],
       },
       {
         label: "Odd and even lengths need different centers",
@@ -1265,9 +1269,6 @@ export const MICROCARDS_A: MicroCard[] = [
           "columns remain",
           "cols remain",
           "still a column",
-          "still valid",
-          "havent crossed",
-          "not crossed",
         ],
       },
     ],
@@ -1341,11 +1342,11 @@ export const MICROCARDS_A: MicroCard[] = [
       },
       {
         label: "Pairs cancel (x ^ x = 0)",
-        anyOf: ["cancel", "cancels", "x ^ x = 0", "a ^ a = 0", "itself is 0", "itself is zero", "pairs cancel"],
+        anyOf: ["cancel", "cancels", "x ^ x = 0", "a ^ a = 0", "itself is 0", "itself is zero", "pairs cancel", "cancel out"],
       },
       {
         label: "Order doesn't matter",
-        anyOf: ["commutative", "associative", "order doesn't matter", "order does not matter", "any order"],
+        anyOf: ["commutative", "associative", "order doesn't matter", "order does not matter", "any order", "order independent", "order-independent", "regardless of order", "order is irrelevant", "whatever order"],
       },
     ],
     hint: "Which bitwise operation turns a number combined with itself into 0 and leaves a number combined with 0 unchanged?",
@@ -1509,7 +1510,7 @@ export const MICROCARDS_A: MicroCard[] = [
     keyPoints: [
       {
         label: "Hash map for O(1) key lookup",
-        anyOf: ["hash map", "hashmap", "hash table", "dictionary", "dict", "map", "ordereddict", "linkedhashmap"],
+        anyOf: ["hash map", "hashmap", "hash table", "dictionary", "dict", "map from key", "map of key", "map keys", "map each key", "key to node", "keys to nodes", "key to its node", "map to node", "map to the node", "ordereddict", "linkedhashmap"],
       },
       {
         label: "Doubly linked list ordered by recency",
@@ -1529,7 +1530,7 @@ export const MICROCARDS_A: MicroCard[] = [
       },
       {
         label: "Evict from the least-recent end",
-        anyOf: ["evict", "tail", "least recently used", "oldest", "remove last", "remove the last", "pop"],
+        anyOf: ["evict", "tail", "least recently used", "oldest", "remove last", "remove the last", "pop the tail", "pop the last", "pop from the end", "pop the least", "from the back", "at the back", "drop the least", "drop the last", "drop the tail", "kick out"],
       },
     ],
     hint: "One structure answers 'where is key k?' instantly; the other keeps usage order and lets you unlink a node from the middle in O(1).",
@@ -1626,11 +1627,11 @@ export const MICROCARDS_A: MicroCard[] = [
       },
       {
         label: "Hash map from value to index",
-        anyOf: ["value to index", "value to its index", "hash map", "hashmap", "dict", "index map", "map"],
+        anyOf: ["value to index", "value to its index", "hash map", "hashmap", "dict", "index map", "map from value", "map of value", "map value", "map each value", "map values"],
       },
       {
         label: "Swap with the last element, then pop",
-        anyOf: ["swap", "swap with the last", "last element", "move the last", "overwrite with the last", "pop"],
+        anyOf: ["swap", "swap with the last", "last element", "move the last", "overwrite with the last", "then pop", "pop the last", "pop it off", "pop from the end", "remove the last"],
       },
       {
         label: "Update the moved element's index",

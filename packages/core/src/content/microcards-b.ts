@@ -76,7 +76,7 @@ export const MICROCARDS_B: MicroCard[] = [
       },
       {
         label: "Pop while the current value is greater, recording it",
-        anyOf: ["pop while", "pop when", "pop", "popped", "greater than the top", "bigger than the top", "larger than the top"],
+        anyOf: ["pop while", "pop when", "pop until", "pop and record", "pop and set", "pop the smaller", "pop smaller", "popped off", "greater than the top", "bigger than the top", "larger than the top"],
       },
     ],
     hint: "A circular array behaves like the array followed by a copy of itself. How can you get that effect without actually copying it?",
@@ -467,7 +467,10 @@ export const MICROCARDS_B: MicroCard[] = [
         anyOf: [
           "whole subtree",
           "entire subtree",
-          "subtree",
+          "left subtree",
+          "right subtree",
+          "in the subtree",
+          "subtree must",
           "all ancestors",
           "ancestor",
           "grandparent",
@@ -493,7 +496,10 @@ export const MICROCARDS_B: MicroCard[] = [
           "inorder",
           "in-order",
           "strictly increasing",
-          "sorted",
+          "sorted order",
+          "comes out sorted",
+          "traversal is sorted",
+          "is sorted",
         ],
       },
     ],
@@ -911,7 +917,11 @@ export const MICROCARDS_B: MicroCard[] = [
         anyOf: [
           "finalize",
           "finalized",
-          "final",
+          "is final",
+          "are final",
+          "final distance",
+          "final once",
+          "treated as final",
           "settled",
           "settle",
           "locked in",
@@ -919,6 +929,8 @@ export const MICROCARDS_B: MicroCard[] = [
           "never revisited",
           "never updated",
           "once popped",
+          "optimal once",
+          "optimal when popped",
           "greedy",
         ],
       },
@@ -943,6 +955,9 @@ export const MICROCARDS_B: MicroCard[] = [
           "found later",
           "improve a finalized",
           "undercut",
+          "negative edge",
+          "negative weight",
+          "below zero",
         ],
       },
       {
@@ -988,10 +1003,11 @@ export const MICROCARDS_B: MicroCard[] = [
       },
       {
         label: "O((V + E) log V)",
-        // No "(e + v) log v" or "e + v log v": the grader drops operators and parentheses, so both reduce to
-        // "e v log v" and credit the Fibonacci-heap bound O(E + V log V). "(v + e) log v" keeps V first and stays distinct.
+        // The grader keeps parentheses that wrap an operator, so "(e + v) log v" does not match the
+        // Fibonacci-heap bound O(E + V log V). Never add a bare "e + v log v": that IS the Fibonacci bound.
         anyOf: [
           "(v + e) log v",
+          "(e + v) log v",
           "v + e log v",
           "e log v",
           "elogv",
@@ -1089,7 +1105,7 @@ export const MICROCARDS_B: MicroCard[] = [
     keyPoints: [
       {
         label: "Children map or array of 26 per node",
-        anyOf: ["children", "child map", "child node", "array of 26", "26 children", "26 pointers", "hashmap", "hash map", "dict", "dictionary", "map"],
+        anyOf: ["children", "child map", "child node", "array of 26", "26 children", "26 pointers", "hashmap", "hash map", "dict", "dictionary", "children map", "map of children", "char to child", "char to node", "map each char"],
       },
       {
         label: "End-of-word flag",
@@ -1358,7 +1374,7 @@ export const MICROCARDS_B: MicroCard[] = [
       },
       {
         label: "Undo the marks when backtracking",
-        anyOf: ["remove", "undo", "unmark", "backtrack", "discard", "pop", "clean up"],
+        anyOf: ["remove", "undo", "unmark", "backtrack", "discard", "pop the queen", "pop them off", "clean up"],
       },
     ],
     hint: "Every square on one diagonal shares something about its row and column. What stays constant as you step down-right? And down-left?",

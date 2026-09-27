@@ -59,7 +59,7 @@ A substring is a contiguous, non-empty sequence of characters within the string.
           },
           {
             label: "Map each character to its last index",
-            anyOf: ["last seen", "last index", "last position", "hash map", "hashmap", "map", "dict", "dictionary", "set"],
+            anyOf: ["last seen", "last index", "last position", "hash map", "hashmap", "map each char", "map of char", "char map", "map char", "map to last", "map to its last", "dict", "dictionary", "set"],
           },
           {
             label: "Move left just past the previous occurrence",
@@ -1157,7 +1157,7 @@ The test cases guarantee that the answer is unique. Follow-up: can you beat O(n 
         keyPoints: [
           {
             label: "Count frequencies with a hash map",
-            anyOf: ["hash map", "hashmap", "map", "dict", "counter", "count", "frequency", "frequencies"],
+            anyOf: ["hash map", "hashmap", "count map", "frequency map", "map of counts", "map counts", "dict", "counter", "count", "frequency", "frequencies"],
           },
           {
             label: "Min-heap capped at k, or buckets by frequency",
@@ -1178,8 +1178,10 @@ The test cases guarantee that the answer is unique. Follow-up: can you beat O(n 
         keyPoints: [
           {
             label: "Frequency can reach n, so n + 1 buckets",
-            // No "n + 1" / "n+1": the grader drops operators, so they also match "n - 1", the exact bug this card targets.
+            // The grader reads operators, so "n + 1" no longer matches "n - 1", the exact bug this card targets.
             anyOf: [
+              "n + 1",
+              "n+1",
               "n plus one",
               "n plus 1",
               "one more than n",
@@ -1197,7 +1199,7 @@ The test cases guarantee that the answer is unique. Follow-up: can you beat O(n 
           },
           {
             label: "Negative values need a hash map",
-            anyOf: ["negative", "hash map", "hashmap", "dict", "counter", "map"],
+            anyOf: ["negative", "hash map", "hashmap", "dict", "counter", "count map", "map of counts", "map counts", "map to count", "map keyed"],
           },
         ],
         hint: "What is the largest count a single value can have in an array of length n? And what is nums[i] allowed to be?",

@@ -7,6 +7,8 @@ import type { Evaluation } from "../src/grading";
 import {
   isGroupSpace,
   LINK_CODE_ROTATE_AFTER_FAILURES,
+  LINK_CODE_ROTATE_MIN_AGE_MS,
+  LINK_CODE_TTL_MS,
   LINK_FAILURE_WINDOW_MS,
   MAX_LINK_FAILURES_PER_SENDER,
   normalizeHandle,
@@ -65,16 +67,40 @@ afterEach(() => {
 });
 
 describe("users & linking", () => {
-  it("creates the web user with a 4-digit link code on first stats()", () => {
+  it("creates the web user with a 6-digit link code on first stats()", () => {
     const stats = store.stats("me", T0);
     expect(stats.link.linked).toBe(false);
-    expect(stats.link.linkCode).toMatch(/^\d{4}$/);
-    expect(store.createOrGetLinkCode("me")).toBe(stats.link.linkCode);
+    expect(stats.link.linkCode).toMatch(/^\d{6}$/);
+    expect(store.createOrGetLinkCode("me", T0 + MINUTE)).toBe(stats.link.linkCode);
+  });
+
+  it("expires a link code after LINK_CODE_TTL_MS and issues a new one", () => {
+    const code = store.stats("me", T0).link.linkCode!;
+    const owner = { spaceId: "iMessage;-;+13145550101", handle: "+13145550101" };
+    // An expired code no longer links (and counts as a wrong guess)...
+    expect(store.linkByCode(code, owner, T0 + LINK_CODE_TTL_MS)).toBeNull();
+    // ...and the dashboard gets a fresh one that does.
+    const fresh = store.createOrGetLinkCode("me", T0 + LINK_CODE_TTL_MS);
+    expect(fresh).not.toBe(code);
+    expect(fresh).toMatch(/^\d{6}$/);
+    expect(store.createOrGetLinkCode("me", T0 + LINK_CODE_TTL_MS + MINUTE)).toBe(fresh);
+    expect(store.linkByCode(fresh, owner, T0 + LINK_CODE_TTL_MS + MINUTE)?.id).toBe("me");
+  });
+
+  it("rotates a link code on demand", () => {
+    const code = store.stats("me", T0).link.linkCode!;
+    const rotated = store.rotateLinkCode("me", T0 + MINUTE);
+    expect(rotated).not.toBe(code);
+    expect(store.stats("me", T0 + MINUTE).link.linkCode).toBe(rotated);
+    const owner = { spaceId: "iMessage;-;+13145550101", handle: "+13145550101" };
+    expect(store.linkByCode(code, owner, T0 + MINUTE)).toBeNull();
+    expect(store.linkByCode(rotated, owner, T0 + MINUTE)?.id).toBe("me");
+    expect(() => store.rotateLinkCode("ghost", T0)).toThrow();
   });
 
   it("links a texter by code and merges their placeholder history", () => {
     store.ensureUser("me", T0);
-    const code = store.createOrGetLinkCode("me");
+    const code = store.createOrGetLinkCode("me", T0);
     const identity = { spaceId: "space-1", handle: "(314) 555-0101", platform: "imessage" };
 
     const { user: placeholder, created } = store.ensureUserForSpace(identity, T0);
@@ -84,7 +110,8 @@ describe("users & linking", () => {
     store.gradeCard({ userId: placeholder.id, cardId: card.id, grade: 5, source: "imessage", now: T0 });
 
     expect(store.linkByCode("12", identity, T0)).toBeNull();
-    expect(store.linkByCode(code === "1234" ? "4321" : "1234", identity, T0)).toBeNull();
+    expect(store.linkByCode(code.slice(0, 4), identity, T0)).toBeNull();
+    expect(store.linkByCode(code === "123456" ? "654321" : "123456", identity, T0)).toBeNull();
 
     const linked = store.linkByCode(` ${code} `, identity, T0 + 1_000)!;
     expect(linked).toMatchObject({ id: "me", spaceId: "space-1", handle: "+13145550101", linkCode: null });
@@ -144,7 +171,7 @@ describe("users & linking", () => {
 
   it("never re-binds a user to a group chat, and group members never resolve to someone else", () => {
     const owner = { spaceId: "iMessage;-;+13145550101", handle: "+13145550101" };
-    const code = store.createOrGetLinkCode(store.ensureUser("me", T0).id);
+    const code = store.createOrGetLinkCode(store.ensureUser("me", T0).id, T0);
     store.linkByCode(code, owner, T0);
 
     const inGroup = store.ensureUserForSpace({ spaceId: "iMessage;+;chat123", handle: "+13145550101" }, T0);
@@ -158,12 +185,12 @@ describe("users & linking", () => {
     expect(store.findUserForIdentity({ spaceId: "opaque-1", spaceType: "group", handle: "+13145550101" })?.spaceId).toBe(owner.spaceId);
     expect(store.getUser("me")!.spaceId).toBe(owner.spaceId);
     // Groups can't link either.
-    expect(store.linkByCode(store.createOrGetLinkCode(friend.user.id), { spaceId: "iMessage;+;chat123", handle: "+15559990000" }, T0)).toBeNull();
+    expect(store.linkByCode(store.createOrGetLinkCode(friend.user.id, T0), { spaceId: "iMessage;+;chat123", handle: "+15559990000" }, T0)).toBeNull();
   });
 
   it("locks a sender out after repeated wrong link codes, without blocking anyone else", () => {
     const code = store.stats("me", T0).link.linkCode!;
-    const wrong = code === "1000" ? "1001" : "1000";
+    const wrong = code === "100000" ? "100001" : "100000";
     const guesser = { spaceId: "iMessage;-;+15550000002", handle: "+15550000002" };
     for (let i = 0; i < MAX_LINK_FAILURES_PER_SENDER; i++) {
       expect(store.isLinkLocked(guesser, T0 + i)).toBe(false);
@@ -177,22 +204,40 @@ describe("users & linking", () => {
     // The owner's chat is unaffected, and the lock ages out.
     expect(store.isLinkLocked({ spaceId: "iMessage;-;+13145550101", handle: "+13145550101" }, T0 + MINUTE)).toBe(false);
     expect(store.isLinkLocked(guesser, T0 + LINK_FAILURE_WINDOW_MS + 10)).toBe(false);
-    expect(store.linkByCode(code, guesser, T0 + LINK_FAILURE_WINDOW_MS + 10)?.id).toBe("me");
+    const later = store.createOrGetLinkCode("me", T0 + LINK_FAILURE_WINDOW_MS + 10);
+    expect(store.linkByCode(later, guesser, T0 + LINK_FAILURE_WINDOW_MS + 10)?.id).toBe("me");
   });
 
   it("rotates outstanding link codes under a spray of guesses from many chats", () => {
     const original = store.stats("me", T0).link.linkCode!;
-    const wrong = (i: number) => String(1000 + ((Number(original) - 1000 + 1 + i) % 9000));
+    const wrong = (i: number) => String(100_000 + ((Number(original) - 100_000 + 1 + i) % 900_000));
+    // The spray arrives once the code has been out for a while.
+    const sprayAt = T0 + LINK_CODE_ROTATE_MIN_AGE_MS;
     for (let i = 0; i < LINK_CODE_ROTATE_AFTER_FAILURES; i++) {
-      store.linkByCode(wrong(i), { spaceId: `dm-${i}`, handle: `+1555000${String(i).padStart(4, "0")}` }, T0 + i);
+      store.linkByCode(wrong(i), { spaceId: `dm-${i}`, handle: `+1555000${String(i).padStart(4, "0")}` }, sprayAt + i);
     }
-    const rotated = store.stats("me", T0 + MINUTE).link.linkCode!;
-    expect(rotated).toMatch(/^\d{4}$/);
+    const after = sprayAt + MINUTE;
+    const rotated = store.stats("me", after).link.linkCode!;
+    expect(rotated).toMatch(/^\d{6}$/);
+    expect(rotated).not.toBe(original);
     expect(store.getUser("me")!.linkCode).toBe(rotated);
     // A fresh chat is not locked out and links with the code the dashboard now shows.
-    expect(store.linkByCode(original === rotated ? "0000" : original, { spaceId: "dm-late", handle: "+15551112222" }, T0 + MINUTE)).toBeNull();
+    expect(store.linkByCode(original, { spaceId: "dm-late", handle: "+15551112222" }, after)).toBeNull();
     const owner = { spaceId: "iMessage;-;+13145550101", handle: "+13145550101" };
-    expect(store.linkByCode(store.stats("me", T0 + MINUTE).link.linkCode!, owner, T0 + MINUTE)?.id).toBe("me");
+    expect(store.linkByCode(store.stats("me", after).link.linkCode!, owner, after)?.id).toBe("me");
+  });
+
+  it("never lets a guess spray invalidate a code the dashboard just issued", () => {
+    store.stats("me", T0);
+    const sprayAt = T0 + 5 * MINUTE;
+    for (let i = 0; i < LINK_CODE_ROTATE_AFTER_FAILURES; i++) {
+      store.linkByCode("999999", { spaceId: `dm-${i}`, handle: `+1555000${String(i).padStart(4, "0")}` }, sprayAt + i);
+    }
+    // The spray rotated the old code; the one issued next survives further misses for LINK_CODE_ROTATE_MIN_AGE_MS.
+    const fresh = store.createOrGetLinkCode("me", sprayAt + MINUTE);
+    for (let i = 0; i < 5; i++) store.linkByCode("999999", { spaceId: `dm-x${i}`, handle: `+1555100${i}000` }, sprayAt + MINUTE + i);
+    const owner = { spaceId: "iMessage;-;+13145550101", handle: "+13145550101" };
+    expect(store.linkByCode(fresh, owner, sprayAt + MINUTE + 10)?.id).toBe("me");
   });
 
   it("unlinks a wrongly linked chat and issues a fresh code", () => {
@@ -205,7 +250,7 @@ describe("users & linking", () => {
     expect(store.getPending("me")).toBeNull();
     expect(store.findUserBySpace("dm-stranger")).toBeNull();
     const stats = store.stats("me", T0 + MINUTE);
-    expect(stats.link).toMatchObject({ linked: false, linkCode: expect.stringMatching(/^\d{4}$/) });
+    expect(stats.link).toMatchObject({ linked: false, linkCode: expect.stringMatching(/^\d{6}$/) });
     expect(store.recentEvents("me").map((event) => event.kind)).toContain("unlinked");
     expect(store.linkByCode(stats.link.linkCode!, { spaceId: "dm-owner", handle: "+13145550101" }, T0 + 2 * MINUTE)?.spaceId).toBe("dm-owner");
     expect(() => store.unlinkUser("ghost", T0)).toThrow();
@@ -462,6 +507,61 @@ describe("identity helpers", () => {
   });
 });
 
+describe("regradeReview", () => {
+  it("replaces a ❤️ with a 👎 as if the ❤️ never happened", () => {
+    const [card] = cardsWithDisjointTags();
+    const first = store.gradeCard({ userId: "me", cardId: card.id, grade: 3, source: "imessage", now: T0 });
+    const expected = store.previewCard("me", card.id, first.after.dueAt + MINUTE);
+    const loved = store.gradeCard({ userId: "me", cardId: card.id, grade: 5, source: "imessage", now: first.after.dueAt, answer: "my answer" });
+
+    const regraded = store.regradeReview(loved.reviewId, 1, loved.before.dueAt + MINUTE)!;
+    expect(regraded.before).toEqual(loved.before);
+    expect(regraded.after).toEqual(expected.dislike.next);
+    expect(store.getProgress("me", card.id)).toMatchObject({ phase: "relearning", lapses: 1, repetition: 0 });
+    // One review left for the ❤️ slot, carrying the original answer; the ❤️ and its activity event are gone.
+    const reviews = store.db.prepare("SELECT id, grade, answer FROM review_log WHERE card_id = ? ORDER BY id").all(card.id) as {
+      id: number;
+      grade: number;
+      answer: string | null;
+    }[];
+    expect(reviews.map((review) => review.grade)).toEqual([3, 1]);
+    expect(reviews[1]).toMatchObject({ id: regraded.reviewId, answer: "my answer" });
+    const reviewEvents = store.recentEvents("me").filter((event) => event.kind === "review");
+    expect(reviewEvents).toHaveLength(2);
+    // The 👎 flags the card's tags; changing back to ❤️ removes that flag again.
+    expect(store.weakTags("me", loved.before.dueAt + MINUTE).map((weak) => weak.tag)).toEqual(expect.arrayContaining([...card.tags]));
+    const back = store.regradeReview(regraded.reviewId, 5, loved.before.dueAt + 2 * MINUTE)!;
+    expect(back.after.intervalDays).toBe(loved.after.intervalDays);
+    expect(store.weakTags("me", loved.before.dueAt + 2 * MINUTE)).toEqual([]);
+  });
+
+  it("undoes a first review completely", () => {
+    const [card] = cardsWithDisjointTags();
+    const outcome = store.gradeCard({ userId: "me", cardId: card.id, grade: 5, source: "web", now: T0 });
+    const regraded = store.regradeReview(outcome.reviewId, 3, T0 + MINUTE)!;
+    expect(regraded.wasNew).toBe(true);
+    expect(regraded.after.intervalDays).toBe(1);
+  });
+
+  it("refuses unknown reviews and reviews that are no longer the card's latest", () => {
+    const [card] = cardsWithDisjointTags();
+    const first = store.gradeCard({ userId: "me", cardId: card.id, grade: 3, source: "web", now: T0 });
+    store.gradeCard({ userId: "me", cardId: card.id, grade: 3, source: "web", now: first.after.dueAt });
+    const before = store.getProgress("me", card.id);
+    expect(store.regradeReview(first.reviewId, 5, T0 + 2 * DAY)).toBeNull();
+    expect(store.regradeReview(987_654, 5, T0)).toBeNull();
+    expect(store.getProgress("me", card.id)).toEqual(before);
+  });
+
+  it("keeps a weak spot that something else flagged after the review", () => {
+    const [card] = cardsWithDisjointTags();
+    const failed = store.gradeCard({ userId: "me", cardId: card.id, grade: 1, source: "imessage", now: T0 });
+    store.flagWeakness("me", card.tags, "tapback", 1, T0 + MINUTE);
+    store.regradeReview(failed.reviewId, 5, T0 + 2 * MINUTE);
+    expect(store.weakTags("me", T0 + 2 * MINUTE).map((weak) => weak.source)).toContain("tapback");
+  });
+});
+
 describe("recordIdeAttempt", () => {
   const problem = listProblems()[0]!;
   const expectedDrills = drillCardsForProblem(problem).slice(0, 2).map((card) => card.id);
@@ -583,7 +683,7 @@ describe("recordIdeAttempt", () => {
     }
   });
 
-  it("brings a drilled card back sooner than its old schedule, not later", () => {
+  it("keeps a drilled card's interval instead of granting the full on-time step", () => {
     const [cardId] = expectedDrills;
     let now = T0 - 30 * DAY;
     for (let i = 0; i < 3; i++) now = store.gradeCard({ userId: "me", cardId: cardId!, grade: 3, source: "web", now }).after.dueAt;
@@ -592,8 +692,9 @@ describe("recordIdeAttempt", () => {
     const drillAt = learned.lastReviewedAt! + 1.9 * DAY;
     store.scheduleCardsAt("me", [cardId!], drillAt, drillAt - HOUR);
     const drilled = store.gradeCard({ userId: "me", cardId: cardId!, grade: 3, source: "imessage", now: drillAt });
-    expect(drilled.after.intervalDays).toBe(4);
-    expect(drilled.after.dueAt).toBeLessThan(learned.dueAt);
+    // Pulled forward 1.9 days in: round(1.9 × 2.08) = 4 < 13, so the 13d interval restarts from the drill (not 27d).
+    expect(drilled.after).toMatchObject({ repetition: learned.repetition, intervalDays: 13, easeFactor: learned.easeFactor });
+    expect(drilled.after.dueAt).toBe(drillAt + 13 * DAY);
   });
 });
 
@@ -666,7 +767,7 @@ describe("forecast & stats", () => {
     expect(tagOfA.progress).toBeGreaterThan(0);
     expect(stats.weakTags.map((weak) => weak.tag)).toEqual(expect.arrayContaining(b.tags));
     expect(stats.recentActivity.length).toBeGreaterThan(0);
-    expect(stats.link.linkCode).toMatch(/^\d{4}$/);
+    expect(stats.link.linkCode).toMatch(/^\d{6}$/);
   });
 
   it("returns empty-state stats for a brand-new user", () => {
@@ -691,6 +792,21 @@ describe("spar sessions", () => {
 });
 
 describe("persistence", () => {
+  it("upgrades a version-2 file: old 4-digit link codes are replaced and grading keeps working", () => {
+    const code = store.stats("me", T0).link.linkCode!;
+    expect(code).toMatch(/^\d{6}$/);
+    store.db.exec("DROP TABLE review_undo; ALTER TABLE users DROP COLUMN link_code_issued_at;");
+    store.db.prepare("UPDATE users SET link_code = '1234' WHERE id = 'me'").run();
+    store.db.pragma("user_version = 2");
+    store.close();
+    store = openStore(dbFile, POLICY);
+    expect(store.db.pragma("user_version", { simple: true })).toBe(SCHEMA_VERSION);
+    expect(store.linkByCode("1234", { spaceId: "dm-1", handle: "+15550000001" }, T0)).toBeNull();
+    expect(store.stats("me", T0).link.linkCode).toMatch(/^\d{6}$/);
+    const outcome = store.gradeCard({ userId: "me", cardId: microCards[0]!.id, grade: 5, source: "web", now: T0 });
+    expect(store.regradeReview(outcome.reviewId, 3, T0 + MINUTE)?.after.intervalDays).toBe(1);
+  });
+
   it("migrates to the current schema in WAL mode and shares the file across connections", () => {
     expect(store.db.pragma("user_version", { simple: true })).toBe(SCHEMA_VERSION);
     expect(store.db.pragma("journal_mode", { simple: true })).toBe("wal");

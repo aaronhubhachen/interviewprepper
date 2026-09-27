@@ -72,6 +72,42 @@ describe("stem & matchKeyPoints", () => {
     expect(matchKeyPoints("It is not greedy and nothing is ever finalized", dijkstra).nailed).toEqual([]);
     expect(matchKeyPoints("It is greedy: each popped node is finalized", dijkstra).missed).toEqual([]);
   });
+
+  it("treats 'rather than' and 'instead of' as negators", () => {
+    const bfs: KeyPoint[] = [{ label: "Enqueue", anyOf: ["mark it when you push"] }];
+    expect(matchKeyPoints("mark it when you pop rather than mark it when you push", bfs).nailed).toEqual([]);
+    expect(matchKeyPoints("use a heap instead of a linked list", LRU.keyPoints).nailed).toEqual([]);
+    expect(matchKeyPoints("a linked list instead of an array", LRU.keyPoints).nailed).toEqual(["Doubly linked list by recency"]);
+  });
+
+  it("reads + and - as operators, not punctuation", () => {
+    const plusOne: KeyPoint[] = [{ label: "n + 1", anyOf: ["n + 1"] }];
+    for (const answer of ["n+1 buckets", "n + 1 buckets", "n plus 1 buckets"]) expect(matchKeyPoints(answer, plusOne).missed, answer).toEqual([]);
+    for (const answer of ["n-1 buckets", "n - 1 buckets", "n 1 buckets"]) expect(matchKeyPoints(answer, plusOne).nailed, answer).toEqual([]);
+    const prev: KeyPoint[] = [{ label: "prev", anyOf: ["nums[i] == nums[i-1]"] }];
+    expect(matchKeyPoints("skip when nums[i] == nums[i - 1]", prev).missed).toEqual([]);
+    expect(matchKeyPoints("skip when nums[i] == nums[i+1]", prev).nailed).toEqual([]);
+  });
+
+  it("keeps hyphenated words and lets a hyphen stand in for a spaced minus", () => {
+    const diagonals: KeyPoint[] = [{ label: "Diagonals", anyOf: ["row - col and row + col"] }];
+    expect(matchKeyPoints("keys row-col and row+col", diagonals).missed).toEqual([]);
+    expect(matchKeyPoints("keys row+col and row+col", diagonals).nailed).toEqual([]);
+    const indegree: KeyPoint[] = [{ label: "Start", anyOf: ["in degree 0"] }];
+    expect(matchKeyPoints("queue every in-degree 0 node", indegree).missed).toEqual([]);
+    const offByOne: KeyPoint[] = [{ label: "Off by one", anyOf: ["off by one"] }];
+    expect(matchKeyPoints("a classic off-by-one", offByOne).missed).toEqual([]);
+  });
+
+  it("matches a parenthesised operator group only with the same grouping", () => {
+    const lazy: KeyPoint[] = [{ label: "Bound", anyOf: ["(e + v) log v"] }];
+    expect(matchKeyPoints("O((E + V) log V)", lazy).missed).toEqual([]);
+    expect(matchKeyPoints("O( (E+V) log V ) overall", lazy).missed).toEqual([]);
+    expect(matchKeyPoints("O(E + V log V)", lazy).nailed).toEqual([]);
+    const submask: KeyPoint[] = [{ label: "Step", anyOf: ["(sub - 1) & mask"] }];
+    expect(matchKeyPoints("sub = (sub-1) & mask", submask).missed).toEqual([]);
+    expect(matchKeyPoints("sub = sub - 1 & mask", submask).nailed).toEqual([]);
+  });
 });
 
 describe("isNonAnswer", () => {
