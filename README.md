@@ -47,15 +47,19 @@ cp .env.example .env        # then fill in what you have (every value is optiona
 - **LLM (optional):** `META_MODEL_API_KEY` (Meta Muse) is preferred, then `GROQ_API_KEY`, then `OPENAI_API_KEY`.
   With no key, or on any timeout or error, grading and sparring feedback fall back to deterministic heuristics.
   The product still works end to end.
-- **Link your phone:** open the dashboard, text `link 1234` (your 4-digit code) to the Synapse number, and this chat
-  now syncs with the web app. If exactly one user exists and is unlinked, texting `start` links it automatically.
+- **Link your phone:** open the dashboard, text `link 482193` (your 6-digit code) to the Synapse number, and this chat
+  now syncs with the web app. Codes expire after 10 minutes (the dashboard always shows the current one), and a chat
+  gets 5 wrong tries per hour. Only `SYNAPSE_OWNER_HANDLE` can skip the code: texting `start` from that number (in a
+  DM) links it. If the wrong chat linked, press **Wrong chat? Unlink** on the dashboard's iMessage card; **New code**
+  replaces a code that may have leaked.
 
 ## Commands
 
 | Command | What it does |
 | --- | --- |
-| `npm run dev` | Web app (<http://localhost:3000>) and iMessage agent together |
-| `npm run dev:web` | Web app only (Next dev server) |
+| `npm run dev` | Web app (<http://localhost:3000>, bound to 127.0.0.1) and iMessage agent together |
+| `npm run dev:web` | Web app only (Next dev server, bound to 127.0.0.1) |
+| `npm run dev:lan -w @synapse/web` | Web app on every interface (0.0.0.0) for a phone on the same Wi-Fi; see [LAN access](#lan-access) first. `start:lan` does the same for a production build |
 | `npm run dev:agent` | iMessage agent only (needs Photon credentials) |
 | `npm run agent:terminal` | The agent in a local tuichat window instead of iMessage (downloads tuichat on first run) |
 | `npm run agent:simulate` | Scripted, deterministic iMessage demo with a virtual clock. Uses the LLM if a key is set. `npm run simulate:offline -w @synapse/agent` forces the heuristic grader |
@@ -64,7 +68,18 @@ cp .env.example .env        # then fill in what you have (every value is optiona
 | `npm run build` | Production build of the web app (`npm run start -w @synapse/web` serves it) |
 
 The web app and the agent share `data/synapse.db`. Run both against the same file: the agent texts cards you
-reviewed on the web, and the dashboard shows what you graded by tapback.
+reviewed on the web, and the dashboard shows what you graded by tapback. The agent also keeps its conversation state
+there (snoozes, the last card for `why` and ❓/‼️, the tapback memo that lets a changed rating re-grade, each chat's
+iMessage line), in an `agent_state` table, so a restart picks up where it left off.
+
+### LAN access
+
+There is no login: the dashboard, the link code and your spar transcripts are open to anyone who can reach the server.
+So `dev` and `start` bind to 127.0.0.1, and every page and API route answers only a loopback `Host` (or the host of
+`SYNAPSE_WEB_URL`), which also blocks DNS rebinding. To open the dashboard from a phone or another machine, opt in
+explicitly: set `SYNAPSE_WEB_URL` in `.env` to the LAN URL (for example `http://192.168.1.20:3000`) and run
+`npm run dev:lan -w @synapse/web` (or `npx next dev -H 0.0.0.0` from `apps/web`). ⚠️ This exposes the unauthenticated
+API, the link code and your transcripts to everyone on that network, so only do it on a network you trust.
 
 ## 3-minute demo script (judges)
 
@@ -78,7 +93,7 @@ SYNAPSE_TICK_MS=5000    # scheduler checks every 5 s
 Then run `npm run dev`, and open <http://localhost:3000> next to your phone. For a fresh demo, delete `data/synapse.db`
 before starting.
 
-1. **Link (0:00).** The dashboard's iMessage card shows `link 4821`. Text it to the Synapse number. You get
+1. **Link (0:00).** The dashboard's iMessage card shows `link 482193`. Text it to the Synapse number. You get
    `🔗 Linked!`, a `☕ Morning Synapse` briefing, and the first card. The dashboard flips to "Linked" by itself.
 2. **Tapback loop (0:30).** Answer in one sentence. A typing bubble appears while Muse grades it, then Socratic
    feedback arrives with the legend `Tap this message: ❤️ Effortless → 4d · 👍 Hesitant → 1d · 👎 Guessed → 6h`.
@@ -113,14 +128,21 @@ fallbacks) map to SM-2 grades:
 | 😂 Laugh | | none | Ignored | | | |
 
 - EF′ = max(1.3, EF + 0.1 − (5 − g)(0.08 + 0.02(5 − g))). The math is pure and deterministic: `gradeReview(state, grade, now)`.
-- Relearn delay = max(round(dayMs / 144), 15 s), which is 10 minutes at real scale.
+- Relearn delay = max(round(dayMs / 144), 15 s), capped at a quarter SRS day; 10 minutes at real scale.
+- Reviewing a learned card early (a morning drill, extra practice on a weak tag, re-solving a problem) never shortens
+  its interval and never inflates it: a pass keeps `max(interval, min(on-time step, elapsed × EF))`, restarted from
+  now, with repetition and ease unchanged. Failing it early still lapses it.
 - Replying `idk` before answering reveals the answer and grades the card 1.
+- Changed your mind? A different rating tapback on the same feedback within 10 minutes replaces the first rating
+  (`✏️ Updated…`), as if the first one never happened.
 - A tapback counts when it targets the open card's question or feedback message (or carries no target). Tapbacks on
   older messages are ignored. Emoji and names (`love`, `like`, `dislike`, and `Loved "…"` relayed by non-Apple
   phones) are normalized.
 - Scheduling: due cards come first, ranked by how overdue they are and boosted when their tags are weak. New cards
   follow, up to `SYNAPSE_NEW_PER_DAY`, preferring weak tags. The agent keeps at most one open probe per user, texts
-  only during active hours, and stops at the daily push cap. Unanswered probes expire without a grade.
+  only during active hours, and stops at the daily push cap. An open card times out after a quarter SRS day (6 h, at
+  least 3 min), and only active hours count toward that, so an evening card can still be answered at breakfast.
+  An unanswered card expires without a grade; an answered but unrated card keeps Synapse's suggested grade.
 
 ## Environment variables
 
@@ -137,9 +159,10 @@ All variables live in `.env` at the repo root, which is gitignored. Both apps lo
 | `SYNAPSE_DISABLE_LLM` | `0` | `1` forces the heuristic evaluators |
 | `SYNAPSE_DB_PATH` | `data/synapse.db` | SQLite file shared by web and agent (relative to the repo root) |
 | `SYNAPSE_WEB_USER_ID` | `me` | The single web user |
-| `SYNAPSE_WEB_URL` | `http://localhost:3000` | Link used in texts |
-| `SYNAPSE_OWNER_HANDLE` | none | Phone or email the agent DMs and links at startup |
-| `SYNAPSE_AGENT_HANDLE` | none | The Synapse iMessage number, shown on the dashboard with an sms: button |
+| `SYNAPSE_WEB_URL` | `http://localhost:3000` | Link used in texts, and the one non-loopback host the web app answers ([LAN access](#lan-access)) |
+| `SYNAPSE_OWNER_HANDLE` | none | Phone or email the agent DMs and links at startup; the only handle that can link by texting `start` |
+| `SYNAPSE_AGENT_HANDLE` | none | The Synapse iMessage number: shown on the dashboard with an sms: button, and (as E.164) the line the agent opens the owner DM on |
+| `SYNAPSE_VERBOSE` | `0` | `1` also logs message text (answers). Off by default; phone numbers and emails are masked either way |
 | `SYNAPSE_AGENT_PROVIDER` | `imessage` | `terminal` behaves like `npm run agent:terminal` |
 | `SYNAPSE_DAY_MS` | `86400000` | Real ms per SRS day (`60000` = demo scale) |
 | `SYNAPSE_TIMEZONE` | `America/Chicago` | Active hours, mornings, streaks, daily caps |
@@ -165,6 +188,10 @@ All variables live in `.env` at the repo root, which is gitignored. Both apps lo
 - **Grading feels slow.** Muse is a reasoning model and takes 3–9 s per grade and 10–15 s for sparring feedback.
   Anything over the budget falls back to the heuristic grader automatically. Set `SYNAPSE_DISABLE_LLM=1` for instant
   offline grading.
+- **`That code didn't match`.** Codes expire after 10 minutes, so text the one the dashboard shows now. Five wrong
+  codes in an hour lock that chat out of linking for the rest of the hour (`🔒 Too many wrong codes`).
+- **The dashboard won't open from my phone.** The web app only listens on 127.0.0.1 unless you opt in; see
+  [LAN access](#lan-access).
 - **Start over.** Stop both processes and delete `data/synapse.db*`.
 - **Windows.** npm scripts run under cmd.exe, so put settings in `.env` rather than in inline `FOO=1 npm run …`.
 

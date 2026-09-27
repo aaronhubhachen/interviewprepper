@@ -32,9 +32,10 @@ Next.js needs `transpilePackages: ["@synapse/core"]` and `serverExternalPackages
 
 - `newReviewState(now)`, `gradeReview(state, grade 0-5, now, opts?) → ReviewState`.
   First pass: 1 d (grade 5: 4 d); second: 6 d (grade 5: 8 d); then `round(interval × EF)` (grade 5: ×1.3).
-  A pass before the interval has elapsed (a drill, a re-solve) earns the step in proportion to the time elapsed
-  (min 1 d), never more than an on-time review. Fail: `relearning` (or `learning` if never learned), due in
-  `relearnMs`, lapse counted for review cards.
+  A pass before the interval has elapsed (a drill, a re-solve, extra tag practice; measured from `lastReviewedAt`, since
+  drills pull `dueAt` forward) never shortens the interval: `max(interval, min(on-time step, round(elapsed × EF ×
+  (1.3 if grade 5))))`, restarted from now, with repetition, ease and lapses unchanged, so repeated early ❤️s can't
+  inflate the schedule. Fail: `relearning` (or `learning` if never learned), due in `relearnMs`, lapse counted for review cards.
 - `schedulerOptions(dayMs?)`, `relearnMs(dayMs)` (10 min real, ≥ 15 s, ≤ dayMs / 4), `isDemoScale(dayMs)`, `isDue`.
 - `previewIntervals(state, now, opts) → { love, like, dislike }` each `{ grade, next, delayMs, label }`.
 - `formatInterval(days)` → "10m" | "6h" | "4d" | "1.5mo" | "1.1y" (SRS units at any scale; rounds before picking
@@ -89,18 +90,24 @@ web server and agent share the file. Synchronous; every time-dependent method ta
 
 - Users: `ensureUser(id, now, defaults?)`, `getUser`, `findUserBySpace`, `findUserByHandle` (normalized),
   `listUsers`, `findUserForIdentity(identity)`, `ensureUserForSpace(identity, now) → { user, created }`,
-  `createOrGetLinkCode(userId)`, `linkByCode(code, identity, now)` (merges a placeholder texter's history),
-  `isLinkLocked(identity, now)`, `autoLinkSoleUser(identity, now)`, `unlinkUser(userId, now)` (clears the link,
-  drops the open probe, issues a fresh code), `setPaused(userId, paused, now)`. Helpers: `parseLinkCode("link 1234")`,
+  `createOrGetLinkCode(userId, now)` (6 digits, `LINK_CODE_LENGTH`; a new code once the current one is
+  `LINK_CODE_TTL_MS` = 10 min old, wall clock), `rotateLinkCode(userId, now)` (replace it now), `linkByCode(code,
+  identity, now)` (rejects expired codes; merges a placeholder texter's history), `isLinkLocked(identity, now)`,
+  `autoLinkSoleUser(identity, now)`, `unlinkUser(userId, now)` (clears the link, drops the open probe, issues a fresh
+  code; a no-op while unlinked), `setPaused(userId, paused, now)`. Helpers: `parseLinkCode("link 482193")`,
   `normalizeHandle` (a bare 10-digit number is US; a number written with "+" keeps its country code), `isGroupSpace`.
   Group chats (`spaceType: "group"`, or an iMessage ";+;" GUID) never become a home space, never link, and their
-  senders resolve by handle only. After `MAX_LINK_FAILURES_PER_SENDER` (5) wrong codes in `LINK_FAILURE_WINDOW_MS`
-  (1 h) a chat or handle is locked out of linking; past `LINK_CODE_ROTATE_AFTER_FAILURES` (20) misses across all
-  chats, every further miss rotates all outstanding codes. `autoLinkSoleUser` links only a DM whose handle is the
-  configured `ownerHandle` (or the handle already on the web user); anyone else needs the code.
+  senders resolve by handle only. After `MAX_LINK_FAILURES_PER_SENDER` (5) wrong or expired codes in
+  `LINK_FAILURE_WINDOW_MS` (1 h) a chat or handle is locked out of linking; past `LINK_CODE_ROTATE_AFTER_FAILURES` (20)
+  misses across all chats, every further miss rotates the outstanding codes older than `LINK_CODE_ROTATE_MIN_AGE_MS`
+  (2 min), so a guess spray can't keep invalidating the code the owner just loaded. `autoLinkSoleUser` links only a DM
+  whose handle is the configured `ownerHandle` (or the handle already on the web user); anyone else needs the code.
 - Progress: `getProgress`, `listProgress`, `cardState(userId, cardId, now)`, `previewCard(userId, cardId, now)`,
   `gradeCard({ userId, cardId, grade, source, now, answer?, verdict? }) → { card, before, after, wasNew, reviewId, nextLabel }`
-  (writes review_log + event, flags weak tags on fail, relieves on ❤️, clears pending for that card).
+  (writes review_log + event, flags weak tags on fail, relieves on ❤️, clears pending for that card, and keeps an
+  undo snapshot in `review_undo`). `regradeReview(reviewId, grade, now) → GradeOutcome | null` replaces a card's
+  latest review (a changed tapback): restores the pre-review progress and weak spots (leaving any re-flagged since),
+  deletes the review and its event, and grades again with the same source, answer and verdict.
 - Selection: `nextCard(userId, now, { excludeCardIds?, kinds?, includeNew? }) → { card, state, reason: "drill" | "due" | "new", weakTags } | null`,
   `newCardsIntroduced`, `dueCount`, `forecast(userId, now, days)`, `scheduleCardsAt(userId, cardIds, dueAt, now, reason?)`.
 - Pending probe (one per user): `getPending`, `setPending(userId, { cardId, phase, questionMessageId?, feedbackMessageId?, answer?, verdict? }, now)`,
@@ -134,7 +141,11 @@ web server and agent share the file. Synchronous; every time-dependent method ta
   `{ verdict, nailed, missed, feedback (≤ 2 plain sentences), suggestedGrade 1|3|5, source }`.
   Non-answers ("idk") skip the model and reveal the key. Browser-safe heuristic: `heuristicEvaluation`,
   `matchKeyPoints`, `isNonAnswer`, `VERDICT_EMOJI`, `VERDICT_GRADE` (`grading.ts`). Each mention in the answer credits
-  at most one key point, and a mention right after a negator ("not use a hash map", "never finalized") does not count.
+  at most one key point, and a mention right after a negator ("not use a hash map", "never finalized", "rather than",
+  "instead of") does not count. Operators are words: "+" is "plus", and "-" is "minus" when spaced, next to a digit or
+  bracket, or between single letters ("n + 1" ≠ "n - 1", "nums[i-1]" ≠ "nums[i+1]"); other hyphens still join words
+  ("in-degree"), and "row-col" still matches "row - col". A phrase whose parentheses wrap an operator ("(e + v) log v")
+  matches only with the same grouping.
 - `evaluateBehavioral({ question, transcript, durationMs }, { useLlm?, timeoutMs? = 25 s }) → BehavioralFeedback`
   `{ scores, overall, strengths, improvements, starBreakdown, rewrittenOpening, followUp, analysis, source }`.
   An axis the model leaves null or non-numeric keeps the heuristic score (`mergeSparScores`).
