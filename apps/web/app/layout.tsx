@@ -17,11 +17,11 @@ const jetbrainsMono = localFont({
 
 export const metadata: Metadata = {
   title: {
-    default: "Prepr · Spaced repetition for SWE interviews",
+    default: "Prepr",
     template: "%s · Prepr",
   },
   description:
-    "Anki for LeetCode: micro DSA flashcards over iMessage, a coding IDE, behavioral practice, system design, and mock onsites.",
+    "Prep for every part of the SWE interview, not just LeetCode: flashcards over iMessage, a coding IDE, behavioral practice, system design, and mock onsites.",
   applicationName: "Prepr",
 };
 
