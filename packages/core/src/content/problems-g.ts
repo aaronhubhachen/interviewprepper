@@ -2193,7 +2193,7 @@ Return \`true\` if there is a cycle in the linked list. Otherwise, return \`fals
       },
     },
     weakTags: ["linked_list", "two_pointers"],
-    relatedCardIds: ["mc-floyd-cycle-entry"],
+    relatedCardIds: ["mc-floyd-cycle-entry", "mc-fast-slow-middle"],
   },
   {
     id: "p-merge-two-sorted-lists",
@@ -2264,7 +2264,7 @@ ${LIST_NOTE("mergeTwoLists(list1, list2)")}`,
       },
     },
     weakTags: ["linked_list"],
-    relatedCardIds: ["mc-dummy-head-remove-nth"],
+    relatedCardIds: ["mc-dummy-head-remove-nth", "mc-heap-k-way-merge"],
   },
   {
     id: "p-merge-k-sorted-lists",
@@ -2336,7 +2336,7 @@ Merge all the linked lists into one sorted linked list and return it.
       },
     },
     weakTags: ["heap", "linked_list"],
-    relatedCardIds: ["mc-heap-k-way-merge"],
+    relatedCardIds: ["mc-heap-k-way-merge", "mc-dummy-head-remove-nth"],
   },
   {
     id: "p-reorder-list",
@@ -2405,7 +2405,7 @@ You may not modify the values in the list's nodes. Only nodes themselves may be 
       },
     },
     weakTags: ["linked_list", "two_pointers"],
-    relatedCardIds: ["mc-reverse-linked-list"],
+    relatedCardIds: ["mc-reorder-list-three-steps", "mc-reverse-linked-list", "mc-fast-slow-middle"],
   },
 
   // ---------------------------------------------------------------- graphs
@@ -2484,7 +2484,7 @@ Each node in the graph contains a value (\`int\`) and a list (\`List[Node]\`) of
       },
     },
     weakTags: ["dfs", "hashing"],
-    relatedCardIds: [],
+    relatedCardIds: ["mc-clone-graph-visited-map", "mc-bfs-unweighted-shortest-path"],
   },
   {
     id: "p-pacific-atlantic-water-flow",
@@ -2571,7 +2571,7 @@ function pacificAtlantic(heights) {
       },
     },
     weakTags: ["bfs", "matrix"],
-    relatedCardIds: ["mc-multi-source-bfs"],
+    relatedCardIds: ["mc-grid-flood-fill-from-border", "mc-multi-source-bfs"],
   },
   {
     id: "p-alien-dictionary",
@@ -2658,7 +2658,7 @@ function alienOrder(words) {
       },
     },
     weakTags: ["topological_sort"],
-    relatedCardIds: ["mc-kahn-cycle-detection", "mc-dfs-directed-cycle-colors"],
+    relatedCardIds: ["mc-alien-dictionary-edges", "mc-kahn-cycle-detection", "mc-dfs-directed-cycle-colors"],
   },
   {
     id: "p-graph-valid-tree",
@@ -2742,7 +2742,7 @@ function validTree(n, edges) {
       },
     },
     weakTags: ["union_find"],
-    relatedCardIds: ["mc-union-find-optimizations", "mc-union-find-rank-compression"],
+    relatedCardIds: ["mc-union-find-valid-tree", "mc-union-find-rank-compression"],
   },
   {
     id: "p-number-of-connected-components",
@@ -2948,7 +2948,7 @@ Implement the \`MedianFinder\` class:
       },
     },
     weakTags: ["heap"],
-    relatedCardIds: ["mc-two-heaps-median"],
+    relatedCardIds: ["mc-two-heaps-median", "mc-heap-top-k-min-heap"],
   },
 ];
 

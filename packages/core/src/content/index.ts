@@ -2,6 +2,7 @@ import { BEHAVIORAL } from "./behavioral";
 import { MICROCARDS_A } from "./microcards-a";
 import { MICROCARDS_B } from "./microcards-b";
 import { MICROCARDS_C } from "./microcards-c";
+import { MICROCARDS_D } from "./microcards-d";
 import { PROBLEMS as PROBLEMS_A } from "./problems";
 import { PROBLEMS_B } from "./problems-b";
 import { PROBLEMS_C } from "./problems-c";
@@ -24,7 +25,7 @@ import type {
 export * from "./types";
 export { nativeReference } from "./native-references";
 
-const MICROCARDS: readonly MicroCard[] = [...MICROCARDS_A, ...MICROCARDS_B, ...MICROCARDS_C];
+const MICROCARDS: readonly MicroCard[] = [...MICROCARDS_A, ...MICROCARDS_B, ...MICROCARDS_C, ...MICROCARDS_D];
 const PROBLEMS: readonly Problem[] = [...PROBLEMS_A, ...PROBLEMS_B, ...PROBLEMS_C, ...PROBLEMS_D, ...PROBLEMS_E, ...PROBLEMS_F, ...PROBLEMS_G, ...PROBLEMS_H];
 
 const PROBLEM_DIFFICULTY: Record<ProblemDifficulty, CardDifficulty> = { easy: 1, medium: 2, hard: 3 };

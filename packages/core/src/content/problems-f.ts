@@ -403,7 +403,7 @@ def groupAnagrams(strs: List[str]) -> List[List[str]]:
       },
     },
     weakTags: ["hashing", "string"],
-    relatedCardIds: ["mc-group-anagrams-key"],
+    relatedCardIds: ["mc-group-anagrams-key", "mc-two-sum-hash-map"],
   },
 
   // ---------------------------------------------------------------- valid palindrome
@@ -734,7 +734,7 @@ def roundTrip(strs: List[str]) -> List[str]:
       },
     },
     weakTags: ["string", "design"],
-    relatedCardIds: ["mc-string-concat-quadratic"],
+    relatedCardIds: ["mc-length-prefix-encoding", "mc-string-concat-quadratic"],
   },
 
   // ---------------------------------------------------------------- insert interval
@@ -1403,7 +1403,7 @@ def setZeroes(matrix: List[List[int]]) -> List[List[int]]:
       },
     },
     weakTags: ["matrix"],
-    relatedCardIds: ["mc-set-matrix-zeroes-constant-space"],
+    relatedCardIds: ["mc-set-matrix-zeroes-constant-space", "mc-rotate-image-in-place"],
   },
 
   // ---------------------------------------------------------------- spiral matrix
@@ -1552,7 +1552,7 @@ def spiralOrder(matrix: List[List[int]]) -> List[int]:
       },
     },
     weakTags: ["matrix"],
-    relatedCardIds: ["mc-spiral-matrix-bounds"],
+    relatedCardIds: ["mc-spiral-matrix-bounds", "mc-rotate-image-in-place"],
   },
 
   // ---------------------------------------------------------------- rotate image

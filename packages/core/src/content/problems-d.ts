@@ -113,7 +113,7 @@ def maxProfit(prices: List[int]) -> int:
       },
     },
     weakTags: ["arrays", "greedy"],
-    relatedCardIds: ["mc-best-time-buy-sell"],
+    relatedCardIds: ["mc-best-time-buy-sell", "mc-kadane-max-subarray"],
   },
 
   // ---------------------------------------------------------------- hashing
@@ -224,7 +224,7 @@ def containsDuplicate(nums: List[int]) -> bool:
       },
     },
     weakTags: ["hashing"],
-    relatedCardIds: ["mc-two-sum-hash-map"],
+    relatedCardIds: ["mc-two-sum-hash-map", "mc-longest-consecutive-sequence"],
   },
 
   // ---------------------------------------------------------------- 1D DP
@@ -335,7 +335,7 @@ def maxSubArray(nums: List[int]) -> int:
       },
     },
     weakTags: ["dp_1d"],
-    relatedCardIds: ["mc-kadane-max-subarray"],
+    relatedCardIds: ["mc-kadane-max-subarray", "mc-best-time-buy-sell"],
   },
   {
     id: "p-maximum-product-subarray",
@@ -565,7 +565,7 @@ function getSum(a, b) {
       },
     },
     weakTags: ["bit_manipulation"],
-    relatedCardIds: ["mc-single-number-xor"],
+    relatedCardIds: ["mc-add-without-plus", "mc-single-number-xor"],
   },
   {
     id: "p-number-of-1-bits",
@@ -674,7 +674,7 @@ function hammingWeight(n) {
       },
     },
     weakTags: ["bit_manipulation"],
-    relatedCardIds: ["mc-clear-lowest-set-bit"],
+    relatedCardIds: ["mc-clear-lowest-set-bit", "mc-reverse-bits-shift"],
   },
   {
     id: "p-counting-bits",
@@ -779,7 +779,7 @@ def countBits(n: int) -> List[int]:
       },
     },
     weakTags: ["bit_manipulation", "dp_1d"],
-    relatedCardIds: ["mc-clear-lowest-set-bit"],
+    relatedCardIds: ["mc-counting-bits-half", "mc-clear-lowest-set-bit"],
   },
   {
     id: "p-missing-number",
@@ -879,7 +879,7 @@ def missingNumber(nums: List[int]) -> int:
       },
     },
     weakTags: ["math", "bit_manipulation"],
-    relatedCardIds: ["mc-single-number-xor"],
+    relatedCardIds: ["mc-missing-number-sum-or-xor", "mc-single-number-xor"],
   },
   {
     id: "p-reverse-bits",
@@ -994,7 +994,7 @@ function reverseBits(n) {
       },
     },
     weakTags: ["bit_manipulation"],
-    relatedCardIds: [],
+    relatedCardIds: ["mc-reverse-bits-shift", "mc-counting-bits-half"],
   },
 
   // ---------------------------------------------------------------- hashing / greedy
@@ -1114,7 +1114,7 @@ def longestConsecutive(nums: List[int]) -> int:
       },
     },
     weakTags: ["hashing"],
-    relatedCardIds: ["mc-longest-consecutive-sequence"],
+    relatedCardIds: ["mc-longest-consecutive-sequence", "mc-two-sum-hash-map"],
   },
   {
     id: "p-jump-game",
@@ -1231,7 +1231,7 @@ def canJump(nums: List[int]) -> bool:
       },
     },
     weakTags: ["greedy"],
-    relatedCardIds: ["mc-greedy-exchange-argument"],
+    relatedCardIds: ["mc-jump-game-farthest-reach", "mc-greedy-exchange-argument"],
   },
 ];
 
